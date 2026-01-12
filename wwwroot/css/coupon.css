@@ -58,7 +58,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: #f0f0f0;
+  /* background-color: #f0f0f0; */
   align-self: center;
 }
 
@@ -145,6 +145,18 @@
   color: var(--primary-color);
 }
 
+/* 優惠內容樣式 */
+.coupon-offer {
+  font-size: 14px;
+  color: #d97706;
+  font-weight: 500;
+  margin-top: var(--spacing-xs);
+  padding-top: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+  border-top: 1px solid #fef3c7;
+  line-height: 1.4;
+}
+
 /* 按鈕容器（右下角） */
 .coupon-button-container {
   display: flex;
@@ -216,6 +228,10 @@
   }
 
   .coupon-description {
+    font-size: 11px;
+  }
+
+  .coupon-offer {
     font-size: 11px;
   }
 
