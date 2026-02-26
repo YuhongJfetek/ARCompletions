@@ -9,7 +9,7 @@ using ARCompletions.Dto;
 namespace ARCompletions.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("api/venues")]
     public class VenuesController : ControllerBase
     {
         private readonly Data.ARCompletionsContext _context;

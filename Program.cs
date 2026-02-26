@@ -8,6 +8,7 @@ using System.Net;
 using ARCompletions.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
+using ARCompletions.Config;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -76,9 +77,29 @@ else
 }
 
 // 其他服務
-builder.Services.AddControllers();
+builder.Services.AddControllersWithViews();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+// bind embedding config (can be set via appsettings or secrets / env vars)
+builder.Services.Configure<EmbeddingOptions>(builder.Configuration.GetSection("Embedding"));
+// typed HttpClient for OpenAI requests (used by AnalysisWorker)
+builder.Services.AddHttpClient("OpenAI", c =>
+{
+    c.BaseAddress = new Uri("https://api.openai.com/");
+    c.Timeout = TimeSpan.FromSeconds(30);
+});
+// embedding service
+builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingService, ARCompletions.Services.EmbeddingService>();
+// Authentication for admin area (cookie-based, simple dev helper)
+builder.Services.AddAuthentication("Cookies")
+    .AddCookie("Cookies", options =>
+    {
+        options.LoginPath = "/Admin/Home/Login";
+        options.Cookie.HttpOnly = true;
+    });
+builder.Services.AddAuthorization();
+
+builder.Services.AddHostedService<ARCompletions.Services.AnalysisWorker>();
 
 var app = builder.Build();
 
@@ -130,6 +151,9 @@ app.UseSwaggerUI(c =>
 
 app.UseCors("AllowAll");
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 // wwwroot
 app.UseStaticFiles();
 
@@ -149,7 +173,12 @@ else
 }
 
 app.UseHttpsRedirection();
-app.UseAuthorization();
+
+// Area route for admin MVC
+app.MapAreaControllerRoute(
+    name: "admin",
+    areaName: "Admin",
+    pattern: "Admin/{controller=Home}/{action=Index}/{id?}");
 
 app.MapControllers();
 
