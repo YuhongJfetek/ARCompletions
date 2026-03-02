@@ -61,7 +61,6 @@ namespace ARCompletions.Controllers
         /// - 500 Internal Server Error：處理發生例外。
         /// </returns>
         [HttpPost("webhook")]
-        [HttpPost("/api/webhook/line")]
         public async Task<IActionResult> Webhook()
         {
             var secret = _config["LINE_CHANNEL_SECRET"];
