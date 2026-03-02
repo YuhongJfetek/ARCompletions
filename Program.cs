@@ -88,6 +88,10 @@ builder.Services.AddHttpClient("OpenAI", c =>
     c.BaseAddress = new Uri("https://api.openai.com/");
     c.Timeout = TimeSpan.FromSeconds(30);
 });
+// HttpClient for external services (LINE)
+builder.Services.AddHttpClient();
+// Line bot service
+builder.Services.AddScoped<ARCompletions.Services.LineBotService>();
 // embedding service
 builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingService, ARCompletions.Services.EmbeddingService>();
 // Authentication for admin area (cookie-based, simple dev helper)
