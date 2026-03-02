@@ -118,25 +118,18 @@ var runMigrations = (Environment.GetEnvironmentVariable("RUN_MIGRATIONS") ?? "fa
 app.Logger.LogInformation("DB Provider: {Provider}", isPostgres ? "PostgreSQL" : "SQLite");
 app.Logger.LogInformation("Auto-migrate on startup (RUN_MIGRATIONS): {Run}", runMigrations);
 
+using var scope = app.Services.CreateScope();
+var db = scope.ServiceProvider.GetRequiredService<ARCompletionsContext>();
+
 if (runMigrations)
 {
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<ARCompletionsContext>();
-    try
-    {
-        app.Logger.LogInformation("Applying EF Core migrations...");
-        db.Database.Migrate(); // 只套用遷移（結構變更）；不動既有資料
-        app.Logger.LogInformation("Migrations applied successfully.");
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "Database.Migrate() failed. Not falling back to EnsureCreated().");
-        throw;
-    }
+    app.Logger.LogInformation("Applying EF Core migrations...");
+    db.Database.Migrate();
 }
 else
 {
-    app.Logger.LogInformation("Skipping EF migrations on startup (RUN_MIGRATIONS=false)");
+    app.Logger.LogInformation("Ensuring database is created...");
+    db.Database.EnsureCreated();
 }
 
 // ------------------------
