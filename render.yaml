@@ -7,6 +7,11 @@ services:
     envVars:
       - key: DB_PATH
         value: /var/data/app.db
+      - key: RUN_MIGRATIONS
+        value: "true"
+      # If you use Postgres on Render, set DATABASE_URL here or in the dashboard
+      # - key: DATABASE_URL
+      #   value: 'postgres://user:pass@host:5432/dbname'
     disk:
       name: data-disk
       mountPath: /var/data
