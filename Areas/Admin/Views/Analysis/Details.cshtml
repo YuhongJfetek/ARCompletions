@@ -1,0 +1,50 @@
+
+@model ARCompletions.Data.AnalysisJob
+
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>工作詳細</h2>
+
+<dl class="row">
+    <dt class="col-sm-2">Id</dt>
+    <dd class="col-sm-10">@Model.Id</dd>
+
+    <dt class="col-sm-2">類型</dt>
+    <dd class="col-sm-10">@Model.Type</dd>
+
+    <dt class="col-sm-2">狀態</dt>
+    <dd class="col-sm-10">@Model.Status</dd>
+
+    <dt class="col-sm-2">進度</dt>
+    <dd class="col-sm-10">@Model.Progress %</dd>
+
+    <dt class="col-sm-2">建立時間</dt>
+    <dd class="col-sm-10">@DateTimeOffset.FromUnixTimeSeconds(Model.CreatedAt).ToLocalTime().ToString("g")</dd>
+
+    <dt class="col-sm-2">開始時間</dt>
+    <dd class="col-sm-10">@(Model.StartedAt.HasValue ? DateTimeOffset.FromUnixTimeSeconds(Model.StartedAt.Value).ToLocalTime().ToString("g") : "-")</dd>
+
+    <dt class="col-sm-2">完成時間</dt>
+    <dd class="col-sm-10">@(Model.FinishedAt.HasValue ? DateTimeOffset.FromUnixTimeSeconds(Model.FinishedAt.Value).ToLocalTime().ToString("g") : "-")</dd>
+
+    <dt class="col-sm-2">結果</dt>
+    <dd class="col-sm-10">@Model.ResultSummary</dd>
+
+    <dt class="col-sm-2">錯誤</dt>
+    <dd class="col-sm-10">@Model.Error</dd>
+
+    <dt class="col-sm-2">參數 (JSON)</dt>
+    <dd class="col-sm-10"><pre>@Model.Params</pre></dd>
+</dl>
+
+<div class="mt-3">
+    <form asp-area="Admin" asp-controller="Analysis" asp-action="Reanalyze" method="post" style="display:inline">
+        <input type="hidden" name="id" value="@Model.Id" />
+        @Html.AntiForgeryToken()
+        <button class="btn btn-secondary">重新分析</button>
+    </form>
+
+    <a asp-area="Admin" asp-controller="Analysis" asp-action="Index" class="btn btn-link">回到列表</a>
+</div>

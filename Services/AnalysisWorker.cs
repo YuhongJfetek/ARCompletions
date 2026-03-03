@@ -196,6 +196,16 @@ namespace ARCompletions.Services
                                 job.FinishedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                                 job.ResultSummary = $"successRate={successRate:0.000};high={highRisk};med={mediumRisk};low={lowRisk};docs={n}";
                                 db.SaveChanges();
+
+                                // notify user(s) that analysis finished
+                                try
+                                {
+                                    await NotifyUserAsync(scope.ServiceProvider, db, job);
+                                }
+                                catch
+                                {
+                                    // swallow notification errors; job already marked completed
+                                }
                             }
                             catch (Exception ex)
                             {
@@ -310,6 +320,74 @@ namespace ARCompletions.Services
             {
                 if (string.IsNullOrWhiteSpace(tk)) continue;
                 yield return tk;
+            }
+        }
+
+        private async Task NotifyUserAsync(IServiceProvider provider, Data.ARCompletionsContext db, Data.AnalysisJob job)
+        {
+            if (job == null) return;
+
+            string? targetUserId = null;
+
+            try
+            {
+                if (!string.IsNullOrEmpty(job.Params))
+                {
+                    using var doc = JsonDocument.Parse(job.Params);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("lineUserId", out var lu) && lu.ValueKind == JsonValueKind.String)
+                        targetUserId = lu.GetString();
+                    else if (root.TryGetProperty("userId", out var u) && u.ValueKind == JsonValueKind.String)
+                        targetUserId = u.GetString();
+                    else if (root.TryGetProperty("targetUserId", out var tu) && tu.ValueKind == JsonValueKind.String)
+                        targetUserId = tu.GetString();
+                }
+            }
+            catch { /* ignore parse errors */ }
+
+            // if not found in params, try to locate a recent LineEventLog within job time window
+            if (string.IsNullOrEmpty(targetUserId))
+            {
+                // attempt to extract from Params 'from'/'to'
+                long from = 0; long to = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                try
+                {
+                    if (!string.IsNullOrEmpty(job.Params))
+                    {
+                        using var doc2 = JsonDocument.Parse(job.Params);
+                        var root2 = doc2.RootElement;
+                        if (root2.TryGetProperty("from", out var f) && f.ValueKind == JsonValueKind.Number) from = f.GetInt64();
+                        if (root2.TryGetProperty("to", out var t) && t.ValueKind == JsonValueKind.Number) to = t.GetInt64();
+                    }
+                }
+                catch { }
+
+                if (from == 0) from = to - 7 * 24 * 3600;
+
+                var fromDt = DateTimeOffset.FromUnixTimeSeconds(from).UtcDateTime;
+                var toDt = DateTimeOffset.FromUnixTimeSeconds(to).UtcDateTime;
+
+                var ev = db.LineEventLogs.Where(l => l.CreatedAt >= fromDt && l.CreatedAt <= toDt).OrderByDescending(l => l.CreatedAt).FirstOrDefault();
+                if (ev != null) targetUserId = ev.LineUserId;
+            }
+
+            if (string.IsNullOrEmpty(targetUserId)) return;
+
+            // resolve LineBotService
+            var line = provider.GetService<LineBotService>();
+            if (line == null) return;
+
+            var text = $"分析已完成：{job.ResultSummary}";
+            try
+            {
+                await line.PushText(targetUserId, text);
+                job.ResultSummary = (job.ResultSummary ?? "") + ";notified=true";
+                db.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                job.ResultSummary = (job.ResultSummary ?? "") + $";notify_error={ex.Message}";
+                db.SaveChanges();
             }
         }
     }

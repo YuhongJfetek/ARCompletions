@@ -25,14 +25,12 @@ namespace ARCompletions.Controllers
     public class LineController : ControllerBase
     {
         private readonly IConfiguration _config;
-        private readonly LineBotService _line;
-        private readonly ARCompletionsContext _db;
+        private readonly ILineService _lineSvc;
 
-        public LineController(IConfiguration config, LineBotService line, ARCompletionsContext db)
+        public LineController(IConfiguration config, ILineService lineSvc)
         {
             _config = config;
-            _line = line;
-            _db = db;
+            _lineSvc = lineSvc;
         }
 
         /// <summary>
@@ -93,58 +91,8 @@ namespace ARCompletions.Controllers
                     string text = msg.ValueKind == System.Text.Json.JsonValueKind.Object && msg.TryGetProperty("text", out var txt) ? txt.GetString() ?? string.Empty : string.Empty;
                     string postbackData = ev.TryGetProperty("postback", out var pb) && pb.ValueKind == System.Text.Json.JsonValueKind.Object && pb.TryGetProperty("data", out var pd) ? pd.GetString() ?? string.Empty : string.Empty;
 
-                    // write event log
-                    var log = new LineEventLog
-                    {
-                        LineUserId = userId,
-                        EventType = evType,
-                        MessageType = string.IsNullOrEmpty(messageType) ? null : messageType,
-                        Text = string.IsNullOrEmpty(text) ? (string.IsNullOrEmpty(postbackData) ? null : postbackData) : text,
-                        RawJson = ev.GetRawText(),
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await _db.LineEventLogs.AddAsync(log);
-
-                    // upsert user
-                    var u = await _db.LineUsers.FirstOrDefaultAsync(x => x.LineUserId == userId);
-                    if (u == null)
-                    {
-                        u = new LineUser { LineUserId = userId, IsFollowed = evType == "follow" };
-                        await _db.LineUsers.AddAsync(u);
-                    }
-                    u.LastSeenAt = DateTime.UtcNow;
-
-                    await _db.SaveChangesAsync();
-
-                    // handle simple replies inline (quick cases)
-                    if (evType == "follow" && !string.IsNullOrWhiteSpace(replyToken))
-                    {
-                        await _line.ReplyText(replyToken, "嗨～歡迎加入！輸入「menu」看功能。");
-                        continue;
-                    }
-
-                    if (evType == "message" && messageType == "text" && !string.IsNullOrWhiteSpace(replyToken))
-                    {
-                        var t = (text ?? "").Trim();
-                        if (t.Equals("menu", StringComparison.OrdinalIgnoreCase) || t == "選單")
-                        {
-                            await _line.ReplyFlex(replyToken, LineFlexTemplates.MainMenu());
-                        }
-                        else
-                        {
-                            await _line.ReplyText(replyToken, $"你說：{t}\n輸入 menu 看選單");
-                        }
-                        continue;
-                    }
-
-                    if (evType == "postback" && !string.IsNullOrWhiteSpace(replyToken))
-                    {
-                        var action = ParseQuery(postbackData).GetValueOrDefault("action");
-                        if (action == "help")
-                            await _line.ReplyText(replyToken, "請描述你的問題，我會幫你轉交。");
-                        else
-                            await _line.ReplyText(replyToken, $"收到 postback：{postbackData}");
-                    }
+                    // delegate persistence, enqueue and reply decision to LineService
+                    await _lineSvc.HandleEventAsync(evType, replyToken, userId, messageType, text, postbackData, ev.GetRawText());
                 }
 
                 return Ok();

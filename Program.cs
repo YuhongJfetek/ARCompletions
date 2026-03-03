@@ -92,6 +92,8 @@ builder.Services.AddHttpClient("OpenAI", c =>
 builder.Services.AddHttpClient();
 // Line bot service
 builder.Services.AddScoped<ARCompletions.Services.LineBotService>();
+// Line business service (persistence + enqueue)
+builder.Services.AddScoped<ARCompletions.Services.ILineService, ARCompletions.Services.LineService>();
 // embedding service
 builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingService, ARCompletions.Services.EmbeddingService>();
 // Authentication for admin area (cookie-based, simple dev helper)
