@@ -96,13 +96,7 @@ builder.Services.AddScoped<ARCompletions.Services.LineBotService>();
 builder.Services.AddScoped<ARCompletions.Services.ILineService, ARCompletions.Services.LineService>();
 // embedding service
 builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingService, ARCompletions.Services.EmbeddingService>();
-// Authentication for admin area (cookie-based, simple dev helper)
-builder.Services.AddAuthentication("Cookies")
-    .AddCookie("Cookies", options =>
-    {
-        options.Cookie.HttpOnly = true;
-    });
-builder.Services.AddAuthorization();
+// Authentication removed: admin login/logout UI removed; handle auth externally if needed
 
 builder.Services.AddHostedService<ARCompletions.Services.AnalysisWorker>();
 
@@ -149,8 +143,7 @@ app.UseSwaggerUI(c =>
 
 app.UseCors("AllowAll");
 
-app.UseAuthentication();
-app.UseAuthorization();
+// Authentication middleware removed because login/logout endpoints were removed
 
 // wwwroot
 app.UseStaticFiles();

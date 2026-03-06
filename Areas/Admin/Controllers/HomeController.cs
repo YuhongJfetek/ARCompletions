@@ -1,8 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace ARCompletions.Areas.Admin.Controllers
 {
@@ -22,10 +18,6 @@ namespace ARCompletions.Areas.Admin.Controllers
         }
 
 
-        public async Task<IActionResult> Logout()
-        {
-            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return RedirectToAction("Index");
-        }
+        // Logout removed — authentication handled externally (no login/logout UI)
     }
 }

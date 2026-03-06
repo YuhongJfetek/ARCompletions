@@ -30,13 +30,7 @@
                         <a class="nav-link" asp-controller="Venues" asp-action="Index">場地 (Venues)</a>
                     </li>
                 </ul>
-                <ul class="navbar-nav">
-                    @if (User?.Identity?.IsAuthenticated ?? false)
-                    {
-                        <li class="nav-item"><span class="nav-link">@User.Identity.Name</span></li>
-                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Logout">登出</a></li>
-                    }
-                </ul>
+                <ul class="navbar-nav"></ul>
             </div>
         </div>
     </nav>
