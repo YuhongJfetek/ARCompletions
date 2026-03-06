@@ -228,5 +228,154 @@ namespace ARCompletions.Areas.Admin.Controllers
                 return RedirectToAction("Index");
             }
         }
+
+        // POST /Admin/Analysis/Unmatched
+        [HttpPost]
+        public IActionResult Unmatched([FromForm] string query, [FromForm] string? source)
+        {
+            if (string.IsNullOrEmpty(query)) return BadRequest();
+            try
+            {
+                var u = new Data.UnmatchedQuery
+                {
+                    Query = query,
+                    Source = string.IsNullOrEmpty(source) ? "unknown" : source
+                };
+                _context.UnmatchedQueries.Add(u);
+                _context.SaveChanges();
+                return Ok(new { id = u.Id });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "db_error", detail = ex.Message });
+            }
+        }
+
+        // POST /Admin/Analysis/Feedback
+        [HttpPost]
+        public IActionResult Feedback([FromForm] string? userId, [FromForm] int rating = 0, [FromForm] string? comment = null)
+        {
+            if (rating < 0) return BadRequest();
+            try
+            {
+                var f = new Data.Feedback
+                {
+                    UserId = userId,
+                    Rating = rating,
+                    Comment = comment
+                };
+                _context.Feedbacks.Add(f);
+                _context.SaveChanges();
+                return Ok(new { id = f.Id });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "db_error", detail = ex.Message });
+            }
+        }
+
+        // GET /Admin/Analysis/Stats?days=7
+        [HttpGet]
+        public IActionResult Stats(int days = 7)
+        {
+            if (days < 1) days = 7;
+            var labels = new System.Collections.Generic.List<string>();
+            var messages = new System.Collections.Generic.List<int>();
+            var unmatched = new System.Collections.Generic.List<int>();
+            var feedbackCount = new System.Collections.Generic.List<int>();
+            var satisfaction = new System.Collections.Generic.List<double>();
+
+            var today = DateTime.UtcNow.Date;
+            for (int i = days - 1; i >= 0; i--)
+            {
+                var d = today.AddDays(-i);
+                var startSec = ((DateTimeOffset)d).ToUnixTimeSeconds();
+                var endSec = ((DateTimeOffset)d.AddDays(1)).ToUnixTimeSeconds() - 1;
+                labels.Add(d.ToString("yyyy-MM-dd"));
+
+                var m = _context.ChatMessages.Count(c => c.CreatedAt >= startSec && c.CreatedAt <= endSec);
+                var u = _context.UnmatchedQueries.Count(c => c.CreatedAt >= startSec && c.CreatedAt <= endSec);
+                var fList = _context.Feedbacks.Where(f => f.CreatedAt >= startSec && f.CreatedAt <= endSec).ToList();
+                var fc = fList.Count;
+                double avg = fc > 0 ? fList.Average(f => f.Rating) : 0.0;
+
+                messages.Add(m);
+                unmatched.Add(u);
+                feedbackCount.Add(fc);
+                satisfaction.Add(Math.Round(avg, 2));
+            }
+
+            var totalMessages = messages.Sum();
+            var totalUnmatched = unmatched.Sum();
+            double unmatchedRatio = totalMessages > 0 ? (double)totalUnmatched / totalMessages : 0.0;
+
+            return Ok(new
+            {
+                labels,
+                messages,
+                unmatched,
+                feedbackCount,
+                satisfaction,
+                totalMessages,
+                totalUnmatched,
+                unmatchedRatio
+            });
+        }
+
+        // GET /Admin/Analysis/Unmatched
+        [HttpGet]
+        public IActionResult Unmatched(int page = 1, int pageSize = 50, string? q = null)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 50;
+
+            var qset = _context.UnmatchedQueries.AsQueryable();
+            if (!string.IsNullOrEmpty(q))
+            {
+                var tq = q.Trim();
+                qset = qset.Where(u => u.Query != null && u.Query.Contains(tq));
+            }
+
+            var total = qset.Count();
+            var items = qset.OrderByDescending(u => u.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+            var vm = new ARCompletions.Areas.Admin.Models.UnmatchedIndexViewModel
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = total,
+                Query = q
+            };
+            return View(vm);
+        }
+
+        // GET /Admin/Analysis/UnmatchedExport?q=...  => CSV
+        [HttpGet]
+        public IActionResult UnmatchedExport(string? q = null)
+        {
+            var qset = _context.UnmatchedQueries.AsQueryable();
+            if (!string.IsNullOrEmpty(q))
+            {
+                var tq = q.Trim();
+                qset = qset.Where(u => u.Query != null && u.Query.Contains(tq));
+            }
+            var items = qset.OrderByDescending(u => u.CreatedAt).ToList();
+
+            var csv = new System.Text.StringBuilder();
+            csv.AppendLine("Id,Query,Source,CreatedAt");
+            foreach (var it in items)
+            {
+                var created = System.DateTimeOffset.FromUnixTimeSeconds(it.CreatedAt).ToString("o");
+                // escape quotes by doubling
+                var qesc = (it.Query ?? string.Empty).Replace("\"", "\"\"");
+                var sourceEsc = (it.Source ?? string.Empty).Replace("\"", "\"\"");
+                csv.AppendLine($"\"{it.Id}\",\"{qesc}\",\"{sourceEsc}\",\"{created}\"");
+            }
+
+            var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
+            var filename = $"unmatched_{System.DateTime.UtcNow:yyyyMMdd}.csv";
+            return File(bytes, "text/csv", filename);
+        }
     }
 }
