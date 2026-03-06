@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Authorization;
 namespace ARCompletions.Areas.Admin.Controllers
 {
     [Area("Admin")]
-    [Authorize(Roles = "Admin")]
     public class AnalysisController : Controller
     {
         private readonly Data.ARCompletionsContext _context;

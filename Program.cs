@@ -100,7 +100,6 @@ builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingService, ARComple
 builder.Services.AddAuthentication("Cookies")
     .AddCookie("Cookies", options =>
     {
-        options.LoginPath = "/Admin/Home/Login";
         options.Cookie.HttpOnly = true;
     });
 builder.Services.AddAuthorization();

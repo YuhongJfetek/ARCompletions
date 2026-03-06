@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Authorization;
 namespace ARCompletions.Areas.Admin.Controllers
 {
     [Area("Admin")]
-    [Authorize]
     public class ChatController : Controller
     {
         private readonly Data.ARCompletionsContext _context;
