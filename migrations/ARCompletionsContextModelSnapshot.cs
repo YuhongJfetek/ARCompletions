@@ -42,7 +42,7 @@ namespace ARCompletions.migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AnalysisDetails");
+                    b.ToTable("AnalysisDetails", (string)null);
                 });
 
             modelBuilder.Entity("ARCompletions.Data.AnalysisJob", b =>
@@ -86,7 +86,7 @@ namespace ARCompletions.migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("AnalysisJobs");
+                    b.ToTable("AnalysisJobs", (string)null);
                 });
 
             modelBuilder.Entity("ARCompletions.Data.AuditLog", b =>
@@ -115,7 +115,7 @@ namespace ARCompletions.migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AuditLogs");
+                    b.ToTable("AuditLogs", (string)null);
                 });
 
             modelBuilder.Entity("ARCompletions.Data.ChatEmbedding", b =>
@@ -136,7 +136,7 @@ namespace ARCompletions.migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ChatEmbeddings");
+                    b.ToTable("ChatEmbeddings", (string)null);
                 });
 
             modelBuilder.Entity("ARCompletions.Data.ChatMessage", b =>
@@ -167,7 +167,7 @@ namespace ARCompletions.migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("ChatMessages");
+                    b.ToTable("ChatMessages", (string)null);
                 });
 
             modelBuilder.Entity("ARCompletions.Data.Completion", b =>
@@ -191,7 +191,7 @@ namespace ARCompletions.migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Completions");
+                    b.ToTable("Completions", (string)null);
                 });
 
             modelBuilder.Entity("ARCompletions.Data.Feedback", b =>
@@ -215,7 +215,7 @@ namespace ARCompletions.migrations
 
                     b.HasIndex("CreatedAt");
 
-                    b.ToTable("Feedbacks");
+                    b.ToTable("Feedbacks", (string)null);
                 });
 
             modelBuilder.Entity("ARCompletions.Data.LineEvent", b =>
@@ -249,7 +249,7 @@ namespace ARCompletions.migrations
 
                     b.HasIndex("EventId");
 
-                    b.ToTable("LineEvents");
+                    b.ToTable("LineEvents", (string)null);
                 });
 
             modelBuilder.Entity("ARCompletions.Data.LineEventLog", b =>
@@ -283,7 +283,7 @@ namespace ARCompletions.migrations
 
                     b.HasIndex("LineUserId");
 
-                    b.ToTable("LineEventLogs");
+                    b.ToTable("LineEventLogs", (string)null);
                 });
 
             modelBuilder.Entity("ARCompletions.Data.LineUser", b =>
@@ -316,7 +316,7 @@ namespace ARCompletions.migrations
                     b.HasIndex("LineUserId")
                         .IsUnique();
 
-                    b.ToTable("LineUsers");
+                    b.ToTable("LineUsers", (string)null);
                 });
 
             modelBuilder.Entity("ARCompletions.Data.UnmatchedQuery", b =>
@@ -339,7 +339,7 @@ namespace ARCompletions.migrations
 
                     b.HasIndex("CreatedAt");
 
-                    b.ToTable("UnmatchedQueries");
+                    b.ToTable("UnmatchedQueries", (string)null);
                 });
 #pragma warning restore 612, 618
         }
