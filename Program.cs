@@ -102,6 +102,9 @@ builder.Services.AddHostedService<ARCompletions.Services.AnalysisWorker>();
 
 var app = builder.Build();
 
+// Log EF Core assembly version for debugging migration/runtime differences
+Console.WriteLine("EF VERSION: " + typeof(Microsoft.EntityFrameworkCore.DbContext).Assembly.GetName().Version);
+
 // ------------------------
 // 健康檢查端點（Render 可用來探活）
 // ------------------------
