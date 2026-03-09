@@ -126,12 +126,27 @@ var db = scope.ServiceProvider.GetRequiredService<ARCompletionsContext>();
 if (runMigrations)
 {
     app.Logger.LogInformation("Applying EF Core migrations...");
-    db.Database.Migrate();
+    try
+    {
+        db.Database.Migrate();
+        app.Logger.LogInformation("Migrations applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Failed to apply migrations on startup. Application will continue without applying migrations.");
+    }
 }
 else
 {
     app.Logger.LogInformation("Ensuring database is created...");
-    db.Database.EnsureCreated();
+    try
+    {
+        db.Database.EnsureCreated();
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Failed to ensure database creation on startup.");
+    }
 }
 
 // ------------------------
