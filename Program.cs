@@ -119,6 +119,8 @@ var runMigrations = (Environment.GetEnvironmentVariable("RUN_MIGRATIONS") ?? "fa
 
 app.Logger.LogInformation("DB Provider: {Provider}", isPostgres ? "PostgreSQL" : "SQLite");
 app.Logger.LogInformation("Auto-migrate on startup (RUN_MIGRATIONS): {Run}", runMigrations);
+Console.WriteLine($"DB Provider: {(isPostgres ? "PostgreSQL" : "SQLite")}");
+Console.WriteLine($"Auto-migrate on startup (RUN_MIGRATIONS): {runMigrations}");
 
 using var scope = app.Services.CreateScope();
 var db = scope.ServiceProvider.GetRequiredService<ARCompletionsContext>();
@@ -130,10 +132,13 @@ if (runMigrations)
     {
         db.Database.Migrate();
         app.Logger.LogInformation("Migrations applied successfully.");
+        Console.WriteLine("Migrations applied successfully.");
     }
     catch (Exception ex)
     {
         app.Logger.LogError(ex, "Failed to apply migrations on startup. Application will continue without applying migrations.");
+        Console.WriteLine($"Failed to apply migrations on startup: {ex.Message}");
+        Console.WriteLine(ex.ToString());
     }
 }
 else
@@ -142,10 +147,13 @@ else
     try
     {
         db.Database.EnsureCreated();
+        Console.WriteLine("EnsureCreated executed (database exists or was created).");
     }
     catch (Exception ex)
     {
         app.Logger.LogError(ex, "Failed to ensure database creation on startup.");
+        Console.WriteLine($"Failed to ensure database creation on startup: {ex.Message}");
+        Console.WriteLine(ex.ToString());
     }
 }
 
@@ -179,6 +187,7 @@ if (Directory.Exists(imagePath))
 else
 {
     app.Logger.LogWarning("Static image path not found: {Path}", imagePath);
+    Console.WriteLine($"Static image path not found: {imagePath}");
 }
 
 app.UseHttpsRedirection();
