@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ARCompletions.migrations
 {
     [DbContext(typeof(ARCompletionsContext))]
-    [Migration("20260302053524_AddLineEntities")]
-    partial class AddLineEntities
+    [Migration("20260309031037_AddLineEventLogs")]
+    partial class AddLineEventLogs
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -197,6 +197,30 @@ namespace ARCompletions.migrations
                     b.ToTable("Completions");
                 });
 
+            modelBuilder.Entity("ARCompletions.Data.Feedback", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Comment")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("Feedbacks");
+                });
+
             modelBuilder.Entity("ARCompletions.Data.LineEvent", b =>
                 {
                     b.Property<string>("Id")
@@ -296,6 +320,29 @@ namespace ARCompletions.migrations
                         .IsUnique();
 
                     b.ToTable("LineUsers");
+                });
+
+            modelBuilder.Entity("ARCompletions.Data.UnmatchedQuery", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Query")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("UnmatchedQueries");
                 });
 #pragma warning restore 612, 618
         }

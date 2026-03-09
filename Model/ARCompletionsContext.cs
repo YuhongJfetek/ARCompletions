@@ -45,7 +45,13 @@ namespace ARCompletions.Data
                 var envDbPath = Environment.GetEnvironmentVariable("DB_PATH");
                 if (!string.IsNullOrWhiteSpace(envDbPath))
                 {
-                    Directory.CreateDirectory(Path.GetDirectoryName(envDbPath)!);
+                    // If envDbPath has no directory part, Path.GetDirectoryName may return null or empty.
+                    var dirName = Path.GetDirectoryName(envDbPath);
+                    if (string.IsNullOrWhiteSpace(dirName))
+                    {
+                        dirName = Path.Combine(Directory.GetCurrentDirectory(), "Data");
+                    }
+                    Directory.CreateDirectory(dirName);
                     dbPath = envDbPath!;
                 }
                 else

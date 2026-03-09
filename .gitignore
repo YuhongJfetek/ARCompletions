@@ -4,3 +4,7 @@ obj/
 *.user
 Data/*.db
 Data/*.db-*
+appsettings.Development.json
+.env
+ARCompletions.csproj.user
+*.log
