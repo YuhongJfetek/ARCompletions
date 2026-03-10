@@ -138,28 +138,6 @@ namespace ARCompletions.Controllers
             return dict;
         }
 
-        /// <summary>
-        /// 查詢已儲存的 LINE Webhook 日誌（`LineEventLog`）。
-        /// 支援查詢參數：`userId`、`eventType`、`skip`、`take`。
-        /// 範例：GET /api/line/webhook/logs?userId=U123&eventType=message&skip=0&take=50
-        /// </summary>
-        [HttpGet("webhook/logs")]
-        public async Task<IActionResult> GetWebhookLogs([FromQuery] string? userId, [FromQuery] string? eventType, [FromQuery] int skip = 0, [FromQuery] int take = 50)
-        {
-            try
-            {
-                take = Math.Clamp(take, 1, 500);
-                var q = _db.LineEventLogs.AsQueryable();
-                if (!string.IsNullOrWhiteSpace(userId)) q = q.Where(l => l.LineUserId == userId);
-                if (!string.IsNullOrWhiteSpace(eventType)) q = q.Where(l => l.EventType == eventType);
-
-                var items = await q.OrderByDescending(l => l.CreatedAt).Skip(skip).Take(take).ToListAsync();
-                return Ok(items);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = "failed to query webhook logs", detail = ex.Message });
-            }
-        }
+        
     }
 }

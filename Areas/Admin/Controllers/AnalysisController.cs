@@ -177,6 +177,30 @@ namespace ARCompletions.Areas.Admin.Controllers
             return View(job);
         }
 
+        // GET /Admin/Analysis/WebhookLogs
+        [HttpGet]
+        public IActionResult WebhookLogs(string? userId, string? eventType, int skip = 0, int take = 50)
+        {
+            try
+            {
+                take = Math.Clamp(take, 1, 500);
+                var q = _context.LineEventLogs.AsQueryable();
+                if (!string.IsNullOrWhiteSpace(userId)) q = q.Where(l => l.LineUserId == userId);
+                if (!string.IsNullOrWhiteSpace(eventType)) q = q.Where(l => l.EventType == eventType);
+
+                var items = q.OrderByDescending(l => l.CreatedAt).Skip(skip).Take(take).ToList();
+                ViewData["userId"] = userId;
+                ViewData["eventType"] = eventType;
+                ViewData["skip"] = skip;
+                ViewData["take"] = take;
+                return View(items);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "failed to query webhook logs", detail = ex.Message });
+            }
+        }
+
         // POST /Admin/Analysis/Jobs
         [HttpPost]
         public IActionResult Jobs([FromForm] string? body)
