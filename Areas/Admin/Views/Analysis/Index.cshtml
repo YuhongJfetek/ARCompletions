@@ -20,14 +20,28 @@
                     <option value="">所有類型</option>
                     @foreach (var t in Model.Types)
                     {
-                        <option value="@t" @(t == Model.FilterType ? "selected" : "")>@t</option>
+                        @if (t == Model.FilterType)
+                        {
+                            <option value="@t" selected>@t</option>
+                        }
+                        else
+                        {
+                            <option value="@t">@t</option>
+                        }
                     }
                 </select>
                 <select name="filterStatus" class="form-select">
                     <option value="">所有狀態</option>
                     @foreach (var s in Model.Statuses)
                     {
-                        <option value="@s" @(s == Model.FilterStatus ? "selected" : "")>@s</option>
+                        @if (s == Model.FilterStatus)
+                        {
+                            <option value="@s" selected>@s</option>
+                        }
+                        else
+                        {
+                            <option value="@s">@s</option>
+                        }
                     }
                 </select>
                 <input type="date" name="startDate" value="@(Model.StartDate.HasValue ? Model.StartDate.Value.ToString("yyyy-MM-dd") : "")" class="form-control" />
@@ -37,7 +51,14 @@
                 <select name="pageSize" class="form-select">
                     @foreach (var ps in Model.PageSizeOptions)
                     {
-                        <option value="@ps" @(ps == Model.PageSize ? "selected" : "")>@ps</option>
+                        @if (ps == Model.PageSize)
+                        {
+                            <option value="@ps" selected>@ps</option>
+                        }
+                        else
+                        {
+                            <option value="@ps">@ps</option>
+                        }
                     }
                 </select>
                 <button class="btn btn-outline-primary" type="submit">篩選</button>

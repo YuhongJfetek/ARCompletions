@@ -20,7 +20,11 @@
         <input type="text" name="q" placeholder="搜尋問題文字" value="@Model.Query" />
         <select name="pageSize">
             @foreach (var ps in Model.PageSizeOptions) {
-                <option value="@ps" @(ps==Model.PageSize?"selected":"")>@ps</option>
+                @if (ps == Model.PageSize) {
+                    <option value="@ps" selected>@ps</option>
+                } else {
+                    <option value="@ps">@ps</option>
+                }
             }
         </select>
         <button type="submit">搜尋</button>
