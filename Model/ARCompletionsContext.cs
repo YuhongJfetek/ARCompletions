@@ -26,6 +26,11 @@ namespace ARCompletions.Data
             var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
             var isPostgres = !string.IsNullOrWhiteSpace(databaseUrl);
 
+            if (!isPostgres)
+            {
+                throw new InvalidOperationException("DATABASE_URL is required for design-time DbContext creation. Set the environment variable to your Postgres URL before generating migrations.");
+            }
+
             if (isPostgres)
             {
                 var uri = new Uri(databaseUrl!);

@@ -36,6 +36,14 @@ builder.Services.AddCors(options =>
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 var isPostgres = !string.IsNullOrWhiteSpace(databaseUrl);
 
+// Require DATABASE_URL (always use Postgres in production on Render)
+if (!isPostgres)
+{
+    var message = "DATABASE_URL environment variable is required. Set it to your PostgreSQL connection string.";
+    Console.WriteLine(message);
+    throw new InvalidOperationException(message);
+}
+
 if (isPostgres)
 {
     // ---- PostgreSQL（Render）----
@@ -54,26 +62,6 @@ if (isPostgres)
 
     builder.Services.AddDbContext<ARCompletionsContext>(opt =>
         opt.UseNpgsql(pgConn)); // ← 已移除 .MigrationsAssembly(...)
-}
-else
-{
-    // ---- SQLite 後備（本機或未設定 DATABASE_URL 時）----
-    string dbPath;
-    var envDbPath = Environment.GetEnvironmentVariable("DB_PATH");
-    if (!string.IsNullOrWhiteSpace(envDbPath))
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(envDbPath)!);
-        dbPath = envDbPath!;
-    }
-    else
-    {
-        var dataDir = Path.Combine(builder.Environment.ContentRootPath, "Data");
-        Directory.CreateDirectory(dataDir);
-        dbPath = Path.Combine(dataDir, "ARCompletions.db");
-    }
-
-    builder.Services.AddDbContext<ARCompletionsContext>(opt =>
-        opt.UseSqlite($"Data Source={dbPath}")); // ← 已移除 .MigrationsAssembly(...)
 }
 
 // 其他服務

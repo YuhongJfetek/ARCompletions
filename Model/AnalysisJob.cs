@@ -23,6 +23,9 @@ namespace ARCompletions.Data
             CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             Status = "Queued";
             Progress = 0;
+            // ensure non-null values for DB NOT NULL columns
+            ResultSummary = string.Empty;
+            Error = string.Empty;
         }
     }
 }
