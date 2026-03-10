@@ -15,21 +15,6 @@ namespace ARCompletions.Areas.Admin.Controllers
             _context = context;
         }
 
-        // GET /Admin/Chat
-        [HttpGet]
-        public IActionResult Index(int page = 1, int pageSize = 50)
-        {
-            if (page < 1) page = 1;
-            pageSize = Math.Clamp(pageSize, 1, 500);
-            var q = _context.ChatMessages.OrderByDescending(c => c.CreatedAt);
-            var total = q.Count();
-            var items = q.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-            ViewData["TotalCount"] = total;
-            ViewData["Page"] = page;
-            ViewData["PageSize"] = pageSize;
-            return View(items);
-        }
-
         // POST /Admin/Chat/PostMessage
         [HttpPost]
         public async Task<IActionResult> PostMessage([FromForm] Dto.ChatMessageRequestDto req)
