@@ -164,6 +164,18 @@ namespace ARCompletions.Areas.Admin.Controllers
                 Statuses = statuses
             };
 
+            // 為每筆 job 計算可直接顯示的中文敘述，放入 ViewData 供視圖使用
+            try
+            {
+                var human = jobs.ToDictionary(j => j.Id, j => ToChineseSummary(j.ResultSummary));
+                ViewData["HumanSummaries"] = human;
+            }
+            catch
+            {
+                // 若發生任何錯誤則不影響主要流程
+                ViewData["HumanSummaries"] = new System.Collections.Generic.Dictionary<string, string>();
+            }
+
             return View(vm);
         }
 
@@ -174,7 +186,44 @@ namespace ARCompletions.Areas.Admin.Controllers
             if (string.IsNullOrEmpty(id)) return BadRequest();
             var job = _context.AnalysisJobs.FirstOrDefault(j => j.Id == id);
             if (job == null) return NotFound();
+            // 計算並傳遞中文敘述供視圖顯示
+            ViewData["HumanSummary"] = ToChineseSummary(job.ResultSummary);
             return View(job);
+        }
+
+        private static string ToChineseSummary(string? summary)
+        {
+            if (string.IsNullOrEmpty(summary)) return string.Empty;
+            try
+            {
+                var parts = summary.Split(';', StringSplitOptions.RemoveEmptyEntries);
+                var dict = parts.Select(p => p.Split('=', 2)).Where(a => a.Length == 2).ToDictionary(a => a[0], a => a[1]);
+
+                dict.TryGetValue("successRate", out var sr);
+                dict.TryGetValue("high", out var high);
+                dict.TryGetValue("med", out var med);
+                dict.TryGetValue("low", out var low);
+                dict.TryGetValue("docs", out var docs);
+
+                double successRate = 0;
+                if (!string.IsNullOrEmpty(sr)) double.TryParse(sr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out successRate);
+                int ihigh = 0, imed = 0, ilow = 0, idocs = 0;
+                int.TryParse(high ?? "0", out ihigh);
+                int.TryParse(med ?? "0", out imed);
+                int.TryParse(low ?? "0", out ilow);
+                int.TryParse(docs ?? "0", out idocs);
+
+                var pieces = new System.Collections.Generic.List<string>();
+                pieces.Add($"共分析 {idocs} 筆文件");
+                pieces.Add($"成功率 {(successRate * 100).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}%");
+                pieces.Add($"風險分佈：高 {ihigh}、中 {imed}、低 {ilow}");
+
+                return string.Join("；", pieces);
+            }
+            catch
+            {
+                return summary ?? string.Empty;
+            }
         }
 
         // GET /Admin/Analysis/WebhookLogs
@@ -227,7 +276,6 @@ namespace ARCompletions.Areas.Admin.Controllers
 
         // POST /Admin/Analysis/Reanalyze
         [HttpPost]
-        [ValidateAntiForgeryToken]
         public IActionResult Reanalyze([FromForm] string id)
         {
             if (string.IsNullOrEmpty(id)) return BadRequest();

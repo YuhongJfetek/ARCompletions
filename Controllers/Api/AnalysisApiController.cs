@@ -19,22 +19,12 @@ namespace ARCompletions.Controllers.Api
             _config = config;
         }
 
-        private bool ValidateApiKey()
-        {
-            var header = HttpContext.Request.Headers["X-Api-Key"].FirstOrDefault();
-            if (!string.IsNullOrEmpty(header))
-            {
-                var cfg = _config["Lintbot:ApiKey"] ?? System.Environment.GetEnvironmentVariable("LINTBOT_API_KEY");
-                return !string.IsNullOrEmpty(cfg) && header == cfg;
-            }
-            return User?.Identity?.IsAuthenticated ?? false;
-        }
+        // Authorization removed: API is open (no API key or user auth required).
 
         // GET api/analysis?page=1&pageSize=50
         [HttpGet]
         public IActionResult List([FromQuery] int page = 1, [FromQuery] int pageSize = 50)
         {
-            if (!ValidateApiKey()) return Unauthorized();
             if (page < 1) page = 1;
             if (pageSize < 1) pageSize = 50;
 
@@ -60,7 +50,7 @@ namespace ARCompletions.Controllers.Api
         [HttpGet("{id}")]
         public IActionResult Get(string id)
         {
-            if (!ValidateApiKey()) return Unauthorized();
+            // Authorization removed: open endpoint
             var job = _db.AnalysisJobs.AsNoTracking().FirstOrDefault(j => j.Id == id);
             if (job == null) return NotFound();
 
