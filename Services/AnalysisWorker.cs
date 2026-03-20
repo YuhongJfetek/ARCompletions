@@ -69,133 +69,32 @@ namespace ARCompletions.Services
                                 // build tokenized documents and ensure embeddings exist
                                 var docs = aiMessages.Select(m => new { m.Id, m.Content }).ToList();
 
-                                int vectorDim = 1536;
-                                var docTexts = new List<string>();
-                                for (int i = 0; i < docs.Count; i++)
-                                {
-                                    var d = docs[i];
-                                    // check existing embedding
-                                    var existsEmbedding = db.ChatEmbeddings.FirstOrDefault(e => e.ChatMessageId == d.Id);
-                                    if (existsEmbedding == null)
-                                    {
-                                        var createdAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                                                        // determine API key: prefer configured Embedding:OpenAiApiKey, fallback to env OPENAI_API_KEY
-                                                        var conf = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>();
-                                                        var apiKey = conf["Embedding:OpenAiApiKey"];
-                                                        if (string.IsNullOrWhiteSpace(apiKey)) apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-                                                        var embedSvc = scope.ServiceProvider.GetRequiredService<IEmbeddingService>();
-                                                        var vec = await embedSvc.ComputeEmbeddingAsync(Normalize(d.Content), vectorDim, apiKey);
-                                        if (vec == null) vec = new double[vectorDim];
 
-                                        if (db.Database.ProviderName != null && db.Database.ProviderName.IndexOf("Npgsql", StringComparison.OrdinalIgnoreCase) >= 0)
-                                        {
-                                            // create vector literal like '[0.1,0.2,...]'
-                                            var literal = "[" + string.Join(',', vec.Select(v => v.ToString(System.Globalization.CultureInfo.InvariantCulture))) + "]";
-                                            var sql = $"INSERT INTO ChatEmbeddings(\"Id\", \"ChatMessageId\", \"Embedding\", \"CreatedAt\") VALUES ('" + Guid.NewGuid().ToString() + "', '" + d.Id + "', '{literal}'::vector, {createdAt});";
-                                            db.Database.ExecuteSqlRaw(sql);
-                                        }
-                                        else
-                                        {
-                                            db.ChatEmbeddings.Add(new Data.ChatEmbedding { ChatMessageId = d.Id, EmbeddingJson = JsonSerializer.Serialize(vec), CreatedAt = createdAt });
-                                            db.SaveChanges();
-                                        }
-                                    }
-                                    docTexts.Add(Normalize(d.Content));
+
+                                // 使用 OpenAI 分析（若之前未成功或未設定，現在要求必須有 openai key）
+                                var conf2 = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>();
+                                var openAiKey2 = conf2["OpenAI:ApiKey"];
+                                if (string.IsNullOrWhiteSpace(openAiKey2)) openAiKey2 = conf2["Embedding:OpenAiApiKey"]; // backwards-compat
+                                if (string.IsNullOrWhiteSpace(openAiKey2)) openAiKey2 = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+
+                                if (string.IsNullOrWhiteSpace(openAiKey2))
+                                {
+                                    job.Status = "Failed";
+                                    job.Error = "OpenAI API key not configured; analysis requires OpenAI.";
+                                    job.FinishedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                                    db.SaveChanges();
+                                    continue;
                                 }
 
-                                // build vocabulary and token frequencies from normalized texts
-                                var docsNorm = docTexts.ToList();
-                                var vocab = new Dictionary<string, int>();
-                                var docTokens = new List<Dictionary<int, double>>();
-                                for (int idx = 0; idx < docs.Count; idx++)
+                                var ok = await TryAnalyzeWithOpenAIAsync(scope.ServiceProvider, db, job, docs, openAiKey2);
+                                if (!ok)
                                 {
-                                    var text = docsNorm[idx];
-                                    var tokens = Tokenize(text);
-                                    var freq = new Dictionary<int, double>();
-                                    foreach (var tk in tokens)
-                                    {
-                                        if (!vocab.TryGetValue(tk, out var vidx))
-                                        {
-                                            vidx = vocab.Count;
-                                            vocab[tk] = vidx;
-                                        }
-                                        if (!freq.ContainsKey(vidx)) freq[vidx] = 0;
-                                        freq[vidx] += 1;
-                                    }
-                                    docTokens.Add(freq);
+                                    job.Status = "Failed";
+                                    job.Error = "OpenAI analysis failed";
+                                    job.FinishedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                                    db.SaveChanges();
+                                    continue;
                                 }
-
-                                // convert to dense vectors when computing dot-products
-                                int n = docTokens.Count;
-                                var norms = new double[n];
-                                for (int i = 0; i < n; i++)
-                                {
-                                    double s = 0;
-                                    foreach (var kv in docTokens[i]) s += kv.Value * kv.Value;
-                                    norms[i] = Math.Sqrt(s);
-                                }
-
-                                // compute nearest neighbour similarity for each doc
-                                var similarities = new double[n];
-                                for (int i = 0; i < n; i++)
-                                {
-                                    double maxSim = 0.0;
-                                    for (int j = 0; j < n; j++)
-                                    {
-                                        if (i == j) continue;
-                                        double dot = 0;
-                                        // iterate over smaller dictionary
-                                        var a = docTokens[i];
-                                        var b = docTokens[j];
-                                        if (a.Count < b.Count)
-                                        {
-                                            foreach (var kv in a)
-                                            {
-                                                if (b.TryGetValue(kv.Key, out var bv)) dot += kv.Value * bv;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            foreach (var kv in b)
-                                            {
-                                                if (a.TryGetValue(kv.Key, out var av)) dot += kv.Value * av;
-                                            }
-                                        }
-                                        double denom = norms[i] * norms[j];
-                                        double sim = denom == 0 ? 0 : dot / denom;
-                                        if (sim > maxSim) maxSim = sim;
-                                    }
-                                    similarities[i] = n <= 1 ? 1.0 : maxSim;
-                                }
-
-                                // decide risk level thresholds
-                                int highRisk = 0, mediumRisk = 0, lowRisk = 0;
-                                for (int i = 0; i < n; i++)
-                                {
-                                    double sim = similarities[i];
-                                    int risk = sim < 0.3 ? 2 : (sim < 0.6 ? 1 : 0);
-                                    if (risk == 2) highRisk++; else if (risk == 1) mediumRisk++; else lowRisk++;
-
-                                    db.AnalysisDetails.Add(new Data.AnalysisDetail
-                                    {
-                                        JobId = job.Id,
-                                        CompletionId = docs[i].Id, // store ChatMessage.Id here
-                                        Similarity = sim,
-                                        RiskLevel = risk,
-                                        Flags = risk == 2 ? "high" : (risk == 1 ? "medium" : "low")
-                                    });
-                                }
-
-                                // success rate from Completions
-                                var total = db.Completions.Count();
-                                var success = db.Completions.Count(c => c.Complate);
-                                var successRate = total == 0 ? 0.0 : (double)success / total;
-
-                                job.Progress = 100;
-                                job.Status = "Completed";
-                                job.FinishedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                                job.ResultSummary = $"successRate={successRate:0.000};high={highRisk};med={mediumRisk};low={lowRisk};docs={n}";
-                                db.SaveChanges();
 
                                 // notify user(s) that analysis finished
                                 try
@@ -388,6 +287,131 @@ namespace ARCompletions.Services
             {
                 job.ResultSummary = (job.ResultSummary ?? "") + $";notify_error={ex.Message}";
                 db.SaveChanges();
+            }
+        }
+
+        private async Task<bool> TryAnalyzeWithOpenAIAsync(IServiceProvider provider, Data.ARCompletionsContext db, Data.AnalysisJob job, System.Collections.Generic.IEnumerable<object> docs, string apiKey)
+        {
+            try
+            {
+            if (docs == null || !docs.Any()) return false;
+
+                var httpFactory = provider.GetService<IHttpClientFactory>();
+                if (httpFactory == null) return false;
+
+                var client = httpFactory.CreateClient("OpenAI");
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+                client.DefaultRequestHeaders.Remove("User-Agent");
+                client.DefaultRequestHeaders.Add("User-Agent", "ARCompletions-Worker/1.0");
+
+                // limit number of docs and build a prompt
+                int maxDocs = 80;
+                var docsList = docs.ToList();
+                var take = docsList.Count > maxDocs ? docsList.Skip(docsList.Count - maxDocs).ToList() : docsList;
+                var sb = new System.Text.StringBuilder();
+                for (int i = 0; i < take.Count; i++)
+                {
+                    var d = take[i];
+                    // d has properties Id and Content
+                    var idProp = d.GetType().GetProperty("Id");
+                    var contentProp = d.GetType().GetProperty("Content");
+                    var cid = idProp?.GetValue(d)?.ToString() ?? "";
+                    var text = contentProp?.GetValue(d)?.ToString() ?? "";
+                    sb.AppendLine($"---DOC {cid}---");
+                    sb.AppendLine(text);
+                }
+                    var systemPrompt = "你是一個分析系統，輸入是一組 AI 回覆（文字），請回傳 JSON，格式如下：{\"successRate\":0.0,\"high\":0,\"med\":0,\"low\":0,\"docs\":N,\"details\":[{\"completionId\":\"...\",\"similarity\":0.0,\"riskLevel\":0,\"flags\":\"high|medium|low\"}],\"summaryText\":\"...\"}." + System.Environment.NewLine +
+                        "風險分級規則可依內容相似性（或主題危險性）判定，請儘量以數字與標準化欄位回傳，不要包含多餘的說明文字.";
+
+                var userContent = "以下為要分析的 AI 回覆（每筆以 ---DOC id--- 開頭）：\n" + sb.ToString();
+
+                var payload = new
+                {
+                    model = "gpt-3.5-turbo",
+                    messages = new object[] {
+                        new { role = "system", content = systemPrompt },
+                        new { role = "user", content = userContent }
+                    },
+                    temperature = 0.0,
+                    max_tokens = 1500
+                };
+
+                var content = new System.Net.Http.StringContent(System.Text.Json.JsonSerializer.Serialize(payload));
+                content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+
+                var resp = await client.PostAsync("v1/chat/completions", content);
+                if (!resp.IsSuccessStatusCode) return false;
+
+                var respText = await resp.Content.ReadAsStringAsync();
+                using var docRoot = System.Text.Json.JsonDocument.Parse(respText);
+                var root = docRoot.RootElement;
+                if (!root.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0) return false;
+                var msg = choices[0].GetProperty("message").GetProperty("content").GetString() ?? string.Empty;
+
+                // 尋找第一個 JSON 物件並解析
+                var first = msg.IndexOf('{');
+                var last = msg.LastIndexOf('}');
+                if (first < 0 || last < 0 || last <= first) return false;
+                var json = msg.Substring(first, last - first + 1);
+
+                using var parsed = System.Text.Json.JsonDocument.Parse(json);
+                var prow = parsed.RootElement;
+
+                // optional: remove existing details for this job
+                var old = db.AnalysisDetails.Where(d => d.JobId == job.Id).ToList();
+                if (old.Count > 0)
+                {
+                    db.AnalysisDetails.RemoveRange(old);
+                    db.SaveChanges();
+                }
+
+                int docsCount = 0; double successRate = 0; int high = 0, med = 0, low = 0;
+                if (prow.TryGetProperty("docs", out var pjDocs) && pjDocs.ValueKind == System.Text.Json.JsonValueKind.Number) docsCount = pjDocs.GetInt32();
+                if (prow.TryGetProperty("successRate", out var pjSr) && pjSr.ValueKind == System.Text.Json.JsonValueKind.Number) successRate = pjSr.GetDouble();
+                if (prow.TryGetProperty("high", out var pjHigh) && pjHigh.ValueKind == System.Text.Json.JsonValueKind.Number) high = pjHigh.GetInt32();
+                if (prow.TryGetProperty("med", out var pjMed) && pjMed.ValueKind == System.Text.Json.JsonValueKind.Number) med = pjMed.GetInt32();
+                if (prow.TryGetProperty("low", out var pjLow) && pjLow.ValueKind == System.Text.Json.JsonValueKind.Number) low = pjLow.GetInt32();
+
+                if (prow.TryGetProperty("details", out var pjDetails) && pjDetails.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    foreach (var it in pjDetails.EnumerateArray())
+                    {
+                        var cid = it.TryGetProperty("completionId", out var pc) && pc.ValueKind == System.Text.Json.JsonValueKind.String ? pc.GetString() : null;
+                        var sim = it.TryGetProperty("similarity", out var ps) && ps.ValueKind == System.Text.Json.JsonValueKind.Number ? ps.GetDouble() : 0.0;
+                        var rl = it.TryGetProperty("riskLevel", out var pr) && pr.ValueKind == System.Text.Json.JsonValueKind.Number ? pr.GetInt32() : 0;
+                        var flags = it.TryGetProperty("flags", out var pf) && pf.ValueKind == System.Text.Json.JsonValueKind.String ? pf.GetString() : null;
+
+                        db.AnalysisDetails.Add(new Data.AnalysisDetail
+                        {
+                            JobId = job.Id,
+                            CompletionId = cid ?? string.Empty,
+                            Similarity = sim,
+                            RiskLevel = rl,
+                            Flags = flags
+                        });
+                    }
+                }
+
+                // build ResultSummary
+                job.Progress = 100;
+                job.Status = "Completed";
+                job.FinishedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                job.ResultSummary = $"successRate={successRate:0.000};high={high};med={med};low={low};docs={docsCount}";
+
+                // also store assistant summary text (escaped) if exists
+                if (prow.TryGetProperty("summaryText", out var pSummary) && pSummary.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var summaryText = pSummary.GetString() ?? string.Empty;
+                    // append escaped summary to ResultSummary for retrieval (URL-encoded)
+                    job.ResultSummary += ";summary=" + System.Uri.EscapeDataString(summaryText);
+                }
+
+                db.SaveChanges();
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
     }
