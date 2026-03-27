@@ -1,0 +1,35 @@
+@model IEnumerable<ARCompletions.Domain.PlatformPermission>
+@{
+    ViewData["Title"] = "平台權限";
+}
+
+<h1>平台權限</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">新增權限</a>
+    <a asp-action="Matrix" class="btn btn-secondary ms-2">權限矩陣</a>
+</p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>群組</th>
+            <th>代碼</th>
+            <th>名稱</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.GroupName</td>
+            <td>@item.Code</td>
+            <td>@item.Name</td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">編輯</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

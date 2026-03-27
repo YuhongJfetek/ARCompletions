@@ -1,0 +1,52 @@
+@model IEnumerable<ARCompletions.Domain.EmbeddingJob>
+@{
+    ViewData["Title"] = "Embedding 任務";
+}
+
+<h1>Embedding 任務（廠商）</h1>
+
+@if (TempData["CreatedJob"] != null)
+{
+    <div class="alert alert-success">已建立 Job: @TempData["CreatedJob"]</div>
+}
+
+<form method="post" asp-action="Trigger">
+    @Html.AntiForgeryToken()
+    <button class="btn btn-primary mb-2" type="submit">觸發新的 Embedding 任務</button>
+</form>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>JobNo</th>
+            <th>狀態</th>
+            <th>向量版本</th>
+            <th>模型</th>
+            <th>FAQ 數</th>
+            <th>成功/失敗</th>
+            <th>建立時間</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.JobNo</td>
+            <td>@item.Status</td>
+            <td>@item.VectorVersion</td>
+            <td>@item.ModelName</td>
+            <td>@item.TotalFaqCount</td>
+            <td>@item.SuccessCount / @item.FailCount</td>
+            <td>@(item.CreatedAt==0?"-":DateTimeOffset.FromUnixTimeSeconds(item.CreatedAt).UtcDateTime.ToString("yyyy-MM-dd HH:mm"))</td>
+            <td>
+                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">檢視</a>
+                <form method="post" asp-action="Retry" asp-route-id="@item.Id" style="display:inline">
+                    @Html.AntiForgeryToken()
+                    <button class="btn btn-sm btn-warning" type="submit">重試</button>
+                </form>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

@@ -1,0 +1,32 @@
+@model IEnumerable<ARCompletions.Domain.SystemSetting>
+@{
+    ViewData["Title"] = "System Settings";
+}
+
+<h1>System Settings</h1>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Key</th>
+            <th>Value</th>
+            <th>Description</th>
+            <th>Updated At</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var s in Model)
+    {
+        <tr>
+            <td>@s.SettingKey</td>
+            <td style="max-width:300px;overflow:auto;">@s.SettingValue</td>
+            <td>@s.Description</td>
+            <td>@(System.DateTimeOffset.FromUnixTimeSeconds(s.UpdatedAt).UtcDateTime.ToString("yyyy-MM-dd HH:mm"))</td>
+            <td>
+                <a asp-area="Admin" asp-controller="SystemSettings" asp-action="Edit" asp-route-id="@s.Id" class="btn btn-sm btn-primary">Edit</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

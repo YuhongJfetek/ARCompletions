@@ -1,0 +1,38 @@
+@model IEnumerable<ARCompletions.Domain.PlatformUser>
+@{
+    ViewData["Title"] = "平台使用者";
+}
+
+<h1>平台使用者</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">新增使用者</a>
+</p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>姓名</th>
+            <th>Email</th>
+            <th>部門</th>
+            <th>職稱</th>
+            <th>啟用</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.Name</td>
+            <td>@item.Email</td>
+            <td>@item.Department</td>
+            <td>@item.JobTitle</td>
+            <td>@(item.IsActive ? "是" : "否")</td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">編輯</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

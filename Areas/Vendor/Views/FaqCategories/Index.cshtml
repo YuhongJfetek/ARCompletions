@@ -1,0 +1,34 @@
+@model IEnumerable<ARCompletions.Domain.FaqCategory>
+@{
+    ViewData["Title"] = "FAQ 類別";
+}
+
+<h1>FAQ 類別</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">新增類別</a>
+</p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>名稱</th>
+            <th>排序</th>
+            <th>啟用</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.Name</td>
+            <td>@item.Sort</td>
+            <td>@(item.IsActive ? "是" : "否")</td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">編輯</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

@@ -1,106 +1,83 @@
 using System;
-using System.Collections.Generic;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
-namespace ARCompletions.Services
+namespace ARCompletions.Services;
+
+public class EmbeddingService : IEmbeddingService
 {
-    public class EmbeddingService : IEmbeddingService
+    private readonly IHttpClientFactory _httpFactory;
+    private readonly IConfiguration _config;
+    private readonly ILogger<EmbeddingService> _logger;
+
+    public EmbeddingService(IHttpClientFactory httpFactory, IConfiguration config, ILogger<EmbeddingService> logger)
     {
-        private readonly IHttpClientFactory _httpFactory;
+        _httpFactory = httpFactory;
+        _config = config;
+        _logger = logger;
+    }
 
-        public EmbeddingService(IHttpClientFactory httpFactory)
+    public async Task<string?> GetEmbeddingJsonAsync(string input, string model)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+
+        var apiKey = _config["OpenAI:ApiKey"] ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey))
         {
-            _httpFactory = httpFactory;
+            _logger.LogError("OpenAI API key not configured (OpenAI:ApiKey or OPENAI_API_KEY)");
+            return null;
         }
 
-        public async Task<double[]> ComputeEmbeddingAsync(string text, int dim, string? apiKey)
+        var client = _httpFactory.CreateClient("OpenAI");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+        var payload = new { model = model ?? "text-embedding-3-small", input };
+        var json = JsonSerializer.Serialize(payload);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        // exponential backoff with jitter
+        var maxAttempts = 6;
+        var attempt = 0;
+        var rng = new Random();
+        while (attempt < maxAttempts)
         {
-            if (string.IsNullOrEmpty(text)) return new double[dim];
-
-            if (!string.IsNullOrEmpty(apiKey) && _httpFactory != null)
+            attempt++;
+            try
             {
-                var client = _httpFactory.CreateClient("OpenAI");
-                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
-                client.DefaultRequestHeaders.Remove("User-Agent");
-                client.DefaultRequestHeaders.Add("User-Agent", "ARCompletions-Worker/1.0");
-
-                var payload = new { input = text, model = "text-embedding-3-small" };
-                var content = new StringContent(JsonSerializer.Serialize(payload));
-                content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-
-                var rnd = new Random();
-                for (int attempt = 1; attempt <= 3; attempt++)
+                var resp = await client.PostAsync("v1/embeddings", content);
+                var respText = await resp.Content.ReadAsStringAsync();
+                if (resp.IsSuccessStatusCode)
                 {
-                    try
-                    {
-                        var resp = await client.PostAsync("v1/embeddings", content);
-                        if (resp.IsSuccessStatusCode)
-                        {
-                            using var st = await resp.Content.ReadAsStreamAsync();
-                            using var doc = await JsonDocument.ParseAsync(st);
-                            var root = doc.RootElement;
-                            if (root.TryGetProperty("data", out var data) && data.GetArrayLength() > 0)
-                            {
-                                var emb = data[0].GetProperty("embedding");
-                                var list = new List<double>();
-                                foreach (var e in emb.EnumerateArray()) list.Add(e.GetDouble());
-                                if (list.Count == dim) return list.ToArray();
-                                var outv = new double[dim];
-                                for (int i = 0; i < Math.Min(dim, list.Count); i++) outv[i] = list[i];
-                                return outv;
-                            }
-                        }
-                        else
-                        {
-                            if ((int)resp.StatusCode == 429 || (int)resp.StatusCode >= 500)
-                            {
-                                var jitter = rnd.Next(0, 100);
-                                var delayMs = (int)(Math.Pow(2, attempt - 1) * 500) + jitter;
-                                await Task.Delay(delayMs);
-                                continue;
-                            }
-                            break;
-                        }
-                    }
-                    catch
-                    {
-                        var jitter = rnd.Next(0, 100);
-                        var delayMs = (int)(Math.Pow(2, attempt - 1) * 500) + jitter;
-                        await Task.Delay(delayMs);
-                    }
+                    return respText;
                 }
-            }
 
-            // fallback deterministic hash projection
-            var vec = new double[dim];
-            foreach (var tk in RegexSplit(text))
-            {
-                int h = tk.GetHashCode();
-                if (h == int.MinValue) h = 0;
-                h = Math.Abs(h);
-                int idx = h % dim;
-                vec[idx] += 1.0;
+                if ((int)resp.StatusCode == 429 || ((int)resp.StatusCode >= 500 && (int)resp.StatusCode < 600))
+                {
+                    var baseDelay = Math.Min(2000 * attempt, 30000);
+                    var jitter = rng.Next(0, 500);
+                    var waitMs = baseDelay + jitter;
+                    _logger.LogWarning("OpenAI embedding request transient failure {Status}. Retry {Attempt}/{Max} after {Delay}ms. Response: {Resp}", resp.StatusCode, attempt, maxAttempts, waitMs, respText);
+                    await Task.Delay(waitMs);
+                    continue;
+                }
+
+                _logger.LogError("OpenAI embedding request failed (non-transient): {Status} {Resp}", resp.StatusCode, respText);
+                return respText;
             }
-            double sum = 0;
-            for (int i = 0; i < dim; i++) sum += vec[i] * vec[i];
-            double norm = Math.Sqrt(sum);
-            if (norm > 0)
+            catch (Exception ex)
             {
-                for (int i = 0; i < dim; i++) vec[i] /= norm;
+                var waitMs = Math.Min(1000 * attempt * attempt, 30000);
+                _logger.LogWarning(ex, "Exception calling OpenAI embeddings (attempt {Attempt}/{Max}). Retrying after {Delay}ms", attempt, maxAttempts, waitMs);
+                await Task.Delay(waitMs);
             }
-            return vec;
         }
 
-        private static IEnumerable<string> RegexSplit(string s)
-        {
-            if (string.IsNullOrEmpty(s)) yield break;
-            foreach (var tk in System.Text.RegularExpressions.Regex.Split(s.ToLowerInvariant().Replace('\r',' ').Replace('\n',' '), "\\W+"))
-            {
-                if (string.IsNullOrWhiteSpace(tk)) continue;
-                yield return tk;
-            }
-        }
+        _logger.LogError("OpenAI embedding request failed after {Max} attempts", maxAttempts);
+        return null;
     }
 }

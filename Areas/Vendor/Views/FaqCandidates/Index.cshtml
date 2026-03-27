@@ -1,0 +1,151 @@
+@model ARCompletions.Areas.Vendor.Models.VendorFaqCandidatesIndexViewModel
+@{
+    ViewData["Title"] = "FAQ 候選 QA";
+}
+
+<h1>FAQ 候選 QA</h1>
+
+@if (TempData["BatchCreatedCount"] != null)
+{
+    <div class="alert alert-success">
+        <strong>已建立 @TempData["BatchCreatedCount"] 筆 FAQ</strong>
+        <div>
+            @{
+                var listJson = TempData["BatchCreatedList"] as string;
+                if (!string.IsNullOrEmpty(listJson))
+                {
+                    try
+                    {
+                        var elems = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement[]>(listJson);
+                        for (int i = 0; i < elems.Length; i++)
+                        {
+                            var el = elems[i];
+                            var id = el.GetProperty("Id").GetString();
+                            var title = el.GetProperty("Question").GetString();
+                            <a target="_blank" rel="noopener" href="@Url.Action("Edit", "Faqs", new { area = "Vendor", id = id })">@title</a>@(i < elems.Length - 1 ? ", " : "")
+                        }
+                    }
+                    catch
+                    {
+                        <span>IDs: @Html.Raw(TempData["BatchCreatedIds"])</span>
+                    }
+                }
+                else
+                {
+                    <span>IDs: @Html.Raw(TempData["BatchCreatedIds"])</span>
+                }
+            }
+        </div>
+    </div>
+}
+
+<form method="get" class="row g-2 mb-2">
+    <div class="col-auto">
+        <input name="search" value="@Model.Search" placeholder="搜尋問題或答案" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <select name="status" class="form-select form-select-sm">
+            <option value="">全部狀態</option>
+            <option value="new" @(Model.Status=="new"?"selected":"")>new</option>
+            <option value="reviewed" @(Model.Status=="reviewed"?"selected":"")>reviewed</option>
+            <option value="rejected" @(Model.Status=="rejected"?"selected":"")>rejected</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="pageSize" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="10" @(Model.PageSize==10?"selected":"")>10</option>
+            <option value="25" @(Model.PageSize==25?"selected":"")>25</option>
+            <option value="50" @(Model.PageSize==50?"selected":"")>50</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-sm btn-primary" type="submit">搜尋</button>
+    </div>
+    <div class="col-auto">
+        <a href="/Vendor/FaqCandidatesBatch/Index" id="batchLink" class="btn btn-sm btn-outline-secondary">批次建立 FAQ</a>
+    </div>
+</form>
+
+<form asp-area="Vendor" asp-controller="FaqCandidatesBatch" asp-action="BatchCreate" method="post" id="batchForm">
+    @Html.AntiForgeryToken()
+    <table class="table table-striped">
+    <thead>
+        <tr>
+            <th style="width:40px;"></th>
+            <th>問題</th>
+            <th>狀態</th>
+            <th>信心分數</th>
+            <th>產生時間</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model.Items)
+    {
+        <tr>
+            <td><input type="checkbox" name="selectedIds" value="@item.Id" class="batch-checkbox" /></td>
+            <td>@item.Question</td>
+            <td>@item.Status</td>
+            <td>@(item.ConfidenceScore?.ToString("P2") ?? "-")</td>
+            <td>@item.GeneratedAt</td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">檢視 / 編輯</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+    <div class="row g-2 align-items-center">
+        <div class="col-auto">
+            <label for="batchCategory">目標分類</label>
+            <select id="batchCategory" name="categoryId" class="form-select form-select-sm">
+                <option value="">-- 選擇分類 --</option>
+                @foreach (var c in (ViewBag.CategoryId as Microsoft.AspNetCore.Mvc.Rendering.SelectList) ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+                {
+                    <option value="@c.Value">@c.Text</option>
+                }
+            </select>
+        </div>
+        <div class="col-auto">
+            <button id="batchSubmit" type="submit" class="btn btn-sm btn-primary">批次建立選取項目</button>
+        </div>
+    </div>
+
+    <nav>
+    <ul class="pagination">
+        <li class="page-item @(Model.Page<=1?"disabled":"")"><a class="page-link" href="?page=@(Model.Page-1)&pageSize=@Model.PageSize&search=@Model.Search&status=@Model.Status">上一頁</a></li>
+        @for(var p=1;p<=Model.TotalPages;p++){
+            <li class="page-item @(p==Model.Page?"active":"")"><a class="page-link" href="?page=@p&pageSize=@Model.PageSize&search=@Model.Search&status=@Model.Status">@p</a></li>
+        }
+        <li class="page-item @(Model.Page>=Model.TotalPages?"disabled":"")"><a class="page-link" href="?page=@(Model.Page+1)&pageSize=@Model.PageSize&search=@Model.Search&status=@Model.Status">下一頁</a></li>
+    </ul>
+</nav>
+</form>
+
+<script>
+    (function(){
+        document.getElementById('batchLink')?.addEventListener('click', function (e) {
+            if (!confirm('前往批次建立頁面？您將能選取多筆候選項目一次建立 FAQ。')) {
+                e.preventDefault();
+            }
+        });
+
+        var form = document.getElementById('batchForm');
+        form?.addEventListener('submit', function (e) {
+            var checked = document.querySelectorAll('.batch-checkbox:checked');
+            if (!checked || checked.length === 0) {
+                e.preventDefault();
+                alert('請先勾選至少一筆候選項目。');
+                return false;
+            }
+
+            var category = document.getElementById('batchCategory')?.value;
+            if (!category) {
+                e.preventDefault();
+                alert('請選擇目標分類。');
+                return false;
+            }
+        });
+    })();
+</script>

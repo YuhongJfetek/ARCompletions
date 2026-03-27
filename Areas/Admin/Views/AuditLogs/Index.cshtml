@@ -1,0 +1,54 @@
+@model IEnumerable<ARCompletions.Domain.AuditLog>
+@{
+    ViewData["Title"] = "審計 / 活動日誌";
+}
+
+<h1>審計 / 活動日誌</h1>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <label class="form-label">操作者</label>
+        <input name="actor" class="form-control" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label">動作</label>
+        <input name="action" class="form-control" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label">From (Unix)</label>
+        <input name="from" class="form-control" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label">To (Unix)</label>
+        <input name="to" class="form-control" />
+    </div>
+    <div class="col-auto align-self-end">
+        <button type="submit" class="btn btn-secondary">篩選</button>
+    </div>
+</form>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>時間</th>
+            <th>操作者</th>
+            <th>動作</th>
+            <th>TargetId</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@DateTimeOffset.FromUnixTimeSeconds(item.Timestamp).UtcDateTime</td>
+            <td>@item.Actor</td>
+            <td>@item.Action</td>
+            <td>@item.TargetId</td>
+            <td>
+                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">檢視</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

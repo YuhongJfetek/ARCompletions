@@ -1,0 +1,35 @@
+@model IEnumerable<ARCompletions.Domain.PlatformRole>
+@{
+    ViewData["Title"] = "平台角色";
+}
+
+<h1>平台角色</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">新增角色</a>
+</p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>代碼</th>
+            <th>名稱</th>
+            <th>啟用</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.Code</td>
+            <td>@item.Name</td>
+            <td>@(item.IsActive ? "是" : "否")</td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">編輯</a>
+                <a asp-action="Permissions" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary ms-1">權限</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

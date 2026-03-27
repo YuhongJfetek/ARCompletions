@@ -1,0 +1,95 @@
+@{
+    ViewData["Title"] = "Platform Permission Matrix";
+}
+
+@{
+    var permissions = ViewBag.Permissions as IEnumerable<ARCompletions.Domain.PlatformPermission> ?? Enumerable.Empty<ARCompletions.Domain.PlatformPermission>();
+    var roles = ViewBag.Roles as IEnumerable<ARCompletions.Domain.PlatformRole> ?? Enumerable.Empty<ARCompletions.Domain.PlatformRole>();
+    var existing = ViewBag.Existing as IEnumerable<ARCompletions.Domain.PlatformRolePermission> ?? Enumerable.Empty<ARCompletions.Domain.PlatformRolePermission>();
+    var map = existing.GroupBy(e => e.PlatformRoleId).ToDictionary(g => g.Key, g => g.Select(x => x.PlatformPermissionId).ToHashSet());
+}
+
+<h1>Platform Permission Matrix</h1>
+
+<div class="row mb-3">
+    <div class="col-auto">
+        <label class="form-label">Filter role</label>
+        <select id="roleFilter" class="form-select">
+            <option value="">All roles</option>
+            @foreach (var r in roles)
+            {
+                <option value="@r.Id">@r.Name (@r.Code)</option>
+            }
+        </select>
+    </div>
+    <div class="col-auto align-self-end">
+        <button id="clearFilter" class="btn btn-sm btn-outline-secondary">Clear</button>
+    </div>
+</div>
+
+<form method="post" asp-action="Matrix">
+    @Html.AntiForgeryToken()
+    <table class="table table-sm table-bordered">
+        <thead>
+            <tr>
+                <th>Permission</th>
+                @foreach (var r in roles)
+                {
+                    <th class="text-center col-role-@r.Id">@r.Name<br /><small>@r.Code</small><br /><input type="checkbox" class="select-role" data-role="@r.Id" title="Select all for @r.Name" /></th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in permissions)
+            {
+                <tr>
+                    <td><strong>@p.GroupName</strong>: @p.Name<br /><small>@p.Code</small><br /><input type="checkbox" class="select-permission" data-perm="@p.Id" title="Select all for permission @p.Name" /></td>
+                    @foreach (var r in roles)
+                    {
+                        var checkedVal = map.ContainsKey(r.Id) && map[r.Id].Contains(p.Id);
+                        <td class="text-center col-role-@r.Id row-perm-@p.Id">
+                            <input type="checkbox" name="assignments" value="@r.Id|@p.Id" @(checkedVal ? "checked" : "") />
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button class="btn btn-primary">Save Matrix</button>
+</form>
+
+<script>
+    (function(){
+        // Role filter
+        const roleFilter = document.getElementById('roleFilter');
+        const clearFilter = document.getElementById('clearFilter');
+        roleFilter?.addEventListener('change', function(){
+            const role = this.value;
+            document.querySelectorAll('[class*=\"col-role-\"]').forEach(el => el.style.display = '');
+            if(role){
+                document.querySelectorAll('[class*=\"col-role-\"]').forEach(el => el.style.display = 'none');
+                document.querySelectorAll('.col-role-' + role).forEach(el => el.style.display = 'table-cell');
+            }
+        });
+        clearFilter?.addEventListener('click', function(e){ e.preventDefault(); roleFilter.value = ''; roleFilter.dispatchEvent(new Event('change')); });
+
+        // Select all per-role header checkbox
+        document.querySelectorAll('.select-role').forEach(cb => {
+            cb.addEventListener('change', function(){
+                const role = this.dataset.role;
+                const checked = this.checked;
+                document.querySelectorAll('.col-role-' + role + ' input[type=checkbox]').forEach(c => c.checked = checked);
+            });
+        });
+
+        // Select all per-permission (row) checkbox
+        document.querySelectorAll('.select-permission').forEach(cb => {
+            cb.addEventListener('change', function(){
+                const perm = this.dataset.perm;
+                const checked = this.checked;
+                document.querySelectorAll('.row-perm-' + perm + ' input[type=checkbox]').forEach(c => c.checked = checked);
+            });
+        });
+    })();
+</script>

@@ -1,0 +1,31 @@
+@model ARCompletions.Domain.Vendor
+@{
+    ViewData["Title"] = "我的廠商設定";
+}
+
+<h1>我的廠商設定</h1>
+
+<div class="card">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">廠商 Id</dt>
+            <dd class="col-sm-9">@Model.Id</dd>
+            <dt class="col-sm-3">代碼</dt>
+            <dd class="col-sm-9">@Model.Code</dd>
+            <dt class="col-sm-3">名稱</dt>
+            <dd class="col-sm-9">@Model.Name</dd>
+            <dt class="col-sm-3">聯絡人</dt>
+            <dd class="col-sm-9">@Model.ContactName</dd>
+            <dt class="col-sm-3">聯絡信箱</dt>
+            <dd class="col-sm-9">@Model.ContactEmail</dd>
+            <dt class="col-sm-3">聯絡電話</dt>
+            <dd class="col-sm-9">@Model.ContactPhone</dd>
+            <dt class="col-sm-3">地址</dt>
+            <dd class="col-sm-9">@Model.Address</dd>
+            <dt class="col-sm-3">備註</dt>
+            <dd class="col-sm-9">@Model.Remark</dd>
+        </dl>
+
+        <a asp-action="Edit" class="btn btn-primary">編輯</a>
+    </div>
+</div>

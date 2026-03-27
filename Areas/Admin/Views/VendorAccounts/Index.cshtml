@@ -1,0 +1,36 @@
+@model IEnumerable<ARCompletions.Domain.VendorAccount>
+@{
+    ViewData["Title"] = "廠商帳號列表";
+}
+
+<h1>廠商帳號列表</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">新增帳號</a>
+</p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>廠商</th>
+            <th>登入 Email</th>
+            <th>名稱</th>
+            <th>啟用</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.VendorId</td>
+            <td>@item.LoginEmail</td>
+            <td>@item.AccountName</td>
+            <td>@(item.IsActive ? "是" : "否")</td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">編輯</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

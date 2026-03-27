@@ -1,0 +1,48 @@
+@model ARCompletions.Areas.Admin.Models.PlatformUserEditViewModel
+@{
+    ViewData["Title"] = "編輯平台使用者";
+}
+
+<h1>編輯平台使用者</h1>
+
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="Id" />
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="Email" class="form-label"></label>
+        <input asp-for="Email" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="Password" class="form-label">密碼（不修改請留空）</label>
+        <input asp-for="Password" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="Department" class="form-label"></label>
+        <input asp-for="Department" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="JobTitle" class="form-label"></label>
+        <input asp-for="JobTitle" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="Phone" class="form-label"></label>
+        <input asp-for="Phone" class="form-control" />
+    </div>
+    <div class="form-check mb-3">
+        <input asp-for="IsActive" class="form-check-input" />
+        <label asp-for="IsActive" class="form-check-label"></label>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">角色</label>
+        <select asp-for="SelectedRoleIds" asp-items="(MultiSelectList)ViewBag.Roles" class="form-select" multiple size="6"></select>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">可管理廠商</label>
+        <select asp-for="SelectedVendorIds" asp-items="(MultiSelectList)ViewBag.Vendors" class="form-select" multiple size="8"></select>
+    </div>
+    <button type="submit" class="btn btn-primary">儲存</button>
+    <a asp-action="Index" class="btn btn-secondary">返回列表</a>
+</form>

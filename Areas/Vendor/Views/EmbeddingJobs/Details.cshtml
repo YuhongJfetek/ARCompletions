@@ -1,0 +1,43 @@
+@model ARCompletions.Domain.EmbeddingJob
+@{
+    ViewData["Title"] = "Embedding 任務詳情";
+    var logs = ViewBag.Logs as IEnumerable<ARCompletions.Domain.EmbeddingLog> ?? Enumerable.Empty<ARCompletions.Domain.EmbeddingLog>();
+}
+
+<h1>Embedding 任務詳情</h1>
+
+<div class="card">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">JobNo</dt>
+            <dd class="col-sm-9">@Model.JobNo</dd>
+            <dt class="col-sm-3">狀態</dt>
+            <dd class="col-sm-9">@Model.Status</dd>
+            <dt class="col-sm-3">向量版本</dt>
+            <dd class="col-sm-9">@Model.VectorVersion</dd>
+            <dt class="col-sm-3">模型</dt>
+            <dd class="col-sm-9">@Model.ModelName</dd>
+            <dt class="col-sm-3">建立時間</dt>
+            <dd class="col-sm-9">@(Model.CreatedAt==0?"-":DateTimeOffset.FromUnixTimeSeconds(Model.CreatedAt).UtcDateTime.ToString("yyyy-MM-dd HH:mm"))</dd>
+            <dt class="col-sm-3">成功/失敗</dt>
+            <dd class="col-sm-9">@Model.SuccessCount / @Model.FailCount</dd>
+            <dt class="col-sm-3">錯誤訊息</dt>
+            <dd class="col-sm-9">@Model.ErrorMessage</dd>
+        </dl>
+
+        <h5>Logs</h5>
+        <ul>
+        @foreach(var l in logs)
+        {
+            <li>@(DateTimeOffset.FromUnixTimeSeconds(l.CreatedAt).UtcDateTime.ToString("yyyy-MM-dd HH:mm")) - @l.Message</li>
+        }
+        </ul>
+
+        <form asp-action="Retry" method="post" class="mb-3">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="submit" class="btn btn-warning">Retry</button>
+            <a asp-action="Index" class="btn btn-secondary">回到列表</a>
+        </form>
+    </div>
+</div>

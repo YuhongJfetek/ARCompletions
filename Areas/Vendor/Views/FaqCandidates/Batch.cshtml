@@ -1,0 +1,46 @@
+@model ARCompletions.Areas.Vendor.Models.VendorFaqCandidatesBatchViewModel
+
+@{
+    ViewData["Title"] = "Batch Create FAQs";
+}
+
+<h2>Batch Create FAQs</h2>
+
+<form asp-action="BatchCreate" method="post">
+    <div>
+        <label for="category">Target Category</label>
+        <select id="category" name="categoryId" class="form-control">
+            @foreach (var c in Model.Categories)
+            {
+                <option value="@c.Value" @(c.Value == Model.SelectedCategoryId ? "selected" : "")>@c.Text</option>
+            }
+        </select>
+    </div>
+
+    <table class="table table-sm mt-3">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Question</th>
+                <th>Answer</th>
+                <th>Score</th>
+                <th>GeneratedAt</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td><input type="checkbox" name="selectedIds" value="@item.Id" /></td>
+                    <td>@item.Question</td>
+                    <td>@item.Answer</td>
+                    <td>@(item.ConfidenceScore?.ToString("F2") ?? "-")</td>
+                    <td>@(DateTimeOffset.FromUnixTimeSeconds(item.GeneratedAt).ToString("g"))</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button type="submit" class="btn btn-primary">Create FAQs and Enqueue Embedding</button>
+    @Html.AntiForgeryToken()
+</form>

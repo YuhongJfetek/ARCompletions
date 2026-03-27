@@ -5,7 +5,9 @@
 using System;
 using System.IO;
 using System.Net;
+using System.Security.Claims;
 using ARCompletions.Data;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using ARCompletions.Config;
@@ -68,6 +70,28 @@ if (isPostgres)
 builder.Services.AddControllersWithViews();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// 認證與授權：使用 Cookie 登入平台帳號與廠商帳號
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Admin/Account/Login";
+        options.AccessDeniedPath = "/Admin/Account/AccessDenied";
+        options.SlidingExpiration = true;
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Platform", policy =>
+    {
+        policy.RequireClaim("Role", "Platform");
+    });
+
+    options.AddPolicy("Vendor", policy =>
+    {
+        policy.RequireClaim("Role", "Vendor");
+    });
+});
 // bind embedding config (can be set via appsettings or secrets / env vars)
 builder.Services.Configure<EmbeddingOptions>(builder.Configuration.GetSection("Embedding"));
 // typed HttpClient for OpenAI requests (used by AnalysisWorker)
@@ -78,15 +102,24 @@ builder.Services.AddHttpClient("OpenAI", c =>
 });
 // HttpClient for external services (LINE)
 builder.Services.AddHttpClient();
-// Line bot service
-builder.Services.AddScoped<ARCompletions.Services.LineBotService>();
-// Line business service (persistence + enqueue)
-builder.Services.AddScoped<ARCompletions.Services.ILineService, ARCompletions.Services.LineService>();
-// embedding service
+// 後端 Service 舊實作已移除，暫時註解掉註冊（未來有新的 Service 再補上）
+// builder.Services.AddScoped<ARCompletions.Services.LineBotService>();
+// builder.Services.AddScoped<ARCompletions.Services.ILineService, ARCompletions.Services.LineService>();
+// builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingService, ARCompletions.Services.EmbeddingService>();
+// builder.Services.AddHostedService<ARCompletions.Services.AnalysisWorker>();
+// 新註冊：Embedding service + worker
 builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingService, ARCompletions.Services.EmbeddingService>();
-// Authentication removed: admin login/logout UI removed; handle auth externally if needed
-
+builder.Services.AddHostedService<ARCompletions.Services.EmbeddingWorker>();
+// background in-memory queue for immediate job enqueueing
+builder.Services.AddSingleton<ARCompletions.Services.IBackgroundJobQueue, ARCompletions.Services.BackgroundJobQueue>();
+// bulk job queue + worker for processing large admin batch operations
+builder.Services.AddSingleton<ARCompletions.Services.IBulkJobQueue, ARCompletions.Services.BulkJobQueue>();
+builder.Services.AddHostedService<ARCompletions.Services.BulkJobWorker>();
+// Analysis service + worker (stub)
+builder.Services.AddSingleton<ARCompletions.Services.IAnalysisService, ARCompletions.Services.StubAnalysisService>();
 builder.Services.AddHostedService<ARCompletions.Services.AnalysisWorker>();
+// Vendor scope helper
+builder.Services.AddScoped<ARCompletions.Services.VendorScopeService>();
 
 var app = builder.Build();
 
@@ -157,7 +190,8 @@ app.UseSwaggerUI(c =>
 
 app.UseCors("AllowAll");
 
-// Authentication middleware removed because login/logout endpoints were removed
+app.UseAuthentication();
+app.UseAuthorization();
 
 // wwwroot
 app.UseStaticFiles();

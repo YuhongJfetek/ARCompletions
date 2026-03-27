@@ -20,6 +20,11 @@
   </ItemGroup>
 
   <!-- 讓專案根目錄的 Image 資料夾被複製到輸出與發佈 -->
+
+  <!-- Exclude test files placed under tests/ from main project compilation -->
+  <ItemGroup>
+    <Compile Remove="tests\**\*.cs" />
+  </ItemGroup>
   <ItemGroup>
     <Content Include="Image\**\*">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

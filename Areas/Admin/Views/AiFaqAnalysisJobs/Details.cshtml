@@ -1,0 +1,65 @@
+@model ARCompletions.Domain.AiFaqAnalysisJob
+
+@{
+    ViewData["Title"] = "AI FAQ Analysis Job Details";
+}
+
+<h1>Job Details</h1>
+
+<dl class="row">
+    <dt class="col-sm-3">Job No</dt>
+    <dd class="col-sm-9">@Model.JobNo</dd>
+
+    <dt class="col-sm-3">Vendor</dt>
+    <dd class="col-sm-9">@((ViewBag.Vendor as ARCompletions.Domain.Vendor)?.Name ?? Model.VendorId)</dd>
+
+    <dt class="col-sm-3">Status</dt>
+    <dd class="col-sm-9">@Model.Status</dd>
+
+    <dt class="col-sm-3">Created</dt>
+    <dd class="col-sm-9">@System.DateTimeOffset.FromUnixTimeSeconds(Model.CreatedAt).UtcDateTime.ToString("yyyy-MM-dd HH:mm")</dd>
+
+    <dt class="col-sm-3">Conversation Count</dt>
+    <dd class="col-sm-9">@Model.ConversationCount</dd>
+
+    <dt class="col-sm-3">Candidate Count</dt>
+    <dd class="col-sm-9">@Model.CandidateCount</dd>
+
+    <dt class="col-sm-3">Error</dt>
+    <dd class="col-sm-9">@Model.ErrorMessage</dd>
+</dl>
+
+<form asp-area="Admin" asp-controller="AiFaqAnalysisJobs" asp-action="Retry" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="id" value="@Model.Id" />
+    <button class="btn btn-warning">Retry Job</button>
+    <a asp-area="Admin" asp-controller="AiFaqAnalysisJobs" asp-action="Index" class="btn btn-secondary">Back</a>
+</form>
+
+<h2 class="mt-4">Generated Candidates</h2>
+@{
+    var candidates = ViewBag.Candidates as IEnumerable<ARCompletions.Domain.FaqCandidate> ?? Enumerable.Empty<ARCompletions.Domain.FaqCandidate>();
+}
+
+<table class="table table-sm">
+    <thead>
+        <tr>
+            <th>Question</th>
+            <th>Confidence</th>
+            <th>Status</th>
+            <th>Generated At</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var c in candidates)
+        {
+            <tr>
+                <td>@c.Question</td>
+                <td>@(c.ConfidenceScore?.ToString("0.00") ?? "-")</td>
+                <td>@c.Status</td>
+                <td>@(c.GeneratedAt > 0 ? System.DateTimeOffset.FromUnixTimeSeconds(c.GeneratedAt).UtcDateTime.ToString("yyyy-MM-dd HH:mm") : "-")</td>
+            </tr>
+        }
+    </tbody>
+</table>
+

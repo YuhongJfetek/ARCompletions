@@ -1,0 +1,27 @@
+@model ARCompletions.Areas.Vendor.Controllers.VendorLoginViewModel
+@{
+    ViewData["Title"] = "廠商登入";
+    var returnUrl = ViewData["ReturnUrl"] as string;
+}
+
+<h1>廠商登入</h1>
+
+<form asp-action="Login" method="post">
+    <input type="hidden" name="returnUrl" value="@returnUrl" />
+    <div>
+        <label asp-for="Email">Email</label>
+        <input asp-for="Email" />
+        <span asp-validation-for="Email"></span>
+    </div>
+    <div>
+        <label asp-for="Password">密碼</label>
+        <input asp-for="Password" type="password" />
+        <span asp-validation-for="Password"></span>
+    </div>
+    <button type="submit">登入</button>
+</form>
+
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="text-danger">@string.Join("; ", ViewData.ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))</div>
+}

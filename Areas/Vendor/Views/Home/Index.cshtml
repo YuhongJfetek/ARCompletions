@@ -1,0 +1,17 @@
+@model ARCompletions.Areas.Vendor.Models.VendorDashboardViewModel
+@{
+    ViewData["Title"] = ViewData["Title"] ?? "廠商後台首頁";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<p>VendorId：@Model.VendorId</p>
+
+<ul>
+    <li>自己的對話數：@Model.ConversationCount</li>
+    <li>FAQ 數：@Model.FaqCount</li>
+    <li>FAQ 候選數：@Model.FaqCandidateCount</li>
+    <li>Embedding 任務數：@Model.EmbeddingJobCount</li>
+</ul>
+
+<p>後續可以在此加入圖表與連結到「對話紀錄」、「FAQ 管理」、「Embedding 管理」等頁面。</p>

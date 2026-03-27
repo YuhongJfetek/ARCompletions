@@ -1,9 +1,11 @@
 using System.Threading.Tasks;
 
-namespace ARCompletions.Services
+namespace ARCompletions.Services;
+
+public interface IEmbeddingService
 {
-    public interface IEmbeddingService
-    {
-        Task<double[]> ComputeEmbeddingAsync(string text, int dim, string? apiKey);
-    }
+    /// <summary>
+    /// 呼叫 OpenAI Embeddings API，回傳 raw JSON 字串（會包含向量資料）。
+    /// </summary>
+    Task<string?> GetEmbeddingJsonAsync(string input, string model);
 }

@@ -1,0 +1,46 @@
+@model IEnumerable<ARCompletions.Domain.FaqLog>
+@{
+    ViewData["Title"] = "FAQ 操作紀錄";
+    var faqIdFilter = Context.Request.Query["faqId"].ToString();
+    var actionTypeFilter = Context.Request.Query["actionType"].ToString();
+}
+
+<h1>FAQ 操作紀錄（廠商）</h1>
+
+<form method="get" class="row g-2 mb-2">
+    <div class="col-auto">
+        <input name="faqId" value="@faqIdFilter" placeholder="FAQ Id" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <input name="actionType" value="@actionTypeFilter" placeholder="Action Type" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-sm btn-primary" type="submit">搜尋</button>
+    </div>
+</form>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>時間</th>
+            <th>操作</th>
+            <th>FAQ</th>
+            <th>操作人</th>
+            <th>摘要</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach(var l in Model)
+    {
+        <tr>
+            <td>@(System.DateTimeOffset.FromUnixTimeSeconds(l.OperatedAt).UtcDateTime.ToString("yyyy-MM-dd HH:mm"))</td>
+            <td>@l.ActionType</td>
+            <td>@l.FaqId</td>
+            <td>@l.OperatedByType / @l.OperatedById</td>
+            <td>@((l.AfterJson ?? l.BeforeJson) != null ? (((l.AfterJson ?? l.BeforeJson)!.Length > 120) ? ((l.AfterJson ?? l.BeforeJson)!.Substring(0,120) + "...") : (l.AfterJson ?? l.BeforeJson)) : "")</td>
+            <td><a asp-action="Details" asp-route-id="@l.Id" class="btn btn-sm btn-secondary">檢視</a></td>
+        </tr>
+    }
+    </tbody>
+</table>

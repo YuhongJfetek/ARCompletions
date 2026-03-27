@@ -1,0 +1,67 @@
+@model IEnumerable<ARCompletions.Domain.FaqLog>
+
+@{
+    ViewData["Title"] = "FAQ Logs";
+}
+
+<h1>FAQ Logs</h1>
+
+<form method="get" class="row mb-3">
+    <div class="col-auto">
+        <select name="vendorId" class="form-select">
+            <option value="">All Vendors</option>
+            @foreach (var v in (IEnumerable<ARCompletions.Domain.Vendor>)ViewBag.Vendors)
+            {
+                <option value="@v.Id" @(ViewBag.SelectedVendorId == v.Id ? "selected" : "")>@v.Name (@v.Code)</option>
+            }
+        </select>
+    </div>
+    <div class="col-auto">
+        <input type="text" name="faqId" value="@ViewBag.SelectedFaqId" class="form-control" placeholder="FAQ Id" />
+    </div>
+    <div class="col-auto">
+        <select name="actionType" class="form-select">
+            <option value="">All Actions</option>
+            <option value="Faq.Create">Faq.Create</option>
+            <option value="Faq.Edit">Faq.Edit</option>
+            <option value="Faq.StatusChange">Faq.StatusChange</option>
+            <option value="Faq.Delete">Faq.Delete</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-primary">Filter</button>
+    </div>
+</form>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Time</th>
+            <th>Vendor</th>
+            <th>Actor</th>
+            <th>Action</th>
+            <th>Target</th>
+            <th>Before</th>
+            <th>After</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var l in Model)
+        {
+            var vendor = ((IEnumerable<ARCompletions.Domain.Vendor>)ViewBag.Vendors).FirstOrDefault(v => v.Id == l.VendorId);
+            <tr>
+                <td>@System.DateTimeOffset.FromUnixTimeSeconds(l.OperatedAt).UtcDateTime.ToString("yyyy-MM-dd HH:mm")</td>
+                <td>@(vendor?.Name ?? l.VendorId)</td>
+                <td>@(l.OperatedByType + ":" + (l.OperatedById?.ToString() ?? ""))</td>
+                <td>@l.ActionType</td>
+                <td>@l.FaqId</td>
+                <td style="max-width:300px;overflow:auto;">@l.BeforeJson</td>
+                <td style="max-width:300px;overflow:auto;">@l.AfterJson</td>
+                <td>
+                    <a asp-area="Admin" asp-controller="FaqLogs" asp-action="Details" asp-route-id="@l.Id" class="btn btn-sm btn-secondary">Details</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

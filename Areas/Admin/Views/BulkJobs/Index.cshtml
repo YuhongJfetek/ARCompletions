@@ -1,0 +1,53 @@
+@model ARCompletions.Areas.Admin.Models.BulkJobsIndexViewModel
+@{
+    ViewData["Title"] = "Bulk Jobs";
+}
+
+<h1>Bulk Jobs</h1>
+
+<div class="text-muted mb-2">共 @Model.TotalCount 筆</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Action</th>
+            <th>Initiator</th>
+            <th>Count</th>
+            <th>Processed</th>
+            <th>Status</th>
+            <th>Created At</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model.Items)
+    {
+        <tr>
+            <td>@item.Id</td>
+            <td>@item.Action</td>
+            <td>@item.Initiator</td>
+            <td>@item.TotalCount</td>
+            <td>@item.ProcessedCount</td>
+            <td>@item.Status</td>
+            <td>@(item.CreatedAt == 0 ? "-" : DateTimeOffset.FromUnixTimeSeconds(item.CreatedAt).UtcDateTime.ToString("yyyy-MM-dd HH:mm"))</td>
+            <td><a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">Details</a></td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<nav>
+    <ul class="pagination">
+        <li class="page-item @(Model.Page <= 1 ? "disabled" : "")">
+            <a class="page-link" href="?page=@(Model.Page-1)&pageSize=@Model.PageSize">上一頁</a>
+        </li>
+        @for (var p = 1; p <= Model.TotalPages; p++)
+        {
+            <li class="page-item @(p==Model.Page?"active":"")"><a class="page-link" href="?page=@p&pageSize=@Model.PageSize">@p</a></li>
+        }
+        <li class="page-item @(Model.Page >= Model.TotalPages ? "disabled" : "")">
+            <a class="page-link" href="?page=@(Model.Page+1)&pageSize=@Model.PageSize">下一頁</a>
+        </li>
+    </ul>
+</nav>

@@ -1,0 +1,18 @@
+@model ARCompletions.Domain.AuditLog
+@{
+    ViewData["Title"] = "審計記錄明細";
+}
+
+<h1>審計記錄明細</h1>
+
+<table class="table table-bordered">
+    <tr><th>時間</th><td>@DateTimeOffset.FromUnixTimeSeconds(Model.Timestamp).UtcDateTime</td></tr>
+    <tr><th>操作者</th><td>@Model.Actor</td></tr>
+    <tr><th>動作</th><td>@Model.Action</td></tr>
+    <tr><th>TargetId</th><td>@Model.TargetId</td></tr>
+    <tr><th>Payload</th><td><pre>@Model.Payload</pre></td></tr>
+</table>
+
+<p>
+    <a asp-action="Index" class="btn btn-secondary">返回列表</a>
+</p>

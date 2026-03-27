@@ -1,0 +1,55 @@
+@model IEnumerable<ARCompletions.Domain.Conversation>
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "對話列表 (總部)";
+}
+
+<h1>對話列表 (總部)</h1>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <label class="form-label">廠商</label>
+        <select name="vendorId" class="form-select" asp-items="(SelectList)ViewBag.Vendors">
+            <option value="">(全部)</option>
+        </select>
+    </div>
+    <div class="col-auto align-self-end">
+        <button type="submit" class="btn btn-secondary">篩選</button>
+    </div>
+</form>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Vendor</th>
+            <th>平台</th>
+            <th>Channel</th>
+            <th>UserId</th>
+            <th>名稱</th>
+            <th>訊息數</th>
+            <th>狀態</th>
+            <th>開始時間</th>
+            <th>最後訊息時間</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.VendorId</td>
+            <td>@item.Platform</td>
+            <td>@item.Channel</td>
+            <td>@item.ExternalUserId</td>
+            <td>@item.DisplayName</td>
+            <td>@item.MessageCount</td>
+            <td>@item.Status</td>
+            <td>@item.StartedAt</td>
+            <td>@item.LastMessageAt</td>
+            <td>
+                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">檢視</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

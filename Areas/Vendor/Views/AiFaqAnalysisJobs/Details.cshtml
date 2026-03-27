@@ -1,0 +1,31 @@
+@model ARCompletions.Domain.AiFaqAnalysisJob
+@{
+    ViewData["Title"] = "AI FAQ 分析任務詳情";
+}
+
+<h1>AI FAQ 分析任務詳情</h1>
+
+<dl class="row">
+    <dt class="col-sm-3">JobNo</dt>
+    <dd class="col-sm-9">@Model.JobNo</dd>
+    <dt class="col-sm-3">狀態</dt>
+    <dd class="col-sm-9">@Model.Status</dd>
+    <dt class="col-sm-3">範圍</dt>
+    <dd class="col-sm-9">@Model.DateFrom - @Model.DateTo</dd>
+    <dt class="col-sm-3">候選數</dt>
+    <dd class="col-sm-9">@Model.CandidateCount</dd>
+    <dt class="col-sm-3">錯誤訊息</dt>
+    <dd class="col-sm-9">@Model.ErrorMessage</dd>
+    <dt class="col-sm-3">建立時間</dt>
+    <dd class="col-sm-9">@Model.CreatedAt</dd>
+</dl>
+
+<h5>Candidates</h5>
+<ul>
+@foreach(var c in (IEnumerable<ARCompletions.Domain.FaqCandidate>)(ViewBag.Candidates ?? new List<ARCompletions.Domain.FaqCandidate>()))
+{
+    <li>@(c.ConfidenceScore?.ToString("P2") ?? "-") - @c.Question</li>
+}
+</ul>
+
+<a asp-action="Index" class="btn btn-secondary">回到列表</a>

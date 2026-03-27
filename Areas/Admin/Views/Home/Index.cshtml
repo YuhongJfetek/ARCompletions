@@ -1,15 +1,18 @@
+@model ARCompletions.Areas.Admin.Models.AdminDashboardViewModel
 @{
-    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewData["Title"] = ViewData["Title"] ?? "總部後台首頁";
 }
 
-<div class="container mt-4">
-    <h1>管理後台</h1>
-    <p>管理首頁</p>
+<h1>@ViewData["Title"]</h1>
 
-    <div class="list-group mt-3">
-        <a class="list-group-item list-group-item-action" asp-area="Admin" asp-controller="Analysis" asp-action="Index">分析工作</a>
-        <a class="list-group-item list-group-item-action" asp-area="Admin" asp-controller="Analysis" asp-action="Unmatched">未匹配查詢 (Unmatched)</a>
-        <!-- 聊天記錄 (Chat) 已移除 -->
-        <a class="list-group-item list-group-item-action" asp-area="Admin" asp-controller="Analysis" asp-action="WebhookLogs">Webhook 日誌</a>
-    </div>
-</div>
+<ul>
+    <li>廠商總數：@Model.VendorCount</li>
+    <li>啟用廠商數：@Model.ActiveVendorCount</li>
+    <li>對話總數：@Model.ConversationCount</li>
+    <li>FAQ 總數：@Model.FaqCount</li>
+    <li>FAQ 候選總數：@Model.FaqCandidateCount</li>
+    <li>Embedding 任務總數：@Model.EmbeddingJobCount</li>
+    <li>AI FAQ 分析任務總數：@Model.AiFaqAnalysisJobCount</li>
+</ul>
+
+<p>後續可以在此加入圖表、連結到各管理頁面（廠商管理、對話紀錄、FAQ 管理、Embedding 管理等）。</p>

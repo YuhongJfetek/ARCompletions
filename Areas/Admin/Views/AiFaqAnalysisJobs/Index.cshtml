@@ -1,0 +1,65 @@
+@model IEnumerable<ARCompletions.Domain.AiFaqAnalysisJob>
+
+@{
+    ViewData["Title"] = "AI FAQ Analysis Jobs";
+}
+
+<h1>AI FAQ Analysis Jobs</h1>
+
+<form method="get" class="row mb-3">
+    <div class="col-auto">
+        <select name="vendorId" class="form-select">
+            <option value="">All Vendors</option>
+            @foreach (var v in (IEnumerable<ARCompletions.Domain.Vendor>)ViewBag.Vendors)
+            {
+                <option value="@v.Id">@v.Name (@v.Code)</option>
+            }
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="status" class="form-select">
+            <option value="">All Status</option>
+            <option value="pending">pending</option>
+            <option value="processing">processing</option>
+            <option value="finished">finished</option>
+            <option value="failed">failed</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-primary">Filter</button>
+    </div>
+</form>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>JobNo</th>
+            <th>Vendor</th>
+            <th>Status</th>
+            <th>Created</th>
+
+            <th>對話數</th>
+            <th>訊息數</th>
+            <th>候選數</th>
+            <th>建立時間</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.JobNo</td>
+            <td>@item.VendorId</td>
+            <td>@item.Status</td>
+            <td>@item.ConversationCount</td>
+            <td>@item.MessageCount</td>
+            <td>@item.CandidateCount</td>
+            <td>@item.CreatedAt</td>
+            <td>
+                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">檢視</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
