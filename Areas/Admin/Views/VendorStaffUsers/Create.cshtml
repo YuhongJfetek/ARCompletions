@@ -1,0 +1,27 @@
+@model ARCompletions.Domain.VendorStaffUser
+
+<h2>Create Vendor Staff User</h2>
+
+<form asp-area="Admin" asp-controller="VendorStaffUsers" asp-action="Create" method="post">
+    <div class="form-group">
+        <label>VendorId</label>
+        <input class="form-control" name="VendorId" />
+    </div>
+    <div class="form-group">
+        <label>LineUserId</label>
+        <input class="form-control" name="LineUserId" />
+    </div>
+    <div class="form-group">
+        <label>Name</label>
+        <input class="form-control" name="Name" />
+    </div>
+    <div class="form-group">
+        <label>Role</label>
+        <input class="form-control" name="Role" />
+    </div>
+    <div class="form-group">
+        <label>IsActive</label>
+        <input type="checkbox" name="IsActive" checked />
+    </div>
+    <button type="submit" class="btn btn-primary">Create</button>
+</form>

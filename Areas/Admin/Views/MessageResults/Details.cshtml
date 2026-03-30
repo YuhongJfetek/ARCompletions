@@ -18,11 +18,26 @@
     <dt class="col-sm-2">MessageId</dt>
     <dd class="col-sm-10">@Model.MessageId</dd>
 
+    <dt class="col-sm-2">VendorId</dt>
+    <dd class="col-sm-10">@Model.VendorId</dd>
+
+    <dt class="col-sm-2">Route</dt>
+    <dd class="col-sm-10">@(Model.Route ?? "-")</dd>
+
+    <dt class="col-sm-2">MessageRouteId</dt>
+    <dd class="col-sm-10">@if(!string.IsNullOrWhiteSpace(Model.MessageRouteId)) { <a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Details" asp-route-id="@Model.MessageRouteId">@Model.MessageRouteId</a> } else { <span>-</span> }</dd>
+
     <dt class="col-sm-2">MatchedFaqId</dt>
     <dd class="col-sm-10">@Model.MatchedFaqId</dd>
 
     <dt class="col-sm-2">Confidence</dt>
     <dd class="col-sm-10">@(Model.Confidence?.ToString("F3") ?? "-")</dd>
+
+    <dt class="col-sm-2">MatchedBy</dt>
+    <dd class="col-sm-10">@(Model.MatchedBy ?? "-")</dd>
+
+    <dt class="col-sm-2">MatchedScore</dt>
+    <dd class="col-sm-10">@(Model.MatchedScore?.ToString("F3") ?? "-")</dd>
 
     <dt class="col-sm-2">CreatedBy</dt>
     <dd class="col-sm-10">@Model.CreatedBy</dd>

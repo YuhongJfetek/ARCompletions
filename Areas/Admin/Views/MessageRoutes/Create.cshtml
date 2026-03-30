@@ -1,0 +1,35 @@
+@model ARCompletions.Domain.MessageRoute
+
+<h2>Create Message Route</h2>
+
+<form asp-area="Admin" asp-controller="MessageRoutes" asp-action="Create" method="post">
+    <div class="form-group">
+        <label>VendorId</label>
+        <input class="form-control" name="VendorId" />
+    </div>
+    <div class="form-group">
+        <label>Route</label>
+        <input class="form-control" name="Route" />
+    </div>
+    <div class="form-group">
+        <label>Reason</label>
+        <input class="form-control" name="Reason" />
+    </div>
+    <div class="form-group">
+        <label>MatchedFaqId</label>
+        <input class="form-control" name="MatchedFaqId" />
+    </div>
+    <div class="form-group">
+        <label>MatchedScore</label>
+        <input class="form-control" name="MatchedScore" />
+    </div>
+    <div class="form-group">
+        <label>LlmEnabled</label>
+        <input type="checkbox" name="LlmEnabled" />
+    </div>
+    <div class="form-group">
+        <label>NeedsHandoff</label>
+        <input type="checkbox" name="NeedsHandoff" />
+    </div>
+    <button type="submit" class="btn btn-primary">Create</button>
+</form>

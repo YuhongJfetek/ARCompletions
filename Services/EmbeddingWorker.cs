@@ -47,7 +47,7 @@ public class EmbeddingWorker : BackgroundService
                     queuedJobId = dequeuedId;
                 }
 
-                string jobIdToProcess = null;
+                string? jobIdToProcess = null;
 
                 if (!string.IsNullOrEmpty(queuedJobId))
                 {

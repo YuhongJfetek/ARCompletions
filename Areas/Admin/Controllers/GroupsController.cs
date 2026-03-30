@@ -39,6 +39,7 @@ public class GroupsController : Controller
         if (string.IsNullOrEmpty(id)) return NotFound();
 
         // TODO: Load group by id from DB when model/table available.
+        await Task.CompletedTask;
         var model = new { Id = id, Name = "(未實作)" };
         return View(model);
     }
@@ -55,6 +56,7 @@ public class GroupsController : Controller
     public async Task<IActionResult> Create(string name, bool botEnabled)
     {
         // TODO: Persist new group to DB. Currently not implemented.
+        await Task.CompletedTask;
         return RedirectToAction(nameof(Index));
     }
 
@@ -63,6 +65,7 @@ public class GroupsController : Controller
     {
         if (string.IsNullOrEmpty(id)) return NotFound();
         // TODO: Load group for edit. Placeholder model returned.
+        await Task.CompletedTask;
         var model = new { Id = id, Name = "(未實作)", BotEnabled = false };
         return View(model);
     }
@@ -72,6 +75,7 @@ public class GroupsController : Controller
     public async Task<IActionResult> Edit(string id, string name, bool botEnabled)
     {
         // TODO: Persist edit to DB. Currently not implemented.
+        await Task.CompletedTask;
         return RedirectToAction(nameof(Index));
     }
 }

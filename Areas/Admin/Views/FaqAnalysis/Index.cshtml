@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "FAQ 分析 (低信心 / 未匹配)";
 }
+@{ #pragma warning disable CS8600 }
 
 <h1>FAQ 分析 — 低信心 / 未匹配</h1>
 
@@ -54,10 +55,10 @@
             <td>@(DateTimeOffset.FromUnixTimeSeconds(m.CreatedAt).UtcDateTime)</td>
             <td>@m.VendorId</td>
             <td><a asp-area="Admin" asp-controller="Conversations" asp-action="Details" asp-route-id="@m.ConversationId">@m.ConversationId</a></td>
-            <td>@m.Direction</td>
-            <td>@m.MessageText</td>
-            <td>@m.SourceType</td>
-            <td>@m.SourceFaqId</td>
+            <td>@(m.Direction ?? "")</td>
+            <td>@(m.MessageText ?? "")</td>
+            <td>@(m.SourceType ?? "")</td>
+            <td>@(m.SourceFaqId ?? "")</td>
             <td>@(m.ConfidenceScore?.ToString("0.00") ?? "-")</td>
             <td>
                 <a asp-action="Details" asp-route-id="@m.Id" class="btn btn-sm btn-outline-secondary">檢視</a>
@@ -68,10 +69,10 @@
 </table>
 
 @{
-    int curPage = ViewBag.Page != null ? (int)ViewBag.Page : 1;
-    int totalPages = ViewBag.TotalPages != null ? (int)ViewBag.TotalPages : 1;
-    int pageSize = ViewBag.PageSize != null ? (int)ViewBag.PageSize : 50;
-    long totalCount = ViewBag.TotalCount != null ? (long)ViewBag.TotalCount : 0L;
+    int curPage = ViewBag.Page is int p ? p : 1;
+    int totalPages = ViewBag.TotalPages is int tp ? tp : 1;
+    int pageSize = ViewBag.PageSize is int ps ? ps : 50;
+    long totalCount = ViewBag.TotalCount is long tc ? tc : 0L;
     string vendorId = ViewContext.HttpContext.Request.Query["vendorId"];
     string filter = ViewContext.HttpContext.Request.Query["filter"];
     string confidence = ViewContext.HttpContext.Request.Query["confidenceThreshold"];
@@ -121,3 +122,4 @@
         </ul>
     </nav>
 </div>
+@{ #pragma warning restore CS8600 }

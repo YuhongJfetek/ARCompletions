@@ -1,0 +1,34 @@
+@model IEnumerable<ARCompletions.Domain.MessageRoute>
+
+<h2>Message Routes</h2>
+
+<p><a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Create">Create New</a></p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Route</th>
+            <th>Reason</th>
+            <th>MatchedFaqId</th>
+            <th>Score</th>
+            <th>CreatedAt</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach(var item in Model) {
+        <tr>
+            <td>@item.Route</td>
+            <td>@item.Reason</td>
+            <td>@item.MatchedFaqId</td>
+            <td>@item.MatchedScore</td>
+            <td>@item.CreatedAt</td>
+            <td>
+                <a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Details" asp-route-id="@item.Id">Details</a> |
+                <a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Edit" asp-route-id="@item.Id">Edit</a> |
+                <a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Delete" asp-route-id="@item.Id">Delete</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

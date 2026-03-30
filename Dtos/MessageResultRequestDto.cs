@@ -5,6 +5,8 @@ namespace ARCompletions.Dtos
 {
     public class MessageResultRequestDto
     {
+        // new: vendor id to associate results with a vendor
+        public string? VendorId { get; set; }
         public string TraceId { get; set; } = "";
 
         public MessageContextDto MessageContext { get; set; } = new();
@@ -22,6 +24,8 @@ namespace ARCompletions.Dtos
         public string? UserMessage { get; set; }
         public DateTime MessageTimestamp { get; set; }
         public string Language { get; set; } = "zh";
+        public string? SessionId { get; set; }
+        public List<AttachmentDto> Attachments { get; set; } = new();
     }
 
     public class AnalysisResultDto
@@ -41,6 +45,14 @@ namespace ARCompletions.Dtos
         public bool FallbackUsed { get; set; }
         public string? ErrorCode { get; set; }
         public string? ErrorMessage { get; set; }
+        public string? BotResponseId { get; set; }
+    }
+
+    public class AttachmentDto
+    {
+        public string? Type { get; set; }
+        public string? Url { get; set; }
+        public string? Name { get; set; }
     }
 
     public class MessageSideEffectsDto

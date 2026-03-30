@@ -1,0 +1,28 @@
+@model ARCompletions.Domain.ConversationState
+
+<h2>Conversation State Details</h2>
+
+<dl class="row">
+    <dt class="col-sm-3">VendorId</dt>
+    <dd class="col-sm-9">@Model.VendorId</dd>
+
+    <dt class="col-sm-3">SourceType</dt>
+    <dd class="col-sm-9">@Model.SourceType</dd>
+
+    <dt class="col-sm-3">ConversationId</dt>
+    <dd class="col-sm-9">@Model.ConversationId</dd>
+
+    <dt class="col-sm-3">BotEnabled</dt>
+    <dd class="col-sm-9">@Model.BotEnabled</dd>
+
+    <dt class="col-sm-3">HandoffUntil</dt>
+    <dd class="col-sm-9">@Model.HandoffUntil</dd>
+
+    <dt class="col-sm-3">UpdatedAt</dt>
+    <dd class="col-sm-9">@Model.UpdatedAt</dd>
+</dl>
+
+<p>
+    <a asp-area="Admin" asp-controller="ConversationStates" asp-action="Edit" asp-route-id="@Model.Id">Edit</a> |
+    <a asp-area="Admin" asp-controller="ConversationStates" asp-action="Index">Back to list</a>
+</p>

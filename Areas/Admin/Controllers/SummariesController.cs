@@ -79,7 +79,7 @@ public class SummariesController : Controller
         sb.AppendLine();
         sb.AppendLine("Question,Answer,Confidence,SuggestedCategory,SourceConversationIds");
 
-        string csvEscape(string s)
+        string csvEscape(string? s)
         {
             if (s == null) return string.Empty;
             var outS = s.Replace("\"", "\"\"");

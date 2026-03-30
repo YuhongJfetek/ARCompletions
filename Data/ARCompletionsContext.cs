@@ -51,6 +51,12 @@ public class ARCompletionsContext : DbContext
     public DbSet<ARCompletions.Domain.MessageResult> MessageResults => Set<ARCompletions.Domain.MessageResult>();
     public DbSet<ARCompletions.Domain.FaqQueryLog> FaqQueryLogs => Set<ARCompletions.Domain.FaqQueryLog>();
 
+    // Phase 2 additions
+    public DbSet<ConversationState> ConversationStates => Set<ConversationState>();
+    public DbSet<FaqAlias> FaqAliases => Set<FaqAlias>();
+    public DbSet<MessageRoute> MessageRoutes => Set<MessageRoute>();
+    public DbSet<VendorStaffUser> VendorStaffUsers => Set<VendorStaffUser>();
+
     // 系統設定
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     // 審計日誌

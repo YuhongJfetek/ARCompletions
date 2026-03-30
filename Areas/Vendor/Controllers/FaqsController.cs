@@ -46,7 +46,7 @@ public class FaqsController : Controller
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim();
-            query = query.Where(f => f.Question.Contains(s) || f.Answer.Contains(s) || f.Tags.Contains(s));
+            query = query.Where(f => (f.Question ?? "").Contains(s) || (f.Answer ?? "").Contains(s) || (f.Tags ?? "").Contains(s));
         }
 
         if (!string.IsNullOrWhiteSpace(categoryId)) query = query.Where(f => f.CategoryId == categoryId);

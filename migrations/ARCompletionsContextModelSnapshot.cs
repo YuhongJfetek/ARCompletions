@@ -374,6 +374,21 @@ namespace ARCompletions.migrations
                     b.Property<double?>("Confidence")
                         .HasColumnType("double precision");
 
+                    b.Property<string>("VendorId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Route")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MessageRouteId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MatchedBy")
+                        .HasColumnType("text");
+
+                    b.Property<double?>("MatchedScore")
+                        .HasColumnType("double precision");
+
                     b.Property<long>("CreatedAt")
                         .HasColumnType("bigint");
 
@@ -415,6 +430,87 @@ namespace ARCompletions.migrations
                     b.HasIndex("CreatedAt");
 
                     b.ToTable("FaqQueryLogs");
+                });
+
+            modelBuilder.Entity("ARCompletions.Domain.ConversationState", b =>
+                {
+                    b.Property<string>("Id").HasColumnType("text");
+
+                    b.Property<string>("VendorId").IsRequired().HasColumnType("text");
+                    b.Property<string>("SourceType").IsRequired().HasColumnType("text");
+                    b.Property<string>("ConversationId").IsRequired().HasColumnType("text");
+                    b.Property<bool>("BotEnabled").HasColumnType("boolean");
+                    b.Property<long?>("HandoffUntil").HasColumnType("bigint");
+                    b.Property<string>("PendingDisambiguationIds").HasColumnType("text");
+                    b.Property<long?>("PendingDisambiguationAt").HasColumnType("bigint");
+                    b.Property<long?>("LastStaffMessageAt").HasColumnType("bigint");
+                    b.Property<long>("UpdatedAt").HasColumnType("bigint");
+                    b.Property<string>("UpdatedBy").HasColumnType("text");
+
+                    b.HasKey("Id");
+                    b.HasIndex("VendorId", "SourceType", "ConversationId").IsUnique();
+                    b.ToTable("ConversationStates");
+                });
+
+            modelBuilder.Entity("ARCompletions.Domain.FaqAlias", b =>
+                {
+                    b.Property<string>("Id").HasColumnType("text");
+                    b.Property<string>("VendorId").IsRequired().HasColumnType("text");
+                    b.Property<string>("Term").IsRequired().HasColumnType("text");
+                    b.Property<string>("Synonyms").HasColumnType("text");
+                    b.Property<string>("Mode").IsRequired().HasColumnType("text");
+                    b.Property<string>("FaqIds").IsRequired().HasColumnType("text");
+                    b.Property<bool>("IsActive").HasColumnType("boolean");
+                    b.Property<long>("CreatedAt").HasColumnType("bigint");
+                    b.Property<string>("CreatedBy").HasColumnType("text");
+                    b.Property<long?>("UpdatedAt").HasColumnType("bigint");
+                    b.Property<string>("UpdatedBy").HasColumnType("text");
+
+                    b.HasKey("Id");
+                    b.ToTable("FaqAliases");
+                });
+
+            modelBuilder.Entity("ARCompletions.Domain.MessageRoute", b =>
+                {
+                    b.Property<string>("Id").HasColumnType("text");
+                    b.Property<string>("VendorId").IsRequired().HasColumnType("text");
+                    b.Property<string>("InputLogId").HasColumnType("text");
+                    b.Property<string>("ConversationId").HasColumnType("text");
+                    b.Property<string>("Route").IsRequired().HasColumnType("text");
+                    b.Property<string>("Reason").HasColumnType("text");
+                    b.Property<string>("MatchedFaqId").HasColumnType("text");
+                    b.Property<double?>("MatchedScore").HasColumnType("double precision");
+                    b.Property<string>("MatchedBy").HasColumnType("text");
+                    b.Property<string>("FaqCategory").HasColumnType("text");
+                    b.Property<bool>("LlmEnabled").HasColumnType("boolean");
+                    b.Property<bool>("NeedsHandoff").HasColumnType("boolean");
+                    b.Property<string>("ReplyText").HasColumnType("text");
+                    b.Property<long>("CreatedAt").HasColumnType("bigint");
+
+                    b.HasKey("Id");
+                    b.HasIndex("VendorId");
+                    b.HasIndex("InputLogId");
+                    b.HasIndex("Route");
+                    b.HasIndex("CreatedAt");
+                    b.ToTable("MessageRoutes");
+                });
+
+            modelBuilder.Entity("ARCompletions.Domain.VendorStaffUser", b =>
+                {
+                    b.Property<string>("Id").HasColumnType("text");
+                    b.Property<string>("VendorId").IsRequired().HasColumnType("text");
+                    b.Property<string>("LineUserId").IsRequired().HasColumnType("text");
+                    b.Property<string>("Name").HasColumnType("text");
+                    b.Property<string>("Role").HasColumnType("text");
+                    b.Property<bool>("IsActive").HasColumnType("boolean");
+                    b.Property<long>("CreatedAt").HasColumnType("bigint");
+                    b.Property<string>("CreatedBy").HasColumnType("text");
+                    b.Property<long?>("UpdatedAt").HasColumnType("bigint");
+                    b.Property<string>("UpdatedBy").HasColumnType("text");
+
+                    b.HasKey("Id");
+                    b.HasIndex("VendorId", "LineUserId").IsUnique();
+                    b.ToTable("VendorStaffUsers");
                 });
 #pragma warning restore 612, 618
         }

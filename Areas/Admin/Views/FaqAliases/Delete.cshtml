@@ -1,0 +1,18 @@
+@model ARCompletions.Domain.FaqAlias
+
+<h2>Delete FAQ Alias</h2>
+
+<p>Are you sure you want to delete this FAQ alias?</p>
+
+<dl class="row">
+    <dt class="col-sm-3">Term</dt>
+    <dd class="col-sm-9">@Model.Term</dd>
+    <dt class="col-sm-3">FaqIds</dt>
+    <dd class="col-sm-9">@Model.FaqIds</dd>
+</dl>
+
+<form asp-area="Admin" asp-controller="FaqAliases" asp-action="DeleteConfirmed" method="post">
+    <input type="hidden" name="id" value="@Model.Id" />
+    <button type="submit" class="btn btn-danger">Delete</button>
+    <a asp-area="Admin" asp-controller="FaqAliases" asp-action="Index" class="btn btn-secondary">Cancel</a>
+</form>

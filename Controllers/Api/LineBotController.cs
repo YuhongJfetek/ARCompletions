@@ -14,12 +14,14 @@ public class LineBotController : ControllerBase
     private readonly ARCompletionsContext _db;
     private readonly IFaqQueryService _faqQuery;
     private readonly IMessageResultService _resultService;
+    private readonly IMessageRouteService _routeService;
 
-    public LineBotController(ARCompletionsContext db, IFaqQueryService faqQuery, IMessageResultService resultService)
+    public LineBotController(ARCompletionsContext db, IFaqQueryService faqQuery, IMessageResultService resultService, IMessageRouteService routeService)
     {
         _db = db;
         _faqQuery = faqQuery;
         _resultService = resultService;
+        _routeService = routeService;
     }
 
     // NOTE: /api/message/analyze and /api/message/result endpoints removed.
@@ -79,7 +81,8 @@ public class LineBotController : ControllerBase
         // 轉換為 MessageResultRequestDto 並交由 IMessageResultService 處理（不做任何寫入）
         var resultReq = new MessageResultRequestDto
         {
-            TraceId = Guid.NewGuid().ToString("N"),
+            VendorId = request.VendorId,
+            TraceId = string.IsNullOrWhiteSpace(request.TraceId) ? Guid.NewGuid().ToString("N") : request.TraceId,
             MessageContext = new MessageContextDto
             {
                 LineGroupId = null,
@@ -88,7 +91,8 @@ public class LineBotController : ControllerBase
                 MessageType = request.MessageType,
                 UserMessage = request.MessageText,
                 MessageTimestamp = request.SentAt == default ? DateTime.UtcNow : request.SentAt,
-                Language = "zh"
+                Language = request.Language ?? "zh",
+                SessionId = request.SessionId
             },
             Analysis = new AnalysisResultDto
             {
@@ -101,12 +105,27 @@ public class LineBotController : ControllerBase
             {
                 ReplyStatus = "success",
                 BotReply = request.MessageText,
-                FallbackUsed = false
+                FallbackUsed = false,
+                BotResponseId = request.ResponseId ?? request.BotMessageId
             },
             SideEffects = new MessageSideEffectsDto()
         };
 
-        var resp = await _resultService.PersistResultAsync(resultReq);
+        // build route DTO from analysis for transactional save
+        var routeDto = new ARCompletions.Dtos.MessageRouteCreateDto
+        {
+            VendorId = request.VendorId,
+            ConversationId = request.ConversationId,
+            Route = resultReq.Analysis?.Route ?? (resultReq.Analysis?.MatchedFaqId != null ? $"faq:{resultReq.Analysis.MatchedFaqId}" : ""),
+            MatchedFaqId = resultReq.Analysis?.MatchedFaqId,
+            MatchedScore = resultReq.Analysis?.BestScore.HasValue == true ? (double?)Convert.ToDouble(resultReq.Analysis.BestScore.Value) : null,
+            MatchedBy = resultReq.Analysis?.PersonaApplied,
+            ReplyText = resultReq.NodeResult?.BotReply,
+            LlmEnabled = false,
+            NeedsHandoff = false
+        };
+
+        var resp = await _resultService.PersistResultWithRouteAsync(resultReq, routeDto);
         return Ok(resp);
     }
 }
@@ -124,6 +143,10 @@ public class LineBotInputRequest
     public string? ReplyToken { get; set; }
     public string RawJson { get; set; } = string.Empty;
     public DateTime ReceivedAt { get; set; }
+    public string? TraceId { get; set; }
+    public string? SessionId { get; set; }
+    public string? Language { get; set; }
+    public System.Collections.Generic.List<LineBotAttachmentItem>? Attachments { get; set; }
 }
 
 public class LineBotOutputRequest
@@ -142,4 +165,17 @@ public class LineBotOutputRequest
     public string? PromptVersion { get; set; }
     public string RawJson { get; set; } = string.Empty;
     public DateTime SentAt { get; set; }
+    public string? TraceId { get; set; }
+    public string? SessionId { get; set; }
+    public string? Language { get; set; }
+    public string? ResponseId { get; set; }
+    public string? BotMessageId { get; set; }
+    public System.Collections.Generic.List<LineBotAttachmentItem>? Attachments { get; set; }
+}
+
+public class LineBotAttachmentItem
+{
+    public string? Type { get; set; }
+    public string? Url { get; set; }
+    public string? Name { get; set; }
 }

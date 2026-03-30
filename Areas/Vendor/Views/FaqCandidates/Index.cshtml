@@ -16,12 +16,14 @@
                 {
                     try
                     {
-                        var elems = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement[]>(listJson);
+                        var elems = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement[]>(listJson) ?? Array.Empty<System.Text.Json.JsonElement>();
                         for (int i = 0; i < elems.Length; i++)
                         {
                             var el = elems[i];
-                            var id = el.GetProperty("Id").GetString();
-                            var title = el.GetProperty("Question").GetString();
+                            string id = "";
+                            string title = "(unknown)";
+                            if (el.TryGetProperty("Id", out var idProp)) id = idProp.GetString() ?? "";
+                            if (el.TryGetProperty("Question", out var qProp)) title = qProp.GetString() ?? "(unknown)";
                             <a target="_blank" rel="noopener" href="@Url.Action("Edit", "Faqs", new { area = "Vendor", id = id })">@title</a>@(i < elems.Length - 1 ? ", " : "")
                         }
                     }

@@ -112,11 +112,11 @@ public class FaqAnalysisController : Controller
         sb.AppendLine("CreatedAt,VendorId,ConversationId,MessageId,Direction,MessageText,Route,MatchedFaq,Confidence,Model,PromptVersion");
         foreach (var m in items)
         {
-            string csvEscape(string s)
+            string csvEscape(string? s)
             {
                 if (s == null) return "";
                 var outS = s.Replace("\"", "\"\"");
-                if (outS.Contains(",") || outS.Contains("\n") || outS.Contains("\r") || outS.Contains("\"") ) return "\"" + outS + "\"";
+                if (outS.Contains(",") || outS.Contains("\n") || outS.Contains("\r") || outS.Contains("\"")) return "\"" + outS + "\"";
                 return outS;
             }
 

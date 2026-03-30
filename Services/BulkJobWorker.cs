@@ -62,9 +62,9 @@ public class BulkJobWorker : BackgroundService
                 _logger.LogInformation("Processing BulkJob {Id} action={Action}", job.Id, job.Action);
 
                 // parse filter
-                string vendorId = null;
-                string status = null;
-                string vectorVersion = null;
+                string? vendorId = null;
+                string? status = null;
+                string? vectorVersion = null;
                 try
                 {
                     if (!string.IsNullOrEmpty(job.FilterJson))

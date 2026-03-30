@@ -45,7 +45,7 @@ public class MessageApiController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Save(string webhookUrl, string apiKey, string webhookSecret, bool enableWebhook = false)
     {
-        async Task Upsert(string key, string value, string? desc = null)
+    async Task Upsert(string key, string? value, string? desc = null)
         {
             var sk = "MessageApi:" + key;
             var existing = await _db.SystemSettings.FirstOrDefaultAsync(s => s.SettingKey == sk);
@@ -80,12 +80,12 @@ public class MessageApiController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> TestWebhook(string url)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> TestWebhook(string url)
     {
         // pick url from parameter or from settings
-        string testUrl = url;
+        string? testUrl = url;
         if (string.IsNullOrWhiteSpace(testUrl))
         {
             var ws = await _db.SystemSettings.FirstOrDefaultAsync(s => s.SettingKey == "MessageApi:WebhookUrl");
@@ -129,7 +129,7 @@ public class MessageApiController : Controller
     [HttpPost]
     public async Task<JsonResult> TestWebhookAjax([FromBody] TestRequest req)
     {
-        string testUrl = req?.Url;
+        string? testUrl = req?.Url;
         if (string.IsNullOrWhiteSpace(testUrl))
         {
             var ws = await _db.SystemSettings.FirstOrDefaultAsync(s => s.SettingKey == "MessageApi:WebhookUrl");

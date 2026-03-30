@@ -35,10 +35,13 @@
     <thead>
         <tr>
             <th>Time</th>
+            <th>Vendor</th>
             <th>MessageId</th>
             <th>Source</th>
+            <th>Route</th>
             <th>MatchedFaq</th>
             <th>Confidence</th>
+            <th>MatchedBy</th>
             <th>By</th>
         </tr>
     </thead>
@@ -48,10 +51,13 @@
         var when = DateTimeOffset.FromUnixTimeSeconds(m.CreatedAt).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
         <tr>
             <td>@when</td>
+            <td>@m.VendorId</td>
             <td><a asp-action="Details" asp-route-id="@m.Id">@m.MessageId</a></td>
             <td>@m.Source</td>
+            <td>@(m.Route ?? "-")</td>
             <td>@m.MatchedFaqId</td>
             <td>@(m.Confidence?.ToString("F3") ?? "-")</td>
+            <td>@(m.MatchedBy ?? "-")</td>
             <td>@m.CreatedBy</td>
         </tr>
     }

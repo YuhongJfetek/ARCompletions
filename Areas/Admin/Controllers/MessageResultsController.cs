@@ -73,16 +73,21 @@ public class MessageResultsController : Controller
         }
         var items = await query.OrderByDescending(m => m.CreatedAt).Take(10000).ToListAsync();
         var sb = new StringBuilder();
-        sb.AppendLine("Id,CreatedAt,ConversationId,MessageId,Source,MatchedFaqId,Confidence,CreatedBy,Payload");
+        sb.AppendLine("Id,CreatedAt,VendorId,ConversationId,MessageId,Source,Route,MessageRouteId,MatchedFaqId,MatchedBy,MatchedScore,Confidence,CreatedBy,Payload");
         foreach (var m in items)
         {
-            var line = string.Format("\"{0}\",{1},\"{2}\",\"{3}\",\"{4}\",\"{5}\",{6},\"{7}\",\"{8}\"",
+            var line = string.Format("\"{0}\",{1},\"{2}\",\"{3}\",\"{4}\",\"{5}\",\"{6}\",\"{7}\",\"{8}\",\"{9}\",{10},{11},\"{12}\",\"{13}\"",
                 m.Id,
                 m.CreatedAt,
+                (m.VendorId ?? "").Replace("\"","'"),
                 (m.ConversationId ?? "" ).Replace("\"","'"),
                 (m.MessageId ?? "").Replace("\"","'"),
                 (m.Source ?? "").Replace("\"","'"),
+                (m.Route ?? "").Replace("\"","'"),
+                (m.MessageRouteId ?? "").Replace("\"","'"),
                 (m.MatchedFaqId ?? "").Replace("\"","'"),
+                (m.MatchedBy ?? "").Replace("\"","'"),
+                m.MatchedScore?.ToString() ?? "",
                 m.Confidence?.ToString() ?? "",
                 (m.CreatedBy ?? "").Replace("\"","'"),
                 (m.Payload ?? "").Replace("\"","'")

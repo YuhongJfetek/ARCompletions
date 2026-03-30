@@ -23,8 +23,9 @@
         <form method="post" asp-action="TriggerManual" asp-controller="EmbeddingJobs" asp-area="Admin" class="row g-2" style="display:flex;align-items:center;">
             @Html.AntiForgeryToken()
             <div class="col-auto">
-                <select name="vendorId" class="form-select form-select-sm">
-                    @foreach(var v in ViewBag.Vendors as System.Collections.Generic.List<ARCompletions.Domain.Vendor>)
+                    <select name="vendorId" class="form-select form-select-sm">
+                    @{ var vendors = ViewBag.Vendors as System.Collections.Generic.List<ARCompletions.Domain.Vendor> ?? new System.Collections.Generic.List<ARCompletions.Domain.Vendor>(); }
+                    @foreach(var v in vendors)
                     {
                         <option value="@v.Id">@v.Name (@v.Code)</option>
                     }

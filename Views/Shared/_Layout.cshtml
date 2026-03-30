@@ -1,6 +1,7 @@
 @{
     var title = ViewData["Title"] ?? "ARCompletions";
 }
+@inject Microsoft.AspNetCore.Authorization.IAuthorizationService AuthorizationService
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -23,7 +24,8 @@
                     <li class="nav-item">
                         <a class="nav-link" asp-controller="Home" asp-action="Index">首頁</a>
                     </li>
-                    @if (User?.HasClaim("Role", "Platform") ?? false)
+                    @{ var isPlatform = (User?.Identity?.IsAuthenticated ?? false) && (await AuthorizationService.AuthorizeAsync(User, null, "Platform")).Succeeded; }
+                    @if (isPlatform)
                     {
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">總部後台</a>
@@ -35,6 +37,10 @@
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="MessageApi" asp-action="Index">Message API 設定</a></li>
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="MessageResults" asp-action="Index">Message Results</a></li>
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="FaqQueryLogs" asp-action="Index">FAQ Query Logs</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="ConversationStates" asp-action="Index">Conversation States</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="FaqAliases" asp-action="Index">FAQ Aliases</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="MessageRoutes" asp-action="Index">Message Routes</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="VendorStaffUsers" asp-action="Index">Vendor Staff Users</a></li>
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="BulkJobs" asp-action="Index">Bulk Jobs</a></li>
                             </ul>
                         </li>

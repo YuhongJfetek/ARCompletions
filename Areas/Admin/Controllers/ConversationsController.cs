@@ -55,11 +55,13 @@ public class ConversationsController : Controller
             .Select(g => g.OrderByDescending(m => m.CreatedAt).FirstOrDefault())
             .ToListAsync();
 
-        var summary = lastMessages.ToDictionary(m => m.ConversationId, m => new {
-            Route = m?.SourceType,
-            MatchedFaqId = m?.SourceFaqId,
-            Confidence = m?.ConfidenceScore
-        });
+        var summary = lastMessages
+            .Where(m => m != null)
+            .ToDictionary(m => m!.ConversationId, m => new {
+                Route = m!.SourceType,
+                MatchedFaqId = m!.SourceFaqId,
+                Confidence = m!.ConfidenceScore
+            });
 
         ViewBag.MessageSummary = summary;
 

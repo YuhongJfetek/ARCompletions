@@ -106,6 +106,8 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<ARCompletions.Services.IFaqQueryService, ARCompletions.Services.FaqQueryServiceStub>();
 // register concrete MessageResultService to persist results (requires migrations for DB schema changes)
 builder.Services.AddScoped<ARCompletions.Services.IMessageResultService, ARCompletions.Services.MessageResultService>();
+// register MessageRouteService
+builder.Services.AddScoped<ARCompletions.Services.IMessageRouteService, ARCompletions.Services.MessageRouteService>();
 // 後端 Service 舊實作已移除，暫時註解掉註冊（未來有新的 Service 再補上）
 // builder.Services.AddScoped<ARCompletions.Services.LineBotService>();
 // builder.Services.AddScoped<ARCompletions.Services.ILineService, ARCompletions.Services.LineService>();

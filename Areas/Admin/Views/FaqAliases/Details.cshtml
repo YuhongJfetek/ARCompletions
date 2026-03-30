@@ -1,0 +1,25 @@
+@model ARCompletions.Domain.FaqAlias
+
+<h2>FAQ Alias Details</h2>
+
+<dl class="row">
+    <dt class="col-sm-3">Term</dt>
+    <dd class="col-sm-9">@Model.Term</dd>
+
+    <dt class="col-sm-3">Synonyms</dt>
+    <dd class="col-sm-9">@Model.Synonyms</dd>
+
+    <dt class="col-sm-3">FaqIds</dt>
+    <dd class="col-sm-9">@Model.FaqIds</dd>
+
+    <dt class="col-sm-3">Mode</dt>
+    <dd class="col-sm-9">@Model.Mode</dd>
+
+    <dt class="col-sm-3">IsActive</dt>
+    <dd class="col-sm-9">@Model.IsActive</dd>
+</dl>
+
+<p>
+    <a asp-area="Admin" asp-controller="FaqAliases" asp-action="Edit" asp-route-id="@Model.Id">Edit</a> |
+    <a asp-area="Admin" asp-controller="FaqAliases" asp-action="Index">Back to list</a>
+</p>

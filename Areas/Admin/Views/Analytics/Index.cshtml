@@ -39,7 +39,8 @@
     <div class="col-md-6">
         <h5>Embedding Jobs (recent)</h5>
         <ul>
-        @foreach(var j in ViewBag.RecentEmbedJobs as System.Collections.Generic.List<ARCompletions.Domain.EmbeddingJob>)
+        @{ var recent = ViewBag.RecentEmbedJobs as System.Collections.Generic.List<ARCompletions.Domain.EmbeddingJob> ?? new System.Collections.Generic.List<ARCompletions.Domain.EmbeddingJob>(); }
+        @foreach(var j in recent)
         {
             <li>@j.JobNo — @j.VendorId — @j.VectorVersion — @j.Status</li>
         }

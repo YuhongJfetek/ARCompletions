@@ -20,8 +20,11 @@
     <tbody>
     @if (Model != null)
     {
-        foreach (var item in Model as System.Collections.IEnumerable)
+        var items = Model as System.Collections.IEnumerable;
+        if (items != null)
         {
+            foreach (var item in items)
+            {
             <tr>
                 <td>-</td>
                 <td>(未實作)</td>
@@ -31,6 +34,7 @@
                     <a asp-area="Admin" asp-controller="Groups" asp-action="Edit" asp-route-id="-" class="btn btn-sm btn-primary">Edit</a>
                 </td>
             </tr>
+            }
         }
     }
     </tbody>

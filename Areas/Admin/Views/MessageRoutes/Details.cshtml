@@ -1,0 +1,25 @@
+@model ARCompletions.Domain.MessageRoute
+
+<h2>Message Route Details</h2>
+
+<dl class="row">
+    <dt class="col-sm-3">Route</dt>
+    <dd class="col-sm-9">@Model.Route</dd>
+
+    <dt class="col-sm-3">Reason</dt>
+    <dd class="col-sm-9">@Model.Reason</dd>
+
+    <dt class="col-sm-3">MatchedFaqId</dt>
+    <dd class="col-sm-9">@Model.MatchedFaqId</dd>
+
+    <dt class="col-sm-3">MatchedScore</dt>
+    <dd class="col-sm-9">@Model.MatchedScore</dd>
+
+    <dt class="col-sm-3">LlmEnabled</dt>
+    <dd class="col-sm-9">@Model.LlmEnabled</dd>
+</dl>
+
+<p>
+    <a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Edit" asp-route-id="@Model.Id">Edit</a> |
+    <a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Index">Back to list</a>
+</p>

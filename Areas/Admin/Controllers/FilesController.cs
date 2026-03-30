@@ -38,6 +38,7 @@ public class FilesController : Controller
         if (string.IsNullOrEmpty(id)) return NotFound();
 
         // TODO: Load file metadata from DB when available
+        await Task.CompletedTask;
         var model = new { Id = id, FileName = "(未實作)", Status = "unknown" };
         return View(model);
     }
@@ -48,6 +49,7 @@ public class FilesController : Controller
         if (string.IsNullOrEmpty(id)) return NotFound();
 
         // Placeholder: show validate UI. Actual validation handled by background job/service.
+        await Task.CompletedTask;
         var model = new { Id = id, FileName = "(未實作)", Validated = false };
         return View(model);
     }
@@ -57,6 +59,7 @@ public class FilesController : Controller
     public async Task<IActionResult> Archive(string id)
     {
         // TODO: Trigger archive job for file. Not implemented in scaffold.
+        await Task.CompletedTask;
         return RedirectToAction(nameof(Index));
     }
 }
