@@ -1,0 +1,39 @@
+@{
+    ViewData["Title"] = "群組管理";
+}
+
+<h2>群組管理（範本）</h2>
+
+<p>
+    <a class="btn btn-primary" asp-area="Admin" asp-controller="Groups" asp-action="Create">新增群組</a>
+</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>名稱</th>
+            <th>Bot</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @if (Model != null)
+    {
+        foreach (var item in Model as System.Collections.IEnumerable)
+        {
+            <tr>
+                <td>-</td>
+                <td>(未實作)</td>
+                <td>-</td>
+                <td>
+                    <a asp-area="Admin" asp-controller="Groups" asp-action="Details" asp-route-id="-" class="btn btn-sm btn-secondary">Details</a>
+                    <a asp-area="Admin" asp-controller="Groups" asp-action="Edit" asp-route-id="-" class="btn btn-sm btn-primary">Edit</a>
+                </td>
+            </tr>
+        }
+    }
+    </tbody>
+</table>
+
+<p class="text-muted">注意：此為 scaffold 範本，尚未連接資料庫。</p>

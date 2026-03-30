@@ -1,0 +1,212 @@
+@{
+    Layout = "~/Areas/Admin/Views/Shared/_AdminLayout.cshtml";
+    var settings = ViewBag.Settings as IDictionary<string, ARCompletions.Domain.SystemSetting>;
+}
+
+<h2>Message API Settings</h2>
+
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-success">@TempData["Message"]</div>
+}
+
+<form asp-action="Save" method="post">
+    @Html.AntiForgeryToken()
+    <div class="form-group mb-3">
+        <label>Webhook URL</label>
+        <input id="webhookUrlInput" name="webhookUrl" class="form-control" value="@(settings != null && settings.ContainsKey("WebhookUrl") ? settings["WebhookUrl"].SettingValue : "")" />
+    </div>
+    <div class="form-group mb-3">
+        <label>API Key</label>
+        <div class="input-group">
+            <input id="apiKeyInput" name="apiKey" type="password" class="form-control" value="@(settings != null && settings.ContainsKey("ApiKey") ? settings["ApiKey"].SettingValue : "")" />
+            <button id="toggleApiKey" type="button" class="btn btn-outline-secondary">顯示</button>
+        </div>
+        <small class="form-text text-muted">Stored in plain text in SystemSettings table. Consider secrets storage for production.</small>
+    </div>
+    <div class="form-group mb-3">
+        <label>Webhook Secret</label>
+        <input name="webhookSecret" class="form-control" value="@(settings != null && settings.ContainsKey("WebhookSecret") ? settings["WebhookSecret"].SettingValue : "")" />
+    </div>
+    <div class="form-group form-check mb-3">
+        <input type="checkbox" name="enableWebhook" value="true" class="form-check-input" @(settings != null && settings.ContainsKey("EnableWebhook") && settings["EnableWebhook"].SettingValue == "true" ? "checked" : "") />
+        <label class="form-check-label">Enable Webhook</label>
+    </div>
+    <button id="saveBtn" class="btn btn-primary" type="submit">Save</button>
+    <span id="saveSpinner" class="spinner-border spinner-border-sm text-primary ms-2" role="status" style="display:none;" aria-hidden="true"></span>
+</form>
+
+<hr />
+
+<h3>Webhook Test</h3>
+
+@if (ViewBag.TestResult != null)
+{
+    <div class="alert alert-info">@ViewBag.TestResult</div>
+}
+
+<div class="mb-3">
+    <div class="input-group" style="width:520px;">
+        <input id="testUrl" class="form-control" placeholder="Use configured URL if empty" />
+        <button id="ajaxTestBtn" class="btn btn-secondary">AJAX Test</button>
+        <div id="ajaxSpinner" class="spinner-border spinner-border-sm text-secondary ms-2" role="status" style="display:none;" aria-hidden="true"></div>
+    </div>
+    <div id="ajaxTestResult" class="mt-2"></div>
+</div>
+
+<h4>Recent Webhook Test Logs</h4>
+@{
+    var logs = ViewBag.WebhookLogs as System.Collections.IEnumerable;
+}
+@if (logs != null)
+{
+    <div class="mb-2">
+        <form asp-action="ClearLogs" method="post" class="d-inline">
+            @Html.AntiForgeryToken()
+            <button class="btn btn-sm btn-outline-danger">Clear Logs</button>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>URL</th>
+                    <th>Result</th>
+                    <th>By</th>
+                    <th>Message / Error</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var l in logs)
+            {
+                var ts = (long?) ((l as dynamic).Timestamp ?? 0);
+                var when = ts.HasValue && ts.Value > 0 ? DateTimeOffset.FromUnixTimeSeconds(ts.Value).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") : "-";
+                <tr>
+                    <td>@when</td>
+                    <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@((l as dynamic).Url ?? "-")</td>
+                    <td>
+                        @if ((bool?)((l as dynamic).Success) == true) { <span class="badge bg-success">OK</span>; }
+                        else { <span class="badge bg-danger">Fail</span>; }
+                    </td>
+                    <td>@((l as dynamic).InitiatedBy ?? "-")</td>
+                    <td style="max-width:420px;word-wrap:break-word;">@((l as dynamic).Error ?? ((l as dynamic).Response != null ? (((string)(l as dynamic).Response).Length > 200 ? (((string)(l as dynamic).Response).Substring(0,200) + "...") : (string)(l as dynamic).Response) : "-"))</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        (function(){
+            var toggle = document.getElementById('toggleApiKey');
+            var input = document.getElementById('apiKeyInput');
+            if (toggle && input) {
+                toggle.addEventListener('click', function(){
+                    if (input.type === 'password') { input.type = 'text'; toggle.textContent = '隱藏'; }
+                    else { input.type = 'password'; toggle.textContent = '顯示'; }
+                });
+            }
+
+            var btn = document.getElementById('ajaxTestBtn');
+            var result = document.getElementById('ajaxTestResult');
+            var ajaxSpinner = document.getElementById('ajaxSpinner');
+            btn?.addEventListener('click', function(e){
+                e.preventDefault();
+                result.innerHTML = '';
+                var urlInput = document.getElementById('testUrl');
+                var url = urlInput.value.trim() || null;
+
+                // simple URL validation
+                if (url) {
+                    try { new URL(url); }
+                    catch (ex) { result.innerHTML = '<div class="alert alert-warning">Invalid URL format.</div>'; return; }
+                }
+
+                var tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                var token = tokenEl ? tokenEl.value : null;
+
+                btn.disabled = true; ajaxSpinner.style.display = 'inline-block';
+                fetch('@Url.Action("TestWebhookAjax", "MessageApi", new { area = "Admin" })', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify({ url: url })
+                }).then(function(resp){
+                    return resp.json();
+                }).then(function(js){
+                    if (js.success) {
+                        var txt = '<div class="alert alert-success d-flex justify-content-between align-items-start">';
+                        txt += '<div><strong>OK</strong>';
+                        if (js.status) txt += ' Status: ' + js.status + ' ' + (js.reason || '') + '<br/>';
+                        txt += '</div>';
+                        txt += '<div class="ms-2">';
+                        if (js.response) txt += '<button class="btn btn-sm btn-outline-secondary copy-btn">Copy</button>';
+                        txt += '</div>';
+                        if (js.response) txt += '<div class="w-100 mt-2"><pre class="response-text" style="white-space:pre-wrap;max-height:240px;overflow:auto;">' + escapeHtml(js.response) + '</pre></div>';
+                        txt += '</div>';
+                        result.innerHTML = txt;
+                        // attach copy handler
+                        var copyBtn = result.querySelector('.copy-btn');
+                        if (copyBtn) {
+                            copyBtn.addEventListener('click', function(){
+                                var txtEl = result.querySelector('.response-text');
+                                var toCopy = txtEl ? txtEl.innerText : (js.response || '');
+                                if (navigator.clipboard) {
+                                    navigator.clipboard.writeText(toCopy).then(function(){ showToast('Copied response to clipboard','info'); }, function(){ showToast('Copy failed','warning'); });
+                                } else {
+                                    // fallback
+                                    var ta = document.createElement('textarea'); ta.value = toCopy; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); showToast('Copied response to clipboard','info'); } catch(e){ showToast('Copy failed','warning'); } document.body.removeChild(ta);
+                                }
+                            });
+                        }
+                        showToast('Webhook test succeeded','success');
+                    } else {
+                        result.innerHTML = '<div class="alert alert-danger">Error: ' + escapeHtml(js.message || 'unknown') + '</div>';
+                        showToast('Webhook test failed','danger');
+                    }
+                }).catch(function(err){
+                    result.innerHTML = '<div class="alert alert-danger">Fetch error: ' + escapeHtml(err) + '</div>';
+                    showToast('Request error','danger');
+                }).finally(function(){ btn.disabled = false; ajaxSpinner.style.display = 'none'; });
+            });
+
+            // disable save button and show spinner while submitting
+            var saveBtn = document.getElementById('saveBtn');
+            var saveSpinner = document.getElementById('saveSpinner');
+            var form = saveBtn ? saveBtn.closest('form') : null;
+            if (form) {
+                form.addEventListener('submit', function(){ saveBtn.disabled = true; saveSpinner.style.display = 'inline-block'; });
+            }
+
+            function escapeHtml(s){
+                if (!s) return '';
+                return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            }
+            // Bootstrap toast helper
+            function showToast(message, type) {
+                var container = document.getElementById('toastContainer');
+                if (!container) return;
+                var toastId = 't' + Date.now();
+                var toastEl = document.createElement('div');
+                toastEl.className = 'toast align-items-center text-bg-' + (type || 'primary') + ' border-0';
+                toastEl.id = toastId;
+                toastEl.setAttribute('role','alert');
+                toastEl.setAttribute('aria-live','assertive');
+                toastEl.setAttribute('aria-atomic','true');
+                toastEl.innerHTML = '<div class="d-flex"><div class="toast-body">'+ escapeHtml(message) +'</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>';
+                container.appendChild(toastEl);
+                var bsToast = new bootstrap.Toast(toastEl, { delay: 4000 });
+                bsToast.show();
+                toastEl.addEventListener('hidden.bs.toast', function(){ toastEl.remove(); });
+            }
+        })();
+    </script>
+}
+
+<!-- Toast container -->
+<div id="toastContainer" class="position-fixed bottom-0 end-0 p-3" style="z-index:1080;"></div>

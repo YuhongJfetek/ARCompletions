@@ -1,0 +1,18 @@
+@model dynamic
+@{
+    ViewData["Title"] = "檔案驗證";
+}
+
+<h2>檔案驗證（範本）</h2>
+
+<div>
+    <p>檔案 Id：@Model.Id</p>
+    <p>檔名：@Model.FileName</p>
+    <p>驗證結果：@Model.Validated</p>
+</div>
+
+<form asp-area="Admin" asp-controller="Files" asp-action="Archive" method="post">
+    <input type="hidden" name="id" value="@Model.Id" />
+    <button class="btn btn-danger" type="submit">歸檔</button>
+    <a asp-area="Admin" asp-controller="Files" asp-action="Index" class="btn btn-secondary">Back</a>
+</form>

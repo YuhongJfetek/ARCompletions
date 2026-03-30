@@ -1,0 +1,27 @@
+@model ARCompletions.Domain.ConversationMessage
+@{
+    ViewData["Title"] = "訊息明細";
+}
+
+<h1>訊息明細</h1>
+
+<table class="table table-bordered">
+    <tr><th>Id</th><td>@Model.Id</td></tr>
+    <tr><th>ConversationId</th><td><a asp-area="Admin" asp-controller="Conversations" asp-action="Details" asp-route-id="@Model.ConversationId">@Model.ConversationId</a></td></tr>
+    <tr><th>Vendor</th><td>@Model.VendorId</td></tr>
+    <tr><th>時間</th><td>@(DateTimeOffset.FromUnixTimeSeconds(Model.CreatedAt).UtcDateTime)</td></tr>
+    <tr><th>方向</th><td>@Model.Direction</td></tr>
+    <tr><th>類型</th><td>@Model.MessageType</td></tr>
+    <tr><th>文字</th><td>@Model.MessageText</td></tr>
+    <tr><th>Route</th><td>@Model.SourceType</td></tr>
+    <tr><th>Matched FAQ</th><td>@Model.SourceFaqId</td></tr>
+    <tr><th>Confidence</th><td>@(Model.ConfidenceScore?.ToString("0.00") ?? "-")</td></tr>
+    <tr><th>RawJson</th><td><pre>@Model.RawJson</pre></td></tr>
+    <tr><th>Model</th><td>@Model.ModelName</td></tr>
+    <tr><th>Prompt Version</th><td>@Model.PromptVersion</td></tr>
+</table>
+
+<p>
+    <a asp-action="Index" class="btn btn-secondary">返回列表</a>
+    <a asp-area="Admin" asp-controller="Conversations" asp-action="Details" asp-route-id="@Model.ConversationId" class="btn btn-primary ms-2">檢視對話內容</a>
+</p>

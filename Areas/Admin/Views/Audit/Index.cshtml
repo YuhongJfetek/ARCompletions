@@ -1,0 +1,44 @@
+@model IEnumerable<ARCompletions.Domain.AuditLog>
+@{
+    ViewData["Title"] = "Audit Logs";
+    int page = ViewBag.Page ?? 1; int pageSize = ViewBag.PageSize ?? 50; long total = ViewBag.TotalCount ?? 0L;
+}
+
+<h1>Audit Logs</h1>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <label class="form-label">Action</label>
+        <input name="action" class="form-control" value="@(ViewBag.ActiveAction ?? "")" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label">Date From</label>
+        <input type="date" name="dateFrom" class="form-control" value="@(ViewBag.DateFrom ?? "")" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label">Date To</label>
+        <input type="date" name="dateTo" class="form-control" value="@(ViewBag.DateTo ?? "")" />
+    </div>
+    <div class="col-auto align-self-end">
+        <button class="btn btn-secondary">Filter</button>
+    </div>
+</form>
+
+<table class="table table-sm table-striped">
+    <thead><tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Target</th><th>Payload</th><th></th></tr></thead>
+    <tbody>
+    @foreach(var a in Model)
+    {
+        <tr>
+            <td>@(DateTimeOffset.FromUnixTimeSeconds(a.Timestamp).UtcDateTime)</td>
+            <td>@a.Actor</td>
+            <td>@a.Action</td>
+            <td>@a.TargetId</td>
+            <td><pre style="max-height:80px;overflow:auto">@a.Payload</pre></td>
+            <td><a asp-action="Details" asp-route-id="@a.Id" class="btn btn-sm btn-secondary">Details</a></td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<div>共 @total 筆</div>

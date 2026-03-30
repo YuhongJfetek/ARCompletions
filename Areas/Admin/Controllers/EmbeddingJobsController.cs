@@ -66,6 +66,41 @@ public class EmbeddingJobsController : Controller
             .Take(pageSize)
             .ToListAsync();
 
+        // Determine active vector version per vendor from most recent successful job (Status == "done")
+        var vendorIds = items.Select(j => j.VendorId).Distinct().ToList();
+        var activeDict = new System.Collections.Generic.Dictionary<string, string>();
+        if (vendorIds.Any())
+        {
+            var completed = await _db.EmbeddingJobs
+                .Where(j => vendorIds.Contains(j.VendorId) && j.Status == "done")
+                .GroupBy(j => j.VendorId)
+                .Select(g => g.OrderByDescending(j => j.FinishedAt ?? j.CreatedAt).FirstOrDefault())
+                .ToListAsync();
+
+            foreach (var c in completed)
+            {
+                if (c != null && !string.IsNullOrEmpty(c.VectorVersion)) activeDict[c.VendorId] = c.VectorVersion;
+            }
+
+            // fallback: use done_with_errors if no clean 'done' exists
+            var missing = vendorIds.Where(v => !activeDict.ContainsKey(v)).ToList();
+            if (missing.Any())
+            {
+                var fallback = await _db.EmbeddingJobs
+                    .Where(j => missing.Contains(j.VendorId) && j.Status == "done_with_errors")
+                    .GroupBy(j => j.VendorId)
+                    .Select(g => g.OrderByDescending(j => j.FinishedAt ?? j.CreatedAt).FirstOrDefault())
+                    .ToListAsync();
+
+                foreach (var f in fallback)
+                {
+                    if (f != null && !string.IsNullOrEmpty(f.VectorVersion)) activeDict[f.VendorId] = f.VectorVersion;
+                }
+            }
+        }
+
+        ViewBag.ActiveVectorVersion = activeDict;
+
         var vm = new ARCompletions.Areas.Admin.Models.EmbeddingJobsIndexViewModel
         {
             Items = items,
@@ -255,6 +290,94 @@ public class EmbeddingJobsController : Controller
 
         await _db.SaveChangesAsync();
 
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> TriggerManual(string vendorId, string vectorVersion = "v1", string modelName = "openai-embedding")
+    {
+        if (string.IsNullOrWhiteSpace(vendorId)) return BadRequest();
+
+        var allowed = await _vendorScope.GetAllowedVendorIdsAsync(User);
+        if (allowed != null && !allowed.Contains(vendorId)) return Forbid();
+
+        var job = new ARCompletions.Domain.EmbeddingJob
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            VendorId = vendorId,
+            JobNo = "E-" + DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Status = "pending",
+            TriggerType = "manual",
+            TriggeredByType = "admin",
+            TriggeredById = User?.Identity?.Name ?? "admin",
+            VectorVersion = vectorVersion,
+            ModelName = modelName,
+            TotalFaqCount = 0,
+            SuccessCount = 0,
+            FailCount = 0,
+            CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        };
+
+        _db.EmbeddingJobs.Add(job);
+        await _db.SaveChangesAsync();
+
+        try { _jobQueue.Enqueue(job.Id); } catch { }
+
+        try
+        {
+            _db.Set<ARCompletions.Domain.AuditLog>().Add(new ARCompletions.Domain.AuditLog
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Actor = User?.Identity?.Name ?? "admin",
+                Action = "EmbeddingJob.TriggerManual",
+                TargetId = job.Id,
+                Payload = System.Text.Json.JsonSerializer.Serialize(new { job.Id, job.JobNo, job.VendorId, job.VectorVersion }),
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            });
+            await _db.SaveChangesAsync();
+        }
+        catch { }
+
+        TempData["TriggeredJobId"] = job.Id;
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetActiveVector(string jobId)
+    {
+        if (string.IsNullOrEmpty(jobId)) return BadRequest();
+
+        var job = await _db.EmbeddingJobs.FindAsync(jobId);
+        if (job == null) return NotFound();
+
+        var allowed = await _vendorScope.GetAllowedVendorIdsAsync(User);
+        if (allowed != null && !allowed.Contains(job.VendorId)) return Forbid();
+
+        // Upsert EmbeddingSetting for vendor
+        var setting = await _db.EmbeddingSettings.FirstOrDefaultAsync(s => s.VendorId == job.VendorId);
+        if (setting == null)
+        {
+            setting = new ARCompletions.Domain.EmbeddingSetting
+            {
+                Id = System.Guid.NewGuid().ToString("N"),
+                VendorId = job.VendorId,
+                ActiveVectorVersion = job.VectorVersion,
+                UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            };
+            _db.EmbeddingSettings.Add(setting);
+        }
+        else
+        {
+            setting.ActiveVectorVersion = job.VectorVersion;
+            setting.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            _db.EmbeddingSettings.Update(setting);
+        }
+
+        await _db.SaveChangesAsync();
+
+        TempData["SetActiveJobId"] = jobId;
         return RedirectToAction(nameof(Index));
     }
 }

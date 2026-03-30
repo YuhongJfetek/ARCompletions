@@ -45,6 +45,11 @@ public class ARCompletionsContext : DbContext
     public DbSet<EmbeddingJob> EmbeddingJobs => Set<EmbeddingJob>();
     public DbSet<EmbeddingItem> EmbeddingItems => Set<EmbeddingItem>();
     public DbSet<EmbeddingLog> EmbeddingLogs => Set<EmbeddingLog>();
+    public DbSet<EmbeddingSetting> EmbeddingSettings => Set<EmbeddingSetting>();
+
+    // Message results and FAQ query logs
+    public DbSet<ARCompletions.Domain.MessageResult> MessageResults => Set<ARCompletions.Domain.MessageResult>();
+    public DbSet<ARCompletions.Domain.FaqQueryLog> FaqQueryLogs => Set<ARCompletions.Domain.FaqQueryLog>();
 
     // 系統設定
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();

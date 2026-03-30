@@ -102,6 +102,10 @@ builder.Services.AddHttpClient("OpenAI", c =>
 });
 // HttpClient for external services (LINE)
 builder.Services.AddHttpClient();
+// MessageApi scaffolds (stub implementations registered; no DB changes)
+builder.Services.AddScoped<ARCompletions.Services.IFaqQueryService, ARCompletions.Services.FaqQueryServiceStub>();
+// register concrete MessageResultService to persist results (requires migrations for DB schema changes)
+builder.Services.AddScoped<ARCompletions.Services.IMessageResultService, ARCompletions.Services.MessageResultService>();
 // 後端 Service 舊實作已移除，暫時註解掉註冊（未來有新的 Service 再補上）
 // builder.Services.AddScoped<ARCompletions.Services.LineBotService>();
 // builder.Services.AddScoped<ARCompletions.Services.ILineService, ARCompletions.Services.LineService>();

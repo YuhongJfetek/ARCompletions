@@ -1,0 +1,14 @@
+@model ARCompletions.Domain.AuditLog
+@{
+    ViewData["Title"] = "Audit Details";
+}
+
+<h1>Audit Log — @Model.Id</h1>
+<table class="table table-bordered">
+    <tr><th>Timestamp</th><td>@(DateTimeOffset.FromUnixTimeSeconds(Model.Timestamp).UtcDateTime)</td></tr>
+    <tr><th>Actor</th><td>@Model.Actor</td></tr>
+    <tr><th>Action</th><td>@Model.Action</td></tr>
+    <tr><th>TargetId</th><td>@Model.TargetId</td></tr>
+    <tr><th>Payload</th><td><pre>@Model.Payload</pre></td></tr>
+    <tr><th></th><td><a asp-action="Index" class="btn btn-secondary">Back</a></td></tr>
+</table>

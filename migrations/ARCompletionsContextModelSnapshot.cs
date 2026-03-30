@@ -350,6 +350,72 @@ namespace ARCompletions.migrations
 
                     b.ToTable("UnmatchedQueries");
                 });
+
+            modelBuilder.Entity("ARCompletions.Domain.MessageResult", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ConversationId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MessageId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Source")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Payload")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MatchedFaqId")
+                        .HasColumnType("text");
+
+                    b.Property<double?>("Confidence")
+                        .HasColumnType("double precision");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("MessageResults");
+                });
+
+            modelBuilder.Entity("ARCompletions.Domain.FaqQueryLog", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MessageResultId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("QueryText")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MatchedFaqId")
+                        .HasColumnType("text");
+
+                    b.Property<double?>("Confidence")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("DetailsJson")
+                        .HasColumnType("text");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("FaqQueryLogs");
+                });
 #pragma warning restore 612, 618
         }
     }

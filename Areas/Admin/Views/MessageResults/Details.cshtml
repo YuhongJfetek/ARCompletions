@@ -1,0 +1,44 @@
+@model ARCompletions.Domain.MessageResult
+@{
+    Layout = "~/Areas/Admin/Views/Shared/_AdminLayout.cshtml";
+}
+
+<h2>Message Result Details</h2>
+
+<dl class="row">
+    <dt class="col-sm-2">Id</dt>
+    <dd class="col-sm-10">@Model.Id</dd>
+
+    <dt class="col-sm-2">CreatedAt</dt>
+    <dd class="col-sm-10">@DateTimeOffset.FromUnixTimeSeconds(Model.CreatedAt).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</dd>
+
+    <dt class="col-sm-2">ConversationId</dt>
+    <dd class="col-sm-10">@Model.ConversationId</dd>
+
+    <dt class="col-sm-2">MessageId</dt>
+    <dd class="col-sm-10">@Model.MessageId</dd>
+
+    <dt class="col-sm-2">MatchedFaqId</dt>
+    <dd class="col-sm-10">@Model.MatchedFaqId</dd>
+
+    <dt class="col-sm-2">Confidence</dt>
+    <dd class="col-sm-10">@(Model.Confidence?.ToString("F3") ?? "-")</dd>
+
+    <dt class="col-sm-2">CreatedBy</dt>
+    <dd class="col-sm-10">@Model.CreatedBy</dd>
+
+    <dt class="col-sm-2">Payload (raw)</dt>
+    <dd class="col-sm-10">
+        <div class="mb-2"><button id="copyPayload" class="btn btn-sm btn-outline-secondary">Copy</button></div>
+        <pre id="payloadPre" style="max-height:480px;overflow:auto;white-space:pre-wrap;">@Model.Payload</pre>
+    </dd>
+</dl>
+
+@section Scripts {
+    <script>
+        document.getElementById('copyPayload')?.addEventListener('click', function(){
+            var txt = document.getElementById('payloadPre')?.innerText || '';
+            if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function(){ alert('Copied'); });
+        });
+    </script>
+}

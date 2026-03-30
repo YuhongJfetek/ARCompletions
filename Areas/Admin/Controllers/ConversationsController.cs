@@ -22,7 +22,7 @@ public class ConversationsController : Controller
         _vendorScope = vendorScope;
     }
 
-    public async Task<IActionResult> Index(string? vendorId = null)
+    public async Task<IActionResult> Index(string? vendorId = null, string? filter = null, double? confidenceThreshold = null)
     {
         var vendors = await _db.Vendors
             .OrderBy(v => v.Code)
@@ -46,6 +46,39 @@ public class ConversationsController : Controller
             .OrderByDescending(c => c.LastMessageAt ?? c.StartedAt)
             .Take(200)
             .ToListAsync();
+
+        // 查出每個 conversation 最近一則 message 的 SourceType/SourceFaqId/ConfidenceScore
+        var convoIds = items.Select(i => i.Id).ToList();
+        var lastMessages = await _db.ConversationMessages
+            .Where(m => convoIds.Contains(m.ConversationId))
+            .GroupBy(m => m.ConversationId)
+            .Select(g => g.OrderByDescending(m => m.CreatedAt).FirstOrDefault())
+            .ToListAsync();
+
+        var summary = lastMessages.ToDictionary(m => m.ConversationId, m => new {
+            Route = m?.SourceType,
+            MatchedFaqId = m?.SourceFaqId,
+            Confidence = m?.ConfidenceScore
+        });
+
+        ViewBag.MessageSummary = summary;
+
+        // Apply filter in-memory (no DB changes)
+        if (!string.IsNullOrEmpty(filter))
+        {
+            if (filter == "matched")
+            {
+                items = items.Where(i => summary.ContainsKey(i.Id) && !string.IsNullOrEmpty(summary[i.Id].MatchedFaqId)).ToList();
+            }
+            else if (filter == "low_confidence")
+            {
+                var thr = confidenceThreshold ?? 0.5;
+                items = items.Where(i => summary.ContainsKey(i.Id) && (summary[i.Id].Confidence == null || (double?)summary[i.Id].Confidence < thr)).ToList();
+            }
+        }
+
+        ViewBag.ActiveFilter = filter;
+        ViewBag.ConfidenceThreshold = confidenceThreshold;
 
         return View(items);
     }

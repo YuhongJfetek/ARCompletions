@@ -5,6 +5,8 @@
     var messages = ViewBag.Messages as IEnumerable<ConversationMessage> ?? Enumerable.Empty<ConversationMessage>();
     var inputLogs = ViewBag.InputLogs as IEnumerable<LineBotInputLog> ?? Enumerable.Empty<LineBotInputLog>();
     var outputLogs = ViewBag.OutputLogs as IEnumerable<LineBotOutputLog> ?? Enumerable.Empty<LineBotOutputLog>();
+    var lastMessage = messages.OrderByDescending(m => m.CreatedAt).FirstOrDefault();
+    double defaultConfidenceThreshold = lastMessage?.ConfidenceScore ?? 0.5;
 }
 
 <h1>對話明細 (總部)</h1>
@@ -31,16 +33,27 @@
             <th>方向</th>
             <th>類型</th>
             <th>文字</th>
+            <th>Route</th>
+            <th>Matched FAQ</th>
+            <th>Confidence</th>
+            <th>操作</th>
         </tr>
     </thead>
     <tbody>
     @foreach (var m in messages)
     {
         <tr>
-            <td>@m.CreatedAt</td>
+            <td>@(DateTimeOffset.FromUnixTimeSeconds(m.CreatedAt).UtcDateTime)</td>
             <td>@m.Direction</td>
             <td>@m.MessageType</td>
             <td>@m.MessageText</td>
+            <td>@m.SourceType</td>
+            <td>@m.SourceFaqId</td>
+            <td>@(m.ConfidenceScore?.ToString("0.00") ?? "-")</td>
+            <td>
+                <a asp-action="Index" asp-route-filter="matched" asp-route-vendorId="@Model.VendorId" class="btn btn-sm btn-primary">在列表顯示已匹配</a>
+                <a asp-action="Index" asp-route-filter="low_confidence" asp-route-confidenceThreshold="@(m.ConfidenceScore ?? 0.5)" asp-route-vendorId="@Model.VendorId" class="btn btn-sm btn-warning ms-1">低信心 (閾值 @(m.ConfidenceScore?.ToString("0.00") ?? "0.50"))</a>
+            </td>
         </tr>
     }
     </tbody>
@@ -94,4 +107,6 @@
 
 <p>
     <a asp-action="Index" class="btn btn-secondary">返回列表</a>
+    <a asp-action="Index" asp-route-filter="matched" asp-route-vendorId="@Model.VendorId" class="btn btn-primary ms-2">在列表顯示已匹配</a>
+    <a asp-action="Index" asp-route-filter="low_confidence" asp-route-confidenceThreshold="@defaultConfidenceThreshold" asp-route-vendorId="@Model.VendorId" class="btn btn-warning ms-2">顯示低信心 (閾值 @defaultConfidenceThreshold)</a>
 </p>

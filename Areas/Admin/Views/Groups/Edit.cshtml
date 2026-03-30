@@ -1,0 +1,20 @@
+@model dynamic
+@{
+    ViewData["Title"] = "編輯群組";
+}
+
+<h2>編輯群組（範本）</h2>
+
+<form asp-area="Admin" asp-controller="Groups" asp-action="Edit" method="post">
+    <input type="hidden" name="id" value="@Model.Id" />
+    <div class="mb-3">
+        <label class="form-label">名稱</label>
+        <input class="form-control" name="name" value="@Model.Name" />
+    </div>
+    <div class="mb-3 form-check">
+        <input class="form-check-input" type="checkbox" name="botEnabled" />
+        <label class="form-check-label">啟用 Bot</label>
+    </div>
+    <button class="btn btn-primary" type="submit">儲存</button>
+    <a asp-area="Admin" asp-controller="Groups" asp-action="Index" class="btn btn-secondary">取消</a>
+</form>

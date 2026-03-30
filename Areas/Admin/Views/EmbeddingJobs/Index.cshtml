@@ -19,6 +19,28 @@
             <input type="hidden" name="vectorVersion" value="@Model.VectorVersion" />
         </form>
     </div>
+    <div>
+        <form method="post" asp-action="TriggerManual" asp-controller="EmbeddingJobs" asp-area="Admin" class="row g-2" style="display:flex;align-items:center;">
+            @Html.AntiForgeryToken()
+            <div class="col-auto">
+                <select name="vendorId" class="form-select form-select-sm">
+                    @foreach(var v in ViewBag.Vendors as System.Collections.Generic.List<ARCompletions.Domain.Vendor>)
+                    {
+                        <option value="@v.Id">@v.Name (@v.Code)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <input name="vectorVersion" class="form-control form-control-sm" placeholder="vector version (e.g. v1)" />
+            </div>
+            <div class="col-auto">
+                <input name="modelName" class="form-control form-control-sm" placeholder="model name" value="text-embedding-3-small" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Trigger Rebuild</button>
+            </div>
+        </form>
+    </div>
     <div class="text-muted">共 @Model.TotalCount 筆</div>
 </div>
 
@@ -27,6 +49,7 @@
         <tr>
             <th style="width:40px;"><input type="checkbox" id="selectAll" /></th>
             <th>JobNo</th>
+            <th>Active Vector Version</th>
             <th>Vendor</th>
             <th>狀態</th>
             <th>向量版本</th>
@@ -43,6 +66,8 @@
         <tr>
             <td><input type="checkbox" name="selectedIds" value="@item.Id" class="select-job" /></td>
             <td>@item.JobNo</td>
+            @{ var active = ViewBag.ActiveVectorVersion as System.Collections.Generic.Dictionary<string,string> ?? new System.Collections.Generic.Dictionary<string,string>(); }
+            <td>@(active.ContainsKey(item.VendorId) ? active[item.VendorId] : "-")</td>
             <td>@item.VendorId</td>
             <td>@item.Status</td>
             <td>@item.VectorVersion</td>
@@ -52,6 +77,11 @@
             <td>@item.CreatedAt</td>
             <td>
                 <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">檢視</a>
+                <form method="post" asp-action="SetActiveVector" asp-controller="EmbeddingJobs" asp-area="Admin" style="display:inline-block;margin-left:6px;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="jobId" value="@item.Id" />
+                    <button type="submit" class="btn btn-sm btn-success">Set as active</button>
+                </form>
             </td>
         </tr>
     }
