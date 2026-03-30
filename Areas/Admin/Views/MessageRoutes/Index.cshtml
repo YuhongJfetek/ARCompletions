@@ -2,7 +2,24 @@
 
 <h2>Message Routes</h2>
 
-<p><a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Create">Create New</a></p>
+<form method="get" class="row g-2 mb-2">
+    <div class="col-auto">
+        <input name="route" value="@ViewBag.FilterRoute" placeholder="Route contains" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <input name="matchedFaqId" value="@ViewBag.FilterMatchedFaq" placeholder="MatchedFaqId" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <input type="date" name="dateFrom" value="@(ViewBag.FilterDateFrom != null ? DateTimeOffset.FromUnixTimeSeconds((long)ViewBag.FilterDateFrom).UtcDateTime.ToString("yyyy-MM-dd") : "")" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <input type="date" name="dateTo" value="@(ViewBag.FilterDateTo != null ? DateTimeOffset.FromUnixTimeSeconds((long)ViewBag.FilterDateTo).UtcDateTime.ToString("yyyy-MM-dd") : "")" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-sm btn-primary" type="submit">篩選</button>
+        <a class="btn btn-sm btn-outline-secondary ms-2" href="@Url.Action("ExportCsv", "MessageRoutes", new { area = "Admin", route = ViewBag.FilterRoute, matchedFaqId = ViewBag.FilterMatchedFaq, dateFrom = ViewBag.FilterDateFrom, dateTo = ViewBag.FilterDateTo })">Export CSV</a>
+    </div>
+</form>
 
 <table class="table">
     <thead>
@@ -32,3 +49,20 @@
     }
     </tbody>
 </table>
+
+@{
+    int page = ViewBag.Page ?? 1;
+    int pageSize = ViewBag.PageSize ?? 25;
+    long total = ViewBag.Total ?? 0L;
+    int totalPages = (int)Math.Ceiling((double)total / pageSize);
+}
+
+<nav>
+    <ul class="pagination">
+        <li class="page-item @(page<=1?"disabled":"")"><a class="page-link" href="?page=@(page-1)&pageSize=@pageSize">上一頁</a></li>
+        @for(var p=1;p<=totalPages;p++){
+            <li class="page-item @(p==page?"active":"")"><a class="page-link" href="?page=@p&pageSize=@pageSize">@p</a></li>
+        }
+        <li class="page-item @(page>=totalPages?"disabled":"")"><a class="page-link" href="?page=@(page+1)&pageSize=@pageSize">下一頁</a></li>
+    </ul>
+</nav>

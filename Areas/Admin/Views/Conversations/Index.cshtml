@@ -28,6 +28,9 @@
     <div class="col-auto align-self-end">
         <button type="submit" class="btn btn-secondary">篩選</button>
     </div>
+    <div class="col-auto align-self-end">
+        <a class="btn btn-outline-success" href="@Url.Action("ExportCsv", "Conversations", new { area = "Admin", vendorId = ViewContext.HttpContext.Request.Query["vendorId"], filter = ViewContext.HttpContext.Request.Query["filter"], confidenceThreshold = ViewBag.ConfidenceThreshold })">匯出 CSV</a>
+    </div>
 </form>
 
 <table class="table table-striped">

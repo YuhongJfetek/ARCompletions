@@ -85,6 +85,54 @@ public class ConversationsController : Controller
         return View(items);
     }
 
+    public async Task<IActionResult> ExportCsv(string? vendorId = null, string? filter = null, double? confidenceThreshold = null)
+    {
+        var allowed = await _vendorScope.GetAllowedVendorIdsAsync(User);
+
+        var query = _db.Conversations.AsQueryable();
+        if (!string.IsNullOrEmpty(vendorId))
+        {
+            if (allowed != null && !allowed.Contains(vendorId)) return Forbid();
+            query = query.Where(c => c.VendorId == vendorId);
+        }
+        else if (allowed != null)
+        {
+            query = query.Where(c => allowed.Contains(c.VendorId));
+        }
+
+        var items = await query.OrderByDescending(c => c.LastMessageAt ?? c.StartedAt).Take(10000).ToListAsync();
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Id,VendorId,StartedAt,LastMessageAt,LastMessageRoute,LastMatchedFaqId,LastConfidence");
+
+        var convoIds = items.Select(i => i.Id).ToList();
+        var lastMessages = await _db.ConversationMessages
+            .Where(m => convoIds.Contains(m.ConversationId))
+            .GroupBy(m => m.ConversationId)
+            .Select(g => g.OrderByDescending(m => m.CreatedAt).FirstOrDefault())
+            .ToListAsync();
+
+        var summary = lastMessages.Where(m => m != null).ToDictionary(m => m!.ConversationId, m => m!);
+
+        foreach (var c in items)
+        {
+            var lm = summary.ContainsKey(c.Id) ? summary[c.Id] : null;
+            var line = string.Format("\"{0}\",\"{1}\",{2},{3},\"{4}\",\"{5}\",{6}",
+                c.Id,
+                (c.VendorId ?? "").Replace("\"","'"),
+                c.StartedAt,
+                c.LastMessageAt ?? 0,
+                (lm?.SourceType ?? "").Replace("\"","'"),
+                (lm?.SourceFaqId ?? "").Replace("\"","'"),
+                lm?.ConfidenceScore?.ToString() ?? ""
+            );
+            sb.AppendLine(line);
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
+        return File(bytes, "text/csv", "conversations.csv");
+    }
+
     public async Task<IActionResult> Details(string id)
     {
         if (string.IsNullOrEmpty(id)) return NotFound();

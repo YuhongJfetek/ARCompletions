@@ -115,6 +115,51 @@ public class EmbeddingJobsController : Controller
         return View(vm);
     }
 
+    public async Task<IActionResult> ExportCsv(string? vendorId = null, string? status = null, string? vectorVersion = null)
+    {
+        var allowed = await _vendorScope.GetAllowedVendorIdsAsync(User);
+        var query = _db.EmbeddingJobs.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(vendorId))
+        {
+            if (allowed != null && !allowed.Contains(vendorId)) return Forbid();
+            query = query.Where(j => j.VendorId == vendorId);
+        }
+        else if (allowed != null)
+        {
+            query = query.Where(j => allowed.Contains(j.VendorId));
+        }
+
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(j => j.Status == status);
+        if (!string.IsNullOrWhiteSpace(vectorVersion)) query = query.Where(j => j.VectorVersion == vectorVersion);
+
+        var items = await query.OrderByDescending(j => j.CreatedAt).Take(10000).ToListAsync();
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Id,JobNo,VendorId,Status,VectorVersion,TotalFaqCount,SuccessCount,FailCount,CreatedAt,StartedAt,FinishedAt,ErrorMessage");
+        foreach (var j in items)
+        {
+            var line = string.Format("\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",{5},{6},{7},{8},{9},{10},\"{11}\"",
+                j.Id,
+                (j.JobNo ?? "").Replace("\"","'"),
+                (j.VendorId ?? "").Replace("\"","'"),
+                (j.Status ?? "").Replace("\"","'"),
+                (j.VectorVersion ?? "").Replace("\"","'"),
+                j.TotalFaqCount,
+                j.SuccessCount,
+                j.FailCount,
+                j.CreatedAt,
+                j.StartedAt ?? 0,
+                j.FinishedAt ?? 0,
+                (j.ErrorMessage ?? "").Replace("\"","'")
+            );
+            sb.AppendLine(line);
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
+        return File(bytes, "text/csv", "embedding_jobs.csv");
+    }
+
     public async Task<IActionResult> Details(string id)
     {
         if (string.IsNullOrEmpty(id)) return NotFound();

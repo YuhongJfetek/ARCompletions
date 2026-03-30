@@ -20,6 +20,9 @@
         </form>
     </div>
     <div>
+        <a class="btn btn-sm btn-outline-secondary" href="@Url.Action("ExportCsv", "EmbeddingJobs", new { area = "Admin", vendorId = Model.VendorId, status = Model.Status, vectorVersion = Model.VectorVersion })">Export CSV</a>
+    </div>
+    <div>
         <form method="post" asp-action="TriggerManual" asp-controller="EmbeddingJobs" asp-area="Admin" class="row g-2" style="display:flex;align-items:center;">
             @Html.AntiForgeryToken()
             <div class="col-auto">
