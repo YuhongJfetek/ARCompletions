@@ -285,6 +285,9 @@ namespace ARCompletions.migrations
 
                     b.Property<string>("Text")
                         .HasColumnType("text");
+                    b.Property<string>("MessageResultId").HasColumnType("text");
+                    b.Property<string>("ProcessingStatus").HasColumnType("text");
+                    b.Property<DateTime?>("UpdatedAt").HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
@@ -483,6 +486,8 @@ namespace ARCompletions.migrations
                     b.Property<string>("MatchedBy").HasColumnType("text");
                     b.Property<string>("FaqCategory").HasColumnType("text");
                     b.Property<bool>("LlmEnabled").HasColumnType("boolean");
+                    b.Property<string>("LlmModel").HasColumnType("text");
+                    b.Property<string>("EmbeddingModel").HasColumnType("text");
                     b.Property<bool>("NeedsHandoff").HasColumnType("boolean");
                     b.Property<string>("ReplyText").HasColumnType("text");
                     b.Property<long>("CreatedAt").HasColumnType("bigint");

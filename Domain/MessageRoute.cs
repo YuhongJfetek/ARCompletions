@@ -15,5 +15,7 @@ public class MessageRoute
     public bool LlmEnabled { get; set; }
     public bool NeedsHandoff { get; set; }
     public string? ReplyText { get; set; }
+        public string? LlmModel { get; set; }
+        public string? EmbeddingModel { get; set; }
     public long CreatedAt { get; set; }
 }

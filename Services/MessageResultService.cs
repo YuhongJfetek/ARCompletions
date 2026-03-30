@@ -129,6 +129,8 @@ namespace ARCompletions.Services
                     MatchedBy = routeReq.MatchedBy,
                     FaqCategory = routeReq.FaqCategory,
                     LlmEnabled = routeReq.LlmEnabled,
+                    LlmModel = routeReq.LlmModel,
+                    EmbeddingModel = routeReq.EmbeddingModel,
                     NeedsHandoff = routeReq.NeedsHandoff,
                     ReplyText = routeReq.ReplyText,
                     CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()

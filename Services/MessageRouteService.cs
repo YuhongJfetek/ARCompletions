@@ -37,6 +37,8 @@ namespace ARCompletions.Services
                     MatchedBy = req.MatchedBy,
                     FaqCategory = req.FaqCategory,
                     LlmEnabled = req.LlmEnabled,
+                    LlmModel = req.LlmModel,
+                    EmbeddingModel = req.EmbeddingModel,
                     NeedsHandoff = req.NeedsHandoff,
                     ReplyText = req.ReplyText,
                     CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()

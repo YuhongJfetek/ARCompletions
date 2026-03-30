@@ -118,12 +118,16 @@ builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingService, ARComple
 builder.Services.AddHostedService<ARCompletions.Services.EmbeddingWorker>();
 // background in-memory queue for immediate job enqueueing
 builder.Services.AddSingleton<ARCompletions.Services.IBackgroundJobQueue, ARCompletions.Services.BackgroundJobQueue>();
+// background in-memory queue for incoming message events
+builder.Services.AddSingleton<ARCompletions.Services.IBackgroundMessageQueue, ARCompletions.Services.BackgroundMessageQueue>();
 // bulk job queue + worker for processing large admin batch operations
 builder.Services.AddSingleton<ARCompletions.Services.IBulkJobQueue, ARCompletions.Services.BulkJobQueue>();
 builder.Services.AddHostedService<ARCompletions.Services.BulkJobWorker>();
 // Analysis service + worker (stub)
 builder.Services.AddSingleton<ARCompletions.Services.IAnalysisService, ARCompletions.Services.StubAnalysisService>();
 builder.Services.AddHostedService<ARCompletions.Services.AnalysisWorker>();
+// worker that processes queued incoming LineEventLogs and runs analysis/persist
+builder.Services.AddHostedService<ARCompletions.Services.MessageEventWorker>();
 // Vendor scope helper
 builder.Services.AddScoped<ARCompletions.Services.VendorScopeService>();
 
@@ -198,6 +202,25 @@ app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Internal API key middleware: protect routes under /internal/v1
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value ?? string.Empty;
+    if (path.StartsWith("/internal/v1", StringComparison.OrdinalIgnoreCase))
+    {
+        var headerKey = context.Request.Headers["X-Internal-API-Key"].FirstOrDefault();
+        var expected = Environment.GetEnvironmentVariable("BACKEND_API_KEY") ?? builder.Configuration["BACKEND_API_KEY"];
+        if (string.IsNullOrWhiteSpace(expected) || string.IsNullOrWhiteSpace(headerKey) || !string.Equals(headerKey, expected, StringComparison.Ordinal))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsJsonAsync(new { success = false, error = new { code = "Unauthorized", message = "Missing or invalid X-Internal-API-Key" } });
+            return;
+        }
+    }
+
+    await next();
+});
 
 // wwwroot
 app.UseStaticFiles();

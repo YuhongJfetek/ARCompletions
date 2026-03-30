@@ -29,6 +29,7 @@ public class ARCompletionsContext : DbContext
     // Line Bot / 對話紀錄
     public DbSet<LineBotInputLog> LineBotInputLogs => Set<LineBotInputLog>();
     public DbSet<LineBotOutputLog> LineBotOutputLogs => Set<LineBotOutputLog>();
+    public DbSet<ARCompletions.Domain.LineEventLog> LineEventLogs => Set<ARCompletions.Domain.LineEventLog>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationMessage> ConversationMessages => Set<ConversationMessage>();
 
