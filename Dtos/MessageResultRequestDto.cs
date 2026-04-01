@@ -53,6 +53,7 @@ namespace ARCompletions.Dtos
         public string? Type { get; set; }
         public string? Url { get; set; }
         public string? Name { get; set; }
+        public string? DriveFileId { get; set; }
     }
 
     public class MessageSideEffectsDto

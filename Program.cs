@@ -130,6 +130,8 @@ builder.Services.AddHostedService<ARCompletions.Services.AnalysisWorker>();
 builder.Services.AddHostedService<ARCompletions.Services.MessageEventWorker>();
 // Vendor scope helper
 builder.Services.AddScoped<ARCompletions.Services.VendorScopeService>();
+// Drive service for file uploads (uses GOOGLE_SERVICE_ACCOUNT_KEY + GOOGLE_DRIVE_FOLDER_ID)
+builder.Services.AddSingleton<ARCompletions.Services.IDriveService, ARCompletions.Services.GoogleDriveService>();
 
 var app = builder.Build();
 
@@ -248,6 +250,12 @@ app.MapAreaControllerRoute(
     name: "admin",
     areaName: "Admin",
     pattern: "Admin/{controller=Home}/{action=Index}/{id?}");
+
+// Area route for vendor MVC
+app.MapAreaControllerRoute(
+    name: "vendor",
+    areaName: "Vendor",
+    pattern: "Vendor/{controller=Home}/{action=Index}/{id?}");
 
 app.MapControllers();
 

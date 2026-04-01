@@ -5,6 +5,13 @@ using ARCompletions.Services;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using System.IO;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System;
 
 namespace ARCompletions.Controllers.Api;
 
@@ -16,13 +23,17 @@ public class LineBotController : ControllerBase
     private readonly IFaqQueryService _faqQuery;
     private readonly IMessageResultService _resultService;
     private readonly IMessageRouteService _routeService;
+    private readonly IDriveService _driveService;
+    private readonly ILogger<LineBotController> _logger;
 
-    public LineBotController(ARCompletionsContext db, IFaqQueryService faqQuery, IMessageResultService resultService, IMessageRouteService routeService)
+    public LineBotController(ARCompletionsContext db, IFaqQueryService faqQuery, IMessageResultService resultService, IMessageRouteService routeService, IDriveService driveService, ILogger<LineBotController> logger)
     {
         _db = db;
         _faqQuery = faqQuery;
         _resultService = resultService;
         _routeService = routeService;
+        _driveService = driveService;
+        _logger = logger;
     }
 
     // NOTE: /api/message/analyze and /api/message/result endpoints removed.
@@ -30,7 +41,8 @@ public class LineBotController : ControllerBase
 
     // 1. 接收 Line Bot 輸入資料
     [HttpPost("input")]
-    public async Task<IActionResult> Input([FromBody] LineBotInputRequest request)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Input([FromForm] LineBotInputRequest request)
     {
         if (!ModelState.IsValid)
         {
@@ -63,6 +75,41 @@ public class LineBotController : ControllerBase
             }
         };
         // persist an initial input log for immediate auditing/traceability
+        var attachments = new List<AttachmentDto>();
+
+        // parse AttachmentsJson (if provided)
+        if (!string.IsNullOrWhiteSpace(request.AttachmentsJson))
+        {
+            try
+            {
+                var parsed = System.Text.Json.JsonSerializer.Deserialize<List<LineBotAttachmentItem>>(request.AttachmentsJson);
+                if (parsed != null)
+                    attachments.AddRange(parsed.Select(a => new AttachmentDto { Type = a.Type, Url = a.Url, Name = a.Name }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "AttachmentsJson parse failed traceId={TraceId}", traceId);
+            }
+        }
+
+        // if file present, upload via DriveService
+        string? driveFileId = null;
+        string? driveFileUrl = null;
+        if (request.File != null && request.File.Length > 0)
+        {
+            try
+            {
+                var up = await _driveService.UploadAsync(request.File, request.VendorId, request.ExternalMessageId, request.MessageType);
+                driveFileId = up.FileId;
+                driveFileUrl = up.FileUrl;
+                attachments.Add(new AttachmentDto { Type = request.MessageType, Url = driveFileUrl, Name = up.FileName, DriveFileId = driveFileId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Drive upload failed traceId={TraceId}", traceId);
+            }
+        }
+
         var inputPersistReq = new MessageResultRequestDto
         {
             TraceId = traceId,
@@ -76,7 +123,7 @@ public class LineBotController : ControllerBase
                 UserMessage = request.MessageText,
                 MessageTimestamp = request.ReceivedAt == default ? DateTime.UtcNow : request.ReceivedAt,
                 Language = request.Language ?? "zh",
-                Attachments = request.Attachments?.Select(a => new AttachmentDto { Type = a.Type, Url = a.Url, Name = a.Name }).ToList() ?? new System.Collections.Generic.List<AttachmentDto>()
+                Attachments = attachments
             }
         };
 
@@ -84,7 +131,7 @@ public class LineBotController : ControllerBase
 
         var resp = await _faqQuery.AnalyzeAsync(analyzeReq);
         // 回傳 TraceId、persist 回應與 analysis 供後續 Output 做關聯與儲存
-        return Ok(new { traceId, inputSaved = persistResp.Saved, analysis = resp });
+        return Ok(new { traceId, inputSaved = persistResp.Saved, analysis = resp, driveFileId, driveFileUrl });
     }
 
     // 2. Line Bot 輸入資料分析結果
@@ -222,6 +269,10 @@ public class LineBotInputRequest
     public string? SessionId { get; set; }
     public string? Language { get; set; }
     public System.Collections.Generic.List<LineBotAttachmentItem>? Attachments { get; set; }
+    // JSON string of attachments (from Node.js stringify)
+    public string? AttachmentsJson { get; set; }
+    // Binary file uploaded (from multipart/form-data)
+    public IFormFile? File { get; set; }
 }
 
 // Legacy LineBotOutputRequest removed — use Dtos/MessageOutputRequestDto instead
