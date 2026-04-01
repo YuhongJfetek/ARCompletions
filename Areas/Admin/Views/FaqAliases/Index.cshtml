@@ -21,12 +21,17 @@
             <td>@item.Term</td>
             <td>@item.Mode</td>
             <td>@item.FaqIds</td>
-            <td>@item.IsActive</td>
+            <td>@(item.IsActive ? "是" : "否")</td>
             <td>@item.CreatedAt</td>
             <td>
                 <a asp-area="Admin" asp-controller="FaqAliases" asp-action="Details" asp-route-id="@item.Id">檢視</a> |
                 <a asp-area="Admin" asp-controller="FaqAliases" asp-action="Edit" asp-route-id="@item.Id">編輯</a> |
-                <a asp-area="Admin" asp-controller="FaqAliases" asp-action="Delete" asp-route-id="@item.Id">刪除</a>
+                <form asp-area="Admin" asp-controller="FaqAliases" asp-action="ToggleActive" method="post" style="display:inline">
+                    <input type="hidden" name="id" value="@item.Id" />
+                    <button type="submit" class="btn btn-link p-0">@(item.IsActive ? "停用" : "啟用")</button>
+                </form>
+                |
+                <a asp-area="Admin" asp-controller="FaqAliases" asp-action="Delete" asp-route-id="@item.Id">停用（舊）</a>
             </td>
         </tr>
     }

@@ -85,10 +85,27 @@ public class FaqAliasesController : Controller
         var item = await _db.FaqAliases.FindAsync(id);
         if (item != null)
         {
-            _db.FaqAliases.Remove(item);
+            item.IsActive = false;
+            item.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            _db.FaqAliases.Update(item);
             await _db.SaveChangesAsync();
         }
-        TempData["Success"] = "FAQ Alias 已刪除";
+        TempData["Success"] = "FAQ 別名已停用";
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ToggleActive(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return BadRequest();
+        var item = await _db.FaqAliases.FindAsync(id);
+        if (item == null) return NotFound();
+        item.IsActive = !item.IsActive;
+        item.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        _db.FaqAliases.Update(item);
+        await _db.SaveChangesAsync();
+        TempData["Success"] = item.IsActive ? "FAQ 別名已啟用" : "FAQ 別名已停用";
         return RedirectToAction(nameof(Index));
     }
 }

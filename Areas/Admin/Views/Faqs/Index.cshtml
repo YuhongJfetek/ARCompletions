@@ -1,0 +1,76 @@
+@model ARCompletions.Areas.Vendor.Models.VendorFaqsIndexViewModel
+@{
+    ViewData["Title"] = "FAQ 管理";
+}
+
+<h1>FAQ 管理</h1>
+
+<form method="get" class="row g-2 mb-2">
+    <input type="hidden" name="vendorId" value="@ViewBag.VendorId" />
+    <div class="col-auto">
+        <input name="search" value="@Model.Search" placeholder="搜尋問題或答案" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <select name="categoryId" class="form-select form-select-sm">
+            <option value="">全部分類</option>
+            @foreach(var c in Model.Categories ?? Enumerable.Empty<ARCompletions.Domain.FaqCategory>())
+            {
+                <option value="@c.Id" @(Model.CategoryId==c.Id?"selected":"")>@c.Name</option>
+            }
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="status" class="form-select form-select-sm">
+            <option value="">全部狀態</option>
+            <option value="active" @(Model.Status=="active"?"selected":"")>active</option>
+            <option value="inactive" @(Model.Status=="inactive"?"selected":"")>inactive</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="pageSize" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="10" @(Model.PageSize==10?"selected":"")>10</option>
+            <option value="25" @(Model.PageSize==25?"selected":"")>25</option>
+            <option value="50" @(Model.PageSize==50?"selected":"")>50</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-sm btn-primary" type="submit">搜尋</button>
+        <a asp-area="Admin" asp-action="Create" asp-route-vendorId="@ViewBag.VendorId" class="btn btn-sm btn-success ms-2">新增 FAQ</a>
+    </div>
+</form>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>問題</th>
+            <th>狀態</th>
+            <th>優先權</th>
+            <th>啟用</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model.Items)
+    {
+        <tr>
+            <td>@item.Question</td>
+            <td>@item.Status</td>
+            <td>@item.Priority</td>
+            <td>@(item.IsActive ? "是" : "否")</td>
+            <td>
+                <a asp-area="Admin" asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">編輯</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<nav>
+    <ul class="pagination">
+        <li class="page-item @(Model.Page<=1?"disabled":"")"><a class="page-link" href="?vendorId=@ViewBag.VendorId&page=@(Model.Page-1)&pageSize=@Model.PageSize&search=@Model.Search&categoryId=@Model.CategoryId&status=@Model.Status">上一頁</a></li>
+        @for(var p=1;p<=Model.TotalPages;p++){
+            <li class="page-item @(p==Model.Page?"active":"")"><a class="page-link" href="?vendorId=@ViewBag.VendorId&page=@p&pageSize=@Model.PageSize&search=@Model.Search&categoryId=@Model.CategoryId&status=@Model.Status">@p</a></li>
+        }
+        <li class="page-item @(Model.Page>=Model.TotalPages?"disabled":"")"><a class="page-link" href="?vendorId=@ViewBag.VendorId&page=@(Model.Page+1)&pageSize=@Model.PageSize&search=@Model.Search&categoryId=@Model.CategoryId&status=@Model.Status">下一頁</a></li>
+    </ul>
+</nav>

@@ -36,7 +36,7 @@
         <form asp-action="Retry" method="post" class="mb-3">
             @Html.AntiForgeryToken()
             <input type="hidden" name="id" value="@Model.Id" />
-            <button type="submit" class="btn btn-warning">Retry</button>
+            <button type="submit" class="btn btn-warning">重試</button>
             <a asp-action="Index" class="btn btn-secondary">回到列表</a>
         </form>
     </div>

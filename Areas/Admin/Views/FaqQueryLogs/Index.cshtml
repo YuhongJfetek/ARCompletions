@@ -18,15 +18,15 @@
     <div class="col-auto">
         <select name="matched" class="form-select">
             <option value="">All</option>
-            <option value="matched" @(ViewBag.FilterMatched=="matched"?"selected":"")>Matched</option>
-            <option value="unmatched" @(ViewBag.FilterMatched=="unmatched"?"selected":"")>Unmatched</option>
+            <option value="matched" @(ViewBag.FilterMatched=="matched"?"selected":"")>已匹配</option>
+            <option value="unmatched" @(ViewBag.FilterMatched=="unmatched"?"selected":"")>未匹配</option>
         </select>
     </div>
     <div class="col-auto">
-        <input name="vendorId" class="form-control" placeholder="VendorId (optional)" value="@(ViewBag.FilterVendor ?? "")" />
+        <input name="vendorId" class="form-control" placeholder="廠商 Id (可選)" value="@(ViewBag.FilterVendor ?? "")" />
     </div>
     <div class="col-auto">
-        <button class="btn btn-primary" type="submit">Filter</button>
+        <button class="btn btn-primary" type="submit">篩選</button>
         <a class="btn btn-sm btn-outline-secondary ms-2 export-csv-btn" data-base-url="@Url.Action("ExportCsv")">Export CSV</a>
     </div>
 </form>

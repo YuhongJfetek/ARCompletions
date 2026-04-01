@@ -25,8 +25,9 @@ public class LineBotController : ControllerBase
     private readonly IMessageRouteService _routeService;
     private readonly IDriveService _driveService;
     private readonly ILogger<LineBotController> _logger;
+    private readonly ARCompletions.Services.IBackgroundJobQueue _jobQueue;
 
-    public LineBotController(ARCompletionsContext db, IFaqQueryService faqQuery, IMessageResultService resultService, IMessageRouteService routeService, IDriveService driveService, ILogger<LineBotController> logger)
+    public LineBotController(ARCompletionsContext db, IFaqQueryService faqQuery, IMessageResultService resultService, IMessageRouteService routeService, IDriveService driveService, ILogger<LineBotController> logger, ARCompletions.Services.IBackgroundJobQueue jobQueue)
     {
         _db = db;
         _faqQuery = faqQuery;
@@ -34,6 +35,7 @@ public class LineBotController : ControllerBase
         _routeService = routeService;
         _driveService = driveService;
         _logger = logger;
+        _jobQueue = jobQueue;
     }
 
     // NOTE: /api/message/analyze and /api/message/result endpoints removed.
@@ -127,11 +129,27 @@ public class LineBotController : ControllerBase
             }
         };
 
+        // idempotency: check existing MessageResult by MessageId (traceId) or ExternalMessageId
+        var existing = await _db.MessageResults.FirstOrDefaultAsync(m => m.MessageId == traceId || (!string.IsNullOrWhiteSpace(request.ExternalMessageId) && m.MessageId == request.ExternalMessageId));
+        if (existing != null)
+        {
+            return Ok(new { traceId, inputSaved = false, messageResultId = existing.Id, alreadyExists = true });
+        }
+
         var persistResp = await _resultService.PersistResultAsync(inputPersistReq);
 
-        var resp = await _faqQuery.AnalyzeAsync(analyzeReq);
-        // 回傳 TraceId、persist 回應與 analysis 供後續 Output 做關聯與儲存
-        return Ok(new { traceId, inputSaved = persistResp.Saved, analysis = resp, driveFileId, driveFileUrl });
+        // enqueue analysis job for background processing
+        try
+        {
+            _jobQueue?.Enqueue(traceId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to enqueue analysis job traceId={TraceId}", traceId);
+        }
+
+        // Return 202 Accepted to indicate async processing
+        return Accepted(new { traceId, inputSaved = persistResp.Saved, queued = true, driveFileId, driveFileUrl });
     }
 
     // 2. Line Bot 輸入資料分析結果

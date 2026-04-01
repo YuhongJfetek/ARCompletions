@@ -34,21 +34,55 @@
                     @{ var isPlatform = (User?.Identity?.IsAuthenticated ?? false) && (await AuthorizationService.AuthorizeAsync(User, null, "Platform")).Succeeded; }
                     @if (isPlatform)
                     {
+                        // Define controller groups for top-level sections
+                        var faqControllers = new[] { "AiFaqAnalysisJobs", "FaqLogs", "FaqQueryLogs", "FaqAliases", "FaqAnalysis", "KnowledgeCandidates" };
+                        var embeddingControllers = new[] { "EmbeddingJobs" };
+                        var messageControllers = new[] { "MessageApi", "MessageResults", "MessageRoutes", "Conversations", "ConversationStates", "Summaries" };
+                        var systemControllers = new[] { "Vendors", "VendorAccounts", "VendorStaffUsers", "PlatformUsers", "PlatformRoles", "PlatformPermissions", "SystemSettings", "BulkJobs", "Audit", "Files", "Groups" };
+
+                        bool InGroup(string[] grp) => grp.Contains(currentController);
+
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle @(NavActive(currentArea == "Admin"))" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">總部後台</a>
-                            <ul class="dropdown-menu" aria-labelledby="adminDropdown">
-                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="Home" asp-action="Index">管理首頁</a></li>
-                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="AiFaqAnalysisJobs" asp-action="Index">AI FAQ 任務</a></li>
-                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="FaqLogs" asp-action="Index">FAQ 操作紀錄</a></li>
-                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="EmbeddingJobs" asp-action="Index">Embedding 任務</a></li>
-                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="MessageApi" asp-action="Index">訊息 API 設定</a></li>
-                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="MessageResults" asp-action="Index">訊息結果</a></li>
-                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="FaqQueryLogs" asp-action="Index">FAQ 查詢紀錄</a></li>
-                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="ConversationStates" asp-action="Index">會話狀態</a></li>
+                            <a class="nav-link dropdown-toggle @(NavActive(InGroup(faqControllers)))" href="#" id="faqDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">FAQ 管理</a>
+                            <ul class="dropdown-menu" aria-labelledby="faqDropdown">
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="Faqs" asp-action="Index">FAQ 列表</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="FaqCategories" asp-action="Index">FAQ 分類</a></li>
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="FaqAliases" asp-action="Index">FAQ 別名</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="FaqQueryLogs" asp-action="Index">FAQ 查詢紀錄</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="FaqLogs" asp-action="Index">FAQ 操作紀錄</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="AiFaqAnalysisJobs" asp-action="Index">AI FAQ 分析任務</a></li>
+                            </ul>
+                        </li>
+
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle @(NavActive(InGroup(embeddingControllers)))" href="#" id="embedDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Embedding 管理</a>
+                            <ul class="dropdown-menu" aria-labelledby="embedDropdown">
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="EmbeddingJobs" asp-action="Index">Embedding 任務</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="EmbeddingJobs" asp-action="Progress">重建進度</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="EmbeddingSettings" asp-action="Index">Embedding 設定</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="EmbeddingJobs" asp-action="SyncStatus">同步狀態</a></li>
+                            </ul>
+                        </li>
+
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle @(NavActive(InGroup(messageControllers)))" href="#" id="msgDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">訊息管理</a>
+                            <ul class="dropdown-menu" aria-labelledby="msgDropdown">
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="Conversations" asp-action="Index">訊息輸入紀錄</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="MessageResults" asp-action="Index">訊息結果</a></li>
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="MessageRoutes" asp-action="Index">訊息路由</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="ConversationStates" asp-action="Index">會話狀態</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="MessageApi" asp-action="Index">API 設定</a></li>
+                            </ul>
+                        </li>
+
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle @(NavActive(InGroup(systemControllers)))" href="#" id="sysDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">系統管理</a>
+                            <ul class="dropdown-menu" aria-labelledby="sysDropdown">
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="Vendors" asp-action="Index">廠商管理</a></li>
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="VendorStaffUsers" asp-action="Index">廠商員工</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="PlatformUsers" asp-action="Index">平台帳號</a></li>
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="BulkJobs" asp-action="Index">批次工作</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="SystemSettings" asp-action="Index">系統設定</a></li>
                             </ul>
                         </li>
                     }
@@ -91,8 +125,29 @@
 
         @await Html.PartialAsync("_Alerts")
 
+        @* Breadcrumb / section header based on controller grouping *@
+        @{
+            string sectionName = string.Empty;
+            if (new[] { "AiFaqAnalysisJobs", "FaqLogs", "FaqQueryLogs", "FaqAliases", "FaqAnalysis", "KnowledgeCandidates", "Faqs", "FaqCategories" }.Contains(currentController)) sectionName = "FAQ 管理";
+            else if (new[] { "EmbeddingJobs", "EmbeddingSettings" }.Contains(currentController)) sectionName = "Embedding 管理";
+            else if (new[] { "MessageApi", "MessageResults", "MessageRoutes", "Conversations", "ConversationStates", "Summaries" }.Contains(currentController)) sectionName = "訊息管理";
+            else if (new[] { "Vendors", "VendorAccounts", "VendorStaffUsers", "PlatformUsers", "PlatformRoles", "PlatformPermissions", "SystemSettings", "BulkJobs", "Audit", "Files", "Groups" }.Contains(currentController)) sectionName = "系統管理";
+        }
+
         @if (!isLogin)
         {
+            <div class="section-header mb-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="h4 mb-0">@ViewData["Title"]</h1>
+                        @if (!string.IsNullOrEmpty(sectionName))
+                        {
+                            <small class="text-muted">@("首頁 / " + sectionName)</small>
+                        }
+                    </div>
+                </div>
+            </div>
+
             <div class="main-card">
                 @RenderBody()
             </div>

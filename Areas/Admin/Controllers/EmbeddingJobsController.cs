@@ -427,4 +427,109 @@ public class EmbeddingJobsController : Controller
         TempData["SetActiveJobId"] = jobId;
         return RedirectToAction(nameof(Index));
     }
+
+    // GET: Admin/EmbeddingJobs/SyncStatus
+    public async Task<IActionResult> SyncStatus(string? vendorId = null, int page = 1, int pageSize = 50)
+    {
+        var allowed = await _vendorScope.GetAllowedVendorIdsAsync(User);
+
+        var faqsQuery = _db.Faqs.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(vendorId))
+        {
+            if (allowed != null && !allowed.Contains(vendorId)) return Forbid();
+            faqsQuery = faqsQuery.Where(f => f.VendorId == vendorId);
+        }
+        else if (allowed != null)
+        {
+            faqsQuery = faqsQuery.Where(f => allowed.Contains(f.VendorId));
+        }
+
+        // join with latest embedding item per faq
+        var query = from f in faqsQuery
+                    join ei in (
+                        from e in _db.EmbeddingItems
+                        group e by e.FaqId into g
+                        select new { FaqId = g.Key, LastBuiltAt = g.Max(x => x.CreatedAt) }
+                    ) on f.Id equals ei.FaqId into gj
+                    from sub in gj.DefaultIfEmpty()
+                    select new
+                    {
+                        f.Id,
+                        f.VendorId,
+                        f.Question,
+                        FaqUpdatedAt = f.UpdatedAt ?? f.CreatedAt,
+                        LastBuiltAt = (long?)sub.LastBuiltAt
+                    };
+
+        var total = await query.LongCountAsync();
+
+        if (page < 1) page = 1;
+        if (pageSize <= 0) pageSize = 50;
+
+        var items = await query
+            .OrderByDescending(x => x.FaqUpdatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var vm = new ARCompletions.Areas.Admin.Models.EmbeddingSyncStatusViewModel
+        {
+            Items = items.Select(x => new ARCompletions.Areas.Admin.Models.EmbeddingSyncStatusItem
+            {
+                FaqId = x.Id,
+                VendorId = x.VendorId,
+                Question = x.Question,
+                FaqUpdatedAt = x.FaqUpdatedAt,
+                LastBuiltAt = x.LastBuiltAt
+            }).ToList(),
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = total,
+            VendorId = vendorId
+        };
+
+        var vendors = await _db.Vendors.OrderBy(v => v.Code).ToListAsync();
+        ViewBag.Vendors = vendors;
+
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RebuildSelected(string vendorId, string selectedFaqIds)
+    {
+        if (string.IsNullOrWhiteSpace(vendorId)) return BadRequest();
+
+        var allowed = await _vendorScope.GetAllowedVendorIdsAsync(User);
+        if (allowed != null && !allowed.Contains(vendorId)) return Forbid();
+
+        var ids = (selectedFaqIds ?? "").Split(new[]{','}, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList();
+        if (!ids.Any()) return BadRequest();
+
+        var job = new ARCompletions.Domain.EmbeddingJob
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            VendorId = vendorId,
+            JobNo = "E-" + DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Status = "pending",
+            TriggerType = "partial",
+            TriggeredByType = "admin",
+            TriggeredById = User?.Identity?.Name ?? "admin",
+            VectorVersion = "v1",
+            ModelName = "openai-embedding",
+            TotalFaqCount = ids.Count,
+            SuccessCount = 0,
+            FailCount = 0,
+            JsonFilePath = System.Text.Json.JsonSerializer.Serialize(new { faqIds = ids }),
+            CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        };
+
+        _db.EmbeddingJobs.Add(job);
+        await _db.SaveChangesAsync();
+
+        try { _jobQueue.Enqueue(job.Id); } catch { }
+
+        TempData["Success"] = $"已建立部分 rebuild 任務 ({ids.Count} 筆)";
+        return RedirectToAction(nameof(SyncStatus), new { vendorId });
+    }
 }

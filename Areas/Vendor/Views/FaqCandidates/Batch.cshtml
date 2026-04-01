@@ -1,14 +1,14 @@
 @model ARCompletions.Areas.Vendor.Models.VendorFaqCandidatesBatchViewModel
 
 @{
-    ViewData["Title"] = "Batch Create FAQs";
+    ViewData["Title"] = "批次建立 FAQ";
 }
 
-<h2>Batch Create FAQs</h2>
+<h2>批次建立 FAQ</h2>
 
 <form asp-action="BatchCreate" method="post">
     <div>
-        <label for="category">Target Category</label>
+        <label for="category">目標類別</label>
         <select id="category" name="categoryId" class="form-control">
             @foreach (var c in Model.Categories)
             {
@@ -21,10 +21,10 @@
         <thead>
             <tr>
                 <th></th>
-                <th>Question</th>
-                <th>Answer</th>
-                <th>Score</th>
-                <th>GeneratedAt</th>
+                <th>問題</th>
+                <th>回答</th>
+                <th>分數</th>
+                <th>產生時間</th>
             </tr>
         </thead>
         <tbody>

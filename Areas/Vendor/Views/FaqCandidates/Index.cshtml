@@ -48,9 +48,9 @@
     <div class="col-auto">
         <select name="status" class="form-select form-select-sm">
             <option value="">全部狀態</option>
-            <option value="new" @(Model.Status=="new"?"selected":"")>new</option>
+            <option value="new" @(Model.Status=="new"?"selected":"")>新</option>
             <option value="reviewed" @(Model.Status=="reviewed"?"selected":"")>reviewed</option>
-            <option value="rejected" @(Model.Status=="rejected"?"selected":"")>rejected</option>
+            <option value="rejected" @(Model.Status=="rejected"?"selected":"")>已拒絕</option>
         </select>
     </div>
     <div class="col-auto">

@@ -17,8 +17,8 @@
         <label class="form-label">篩選</label>
         <select name="filter" class="form-select">
             <option value="" @(ViewBag.ActiveFilter == null ? "selected" : "")>(全部)</option>
-            <option value="matched" @(ViewBag.ActiveFilter == "matched" ? "selected" : "")>Matched</option>
-            <option value="low_confidence" @(ViewBag.ActiveFilter == "low_confidence" ? "selected" : "")>Low Confidence</option>
+            <option value="matched" @(ViewBag.ActiveFilter == "matched" ? "selected" : "")>已匹配</option>
+            <option value="low_confidence" @(ViewBag.ActiveFilter == "low_confidence" ? "selected" : "")>低信心</option>
         </select>
     </div>
     <div class="col-auto">

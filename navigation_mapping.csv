@@ -1,0 +1,21 @@
+Section,Subpage,Controller,Views,Status,Notes
+FAQ 管理,FAQ 列表,Areas/Vendor/Controllers/FaqsController.cs,Areas/Vendor/Views/Faqs/*,Exists (Vendor-side),Add Admin FaqsController if HQ should manage
+FAQ 管理,FAQ 分類,Areas/Vendor/Controllers/FaqCategoriesController.cs,Areas/Vendor/Views/FaqCategories/*,Exists (Vendor-side),Admin-side missing if HQ management required
+FAQ 管理,FAQ 別名,Areas/Admin/Controllers/FaqAliasesController.cs,Areas/Admin/Views/FaqAliases/*,Exists,Delete is hard-delete; recommend IsActive toggle
+FAQ 管理,FAQ 查詢紀錄,Areas/Admin/Controllers/FaqQueryLogsController.cs,Areas/Admin/Views/FaqQueryLogs/*,Exists,ExportCsv supported
+FAQ 管理,FAQ 操作紀錄,Areas/Admin/Controllers/FaqLogsController.cs,Areas/Admin/Views/FaqLogs/*,Exists,Before/After details present
+FAQ 管理,AI FAQ 分析任務,Areas/Admin/Controllers/AiFaqAnalysisJobsController.cs,Areas/Admin/Views/AiFaqAnalysisJobs/*,Exists,Supports review and retry
+Embedding 管理,Embedding 任務,Areas/Admin/Controllers/EmbeddingJobsController.cs,Areas/Admin/Views/EmbeddingJobs/*,Exists,Index/Details/Retry/BulkRetry/TriggerManual present
+Embedding 管理,重建進度,Areas/Admin/Controllers/EmbeddingJobsController.cs,Areas/Admin/Views/EmbeddingJobs/Details.cshtml,Partial,Requires front-end polling or real-time updates
+Embedding 管理,Embedding 設定,MISSING,MISSING,Missing,Create EmbeddingSettingsController + Views
+Embedding 管理,同步狀態,MISSING,MISSING,Missing,Implement SyncStatus + one-click rebuild
+訊息管理,訊息輸入紀錄,Areas/Admin/Controllers/ConversationsController.cs,Areas/Admin/Views/Conversations/*,Exists,Raw JSON in Details
+訊息管理,訊息結果,Areas/Admin/Controllers/MessageResultsController.cs,Areas/Admin/Views/MessageResults/*,Exists,Includes payload copy and ExportCsv
+訊息管理,訊息路由,Areas/Admin/Controllers/MessageRoutesController.cs,Areas/Admin/Views/MessageRoutes/*,Exists,Supports filtering and ExportCsv
+訊息管理,會話狀態,Areas/Admin/Controllers/ConversationStatesController.cs,Areas/Admin/Views/ConversationStates/*,Exists,Manage bot/handoff state
+訊息管理,API 設定,Areas/Admin/Controllers/MessageApiController.cs,Areas/Admin/Views/MessageApi/Index.cshtml,Exists,Webhook test and settings stored in SystemSettings
+系統管理,廠商管理,Areas/Admin/Controllers/VendorsController.cs,Areas/Admin/Views/Vendors/*,Exists,OpenAI Key stored in DB — consider secure storage
+系統管理,廠商員工,Areas/Admin/Controllers/VendorStaffUsersController.cs,Areas/Admin/Views/VendorStaffUsers/*,Exists,Supports enable/disable
+系統管理,平台帳號,Areas/Admin/Controllers/PlatformUsersController.cs,Areas/Admin/Views/PlatformUsers/*,Exists,Password handling should use hashing
+系統管理,批次工作,Areas/Admin/Controllers/BulkJobsController.cs,Areas/Admin/Views/BulkJobs/*,Exists,Supports viewing and retry
+系統管理,系統設定,Areas/Admin/Controllers/SystemSettingsController.cs,Areas/Admin/Views/SystemSettings/*,Exists,Consider change history view

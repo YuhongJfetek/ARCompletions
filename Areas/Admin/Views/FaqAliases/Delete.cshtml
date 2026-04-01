@@ -1,8 +1,8 @@
 @model ARCompletions.Domain.FaqAlias
 
-<h2>刪除 FAQ 別名</h2>
+<h2>停用 FAQ 別名</h2>
 
-<p>Are you sure you want to delete this FAQ alias?</p>
+<p>確定要停用此 FAQ 別名嗎？停用後不會從資料庫移除。</p>
 
 <dl class="row">
     <dt class="col-sm-3">詞</dt>
@@ -13,6 +13,6 @@
 
 <form asp-area="Admin" asp-controller="FaqAliases" asp-action="DeleteConfirmed" method="post">
     <input type="hidden" name="id" value="@Model.Id" />
-    <button type="submit" class="btn btn-danger">刪除</button>
-    <a asp-area="Admin" asp-controller="FaqAliases" asp-action="Index" class="btn btn-secondary">Cancel</a>
+    <button type="submit" class="btn btn-danger">停用</button>
+    <a asp-area="Admin" asp-controller="FaqAliases" asp-action="Index" class="btn btn-secondary">取消</a>
 </form>

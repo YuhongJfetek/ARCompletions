@@ -1,0 +1,29 @@
+@model ARCompletions.Domain.Faq
+@{
+    ViewData["Title"] = "FAQ 詳情";
+}
+
+<h1>FAQ 詳情</h1>
+
+<dl class="row">
+    <dt class="col-sm-3">問題</dt>
+    <dd class="col-sm-9">@Model.Question</dd>
+
+    <dt class="col-sm-3">答案</dt>
+    <dd class="col-sm-9">@Model.Answer</dd>
+
+    <dt class="col-sm-3">分類</dt>
+    <dd class="col-sm-9">@Model.CategoryId</dd>
+
+    <dt class="col-sm-3">狀態</dt>
+    <dd class="col-sm-9">@Model.Status</dd>
+
+    <dt class="col-sm-3">啟用</dt>
+    <dd class="col-sm-9">@(Model.IsActive ? "是" : "否")</dd>
+
+    <dt class="col-sm-3">建立時間</dt>
+    <dd class="col-sm-9">@Model.CreatedAt</dd>
+</dl>
+
+<a asp-area="Admin" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">編輯</a>
+<a asp-area="Admin" asp-action="Index" asp-route-vendorId="@Model.VendorId" class="btn btn-secondary ms-2">回到列表</a>
