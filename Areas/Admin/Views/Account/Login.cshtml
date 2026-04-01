@@ -4,24 +4,35 @@
     var returnUrl = ViewData["ReturnUrl"] as string;
 }
 
-<h1>總部登入</h1>
+@section Styles { <script>document.body.classList.add('login-page');</script> }
 
-<form asp-action="Login" method="post">
-    <input type="hidden" name="returnUrl" value="@returnUrl" />
-    <div>
-        <label asp-for="Email">Email</label>
-        <input asp-for="Email" />
-        <span asp-validation-for="Email"></span>
-    </div>
-    <div>
-        <label asp-for="Password">密碼</label>
-        <input asp-for="Password" type="password" />
-        <span asp-validation-for="Password"></span>
-    </div>
-    <button type="submit">登入</button>
-</form>
+<div class="login-wrap">
+    <div class="login-card">
+        <div class="brand">總部登入</div>
+        <form asp-action="Login" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="returnUrl" value="@returnUrl" />
 
-@if (!ViewData.ModelState.IsValid)
-{
-    <div class="text-danger">@string.Join("; ", ViewData.ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))</div>
-}
+            <div class="form-row">
+                <label asp-for="Email">Email</label>
+                <input asp-for="Email" type="email" />
+                <span asp-validation-for="Email" class="validation"></span>
+            </div>
+
+            <div class="form-row">
+                <label asp-for="Password">密碼</label>
+                <input asp-for="Password" type="password" />
+                <span asp-validation-for="Password" class="validation"></span>
+            </div>
+
+            <button type="submit" class="btn-primary">登入</button>
+        </form>
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="validation">@string.Join("; ", ViewData.ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))</div>
+        }
+
+        <div class="helper">請使用公司 Email 登入</div>
+    </div>
+</div>

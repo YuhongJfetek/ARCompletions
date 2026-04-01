@@ -54,14 +54,100 @@ body {
 /* 容器 */
 .container {
   width: 100%;
-  max-width: 480px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: var(--spacing-md);
   min-height: 100vh;
 }
 
+/* 不作用於登入頁（登入頁會在 body 加上 .login-page） */
+body:not(.login-page) {
+  background-color: #f3f6fa; /* subtle bg for admin area */
+}
+
+/* 主內容容器（卡片式） */
+.main-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 導覽列樣式 (override bootstrap slightly for consistent brand)
+   Scoped to .site-navbar for clarity; also keeps fallback for .navbar */
+.site-navbar, .navbar.site-navbar {
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+}
+.site-navbar .navbar-brand, .navbar.site-navbar .navbar-brand {
+  font-weight: 700;
+  color: var(--primary-color) !important;
+  font-size: 20px;
+}
+.site-navbar .nav-link, .navbar.site-navbar .nav-link {
+  color: var(--text-secondary) !important;
+  font-weight: 500;
+}
+.site-navbar .nav-link:hover, .navbar.site-navbar .nav-link:hover {
+  color: var(--primary-color) !important;
+}
+.site-navbar .nav-link.active, .navbar.site-navbar .nav-link.active {
+  color: var(--primary-color) !important;
+  border-bottom: 2px solid var(--primary-color);
+}
+
+/* 全域按鈕樣式 */
+.btn-primary-custom {
+  background: var(--primary-color);
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+}
+
+/* 表格樣式 */
+.table-custom {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table-custom th, .table-custom td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #eef2f6;
+}
+.table-custom thead th {
+  background: #fbfdff;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* 表單控制樣式 */
+.form-control-custom {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+}
+
+/* 小抬頭 */
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: var(--spacing-md);
+}
+
 /* 標題 */
 .page-title {
+  font-size: 24px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+  color: var(--text-primary);
+}
+
+/* Ensure top headings inside main-card use page-title style (exclude login-page) */
+.main-card h1 {
   font-size: 24px;
   font-weight: 600;
   text-align: center;
