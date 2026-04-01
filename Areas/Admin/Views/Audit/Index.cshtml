@@ -1,22 +1,22 @@
 @model IEnumerable<ARCompletions.Domain.AuditLog>
 @{
-    ViewData["Title"] = "Audit Logs";
+    ViewData["Title"] = "稽核日誌";
     int page = ViewBag.Page ?? 1; int pageSize = ViewBag.PageSize ?? 50; long total = ViewBag.TotalCount ?? 0L;
 }
 
-<h1>Audit Logs</h1>
+<h1>稽核日誌</h1>
 
 <form method="get" class="row g-2 mb-3">
     <div class="col-auto">
-        <label class="form-label">Action</label>
+        <label class="form-label">動作</label>
         <input name="action" class="form-control" value="@(ViewBag.ActiveAction ?? "")" />
     </div>
     <div class="col-auto">
-        <label class="form-label">Date From</label>
+        <label class="form-label">開始日期</label>
         <input type="date" name="dateFrom" class="form-control" value="@(ViewBag.DateFrom ?? "")" />
     </div>
     <div class="col-auto">
-        <label class="form-label">Date To</label>
+        <label class="form-label">結束日期</label>
         <input type="date" name="dateTo" class="form-control" value="@(ViewBag.DateTo ?? "")" />
     </div>
     <div class="col-auto align-self-end">
@@ -25,7 +25,7 @@
 </form>
 
 <table class="table table-sm table-striped">
-    <thead><tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Target</th><th>Payload</th><th></th></tr></thead>
+    <thead><tr><th>時間</th><th>操作者</th><th>動作</th><th>目標</th><th>內容</th><th></th></tr></thead>
     <tbody>
     @foreach(var a in Model)
     {

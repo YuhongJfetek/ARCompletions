@@ -4,17 +4,17 @@
     var key = Model.SettingKey.Substring("Persona:".Length);
 }
 
-<h1>Edit Persona — @key</h1>
+<h1>編輯 Persona — @key</h1>
 
 <form method="post" asp-action="SavePersona" asp-controller="Analytics" asp-area="Admin">
     @Html.AntiForgeryToken()
     <input type="hidden" name="key" value="@key" />
     <div class="mb-3">
-        <label class="form-label">Key</label>
+        <label class="form-label">鍵</label>
         <input class="form-control" value="@key" readonly />
     </div>
     <div class="mb-3">
-        <label class="form-label">Value</label>
+        <label class="form-label">值</label>
         <textarea name="value" class="form-control" rows="6">@Model.SettingValue</textarea>
     </div>
     <div>

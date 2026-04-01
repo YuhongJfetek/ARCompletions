@@ -1,9 +1,9 @@
 @model ARCompletions.Domain.AuditLog
 @{
-    ViewData["Title"] = "Audit Details";
+    ViewData["Title"] = "稽核記錄詳情";
 }
 
-<h1>Audit Log — @Model.Id</h1>
+<h1>稽核記錄 — @Model.Id</h1>
 <table class="table table-bordered">
     <tr><th>Timestamp</th><td>@(DateTimeOffset.FromUnixTimeSeconds(Model.Timestamp).UtcDateTime)</td></tr>
     <tr><th>Actor</th><td>@Model.Actor</td></tr>

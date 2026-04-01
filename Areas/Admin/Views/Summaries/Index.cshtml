@@ -4,15 +4,15 @@
     int page = ViewBag.Page ?? 1; int pageSize = ViewBag.PageSize ?? 25; long total = ViewBag.TotalCount ?? 0L;
 }
 
-<h1>Summaries (AI FAQ Analysis Jobs)</h1>
+<h1>摘要（AI FAQ 分析任務）</h1>
 
 <form method="get" class="row g-2 mb-3">
     <div class="col-auto">
-        <label class="form-label">Date From</label>
+        <label class="form-label">開始日期</label>
         <input type="date" name="dateFrom" class="form-control" value="@(ViewBag.DateFrom ?? "")" />
     </div>
     <div class="col-auto">
-        <label class="form-label">Date To</label>
+        <label class="form-label">結束日期</label>
         <input type="date" name="dateTo" class="form-control" value="@(ViewBag.DateTo ?? "")" />
     </div>
     <div class="col-auto align-self-end">

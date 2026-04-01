@@ -1,5 +1,5 @@
 @{
-    ViewData["Title"] = "Platform Permission Matrix";
+    ViewData["Title"] = "平台權限矩陣";
 }
 
 @{
@@ -9,11 +9,11 @@
     var map = existing.GroupBy(e => e.PlatformRoleId).ToDictionary(g => g.Key, g => g.Select(x => x.PlatformPermissionId).ToHashSet());
 }
 
-<h1>Platform Permission Matrix</h1>
+<h1>平台權限矩陣</h1>
 
 <div class="row mb-3">
     <div class="col-auto">
-        <label class="form-label">Filter role</label>
+        <label class="form-label">篩選角色</label>
         <select id="roleFilter" class="form-select">
             <option value="">All roles</option>
             @foreach (var r in roles)

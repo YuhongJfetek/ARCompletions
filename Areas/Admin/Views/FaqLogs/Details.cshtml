@@ -7,25 +7,25 @@
 <h1>FAQ Log Details</h1>
 
 <dl class="row">
-    <dt class="col-sm-3">Time</dt>
+    <dt class="col-sm-3">時間</dt>
     <dd class="col-sm-9">@System.DateTimeOffset.FromUnixTimeSeconds(Model.OperatedAt).UtcDateTime.ToString("yyyy-MM-dd HH:mm")</dd>
 
-    <dt class="col-sm-3">Vendor</dt>
+    <dt class="col-sm-3">廠商</dt>
     <dd class="col-sm-9">@((ViewBag.Faq as ARCompletions.Domain.Faq)?.VendorId ?? Model.VendorId)</dd>
 
-    <dt class="col-sm-3">Actor</dt>
+    <dt class="col-sm-3">操作者</dt>
     <dd class="col-sm-9">@Model.OperatedByType / @Model.OperatedById</dd>
 
-    <dt class="col-sm-3">Action</dt>
+    <dt class="col-sm-3">動作</dt>
     <dd class="col-sm-9">@Model.ActionType</dd>
 
-    <dt class="col-sm-3">Target FAQ</dt>
+    <dt class="col-sm-3">目標 FAQ</dt>
     <dd class="col-sm-9">@Model.FaqId</dd>
 
-    <dt class="col-sm-3">Before</dt>
+    <dt class="col-sm-3">變更前</dt>
     <dd class="col-sm-9"><pre>@Model.BeforeJson</pre></dd>
 
-    <dt class="col-sm-3">After</dt>
+    <dt class="col-sm-3">變更後</dt>
     <dd class="col-sm-9"><pre>@Model.AfterJson</pre></dd>
 </dl>
 

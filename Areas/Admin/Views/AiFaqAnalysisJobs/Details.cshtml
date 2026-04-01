@@ -1,31 +1,31 @@
 @model ARCompletions.Domain.AiFaqAnalysisJob
 
 @{
-    ViewData["Title"] = "AI FAQ Analysis Job Details";
+    ViewData["Title"] = "AI FAQ 分析任務明細";
 }
 
-<h1>Job Details</h1>
+<h1>任務明細</h1>
 
 <dl class="row">
-    <dt class="col-sm-3">Job No</dt>
+    <dt class="col-sm-3">工作編號</dt>
     <dd class="col-sm-9">@Model.JobNo</dd>
 
-    <dt class="col-sm-3">Vendor</dt>
+    <dt class="col-sm-3">廠商</dt>
     <dd class="col-sm-9">@((ViewBag.Vendor as ARCompletions.Domain.Vendor)?.Name ?? Model.VendorId)</dd>
 
-    <dt class="col-sm-3">Status</dt>
+    <dt class="col-sm-3">狀態</dt>
     <dd class="col-sm-9">@Model.Status</dd>
 
-    <dt class="col-sm-3">Created</dt>
+    <dt class="col-sm-3">建立時間</dt>
     <dd class="col-sm-9">@System.DateTimeOffset.FromUnixTimeSeconds(Model.CreatedAt).UtcDateTime.ToString("yyyy-MM-dd HH:mm")</dd>
 
-    <dt class="col-sm-3">Conversation Count</dt>
+    <dt class="col-sm-3">對話數</dt>
     <dd class="col-sm-9">@Model.ConversationCount</dd>
 
-    <dt class="col-sm-3">Candidate Count</dt>
+    <dt class="col-sm-3">候選數</dt>
     <dd class="col-sm-9">@Model.CandidateCount</dd>
 
-    <dt class="col-sm-3">Error</dt>
+    <dt class="col-sm-3">錯誤訊息</dt>
     <dd class="col-sm-9">@Model.ErrorMessage</dd>
 </dl>
 
@@ -44,10 +44,10 @@
 <table class="table table-sm">
     <thead>
         <tr>
-            <th>Question</th>
-            <th>Confidence</th>
-            <th>Status</th>
-            <th>Generated At</th>
+            <th>問題</th>
+            <th>信心</th>
+            <th>狀態</th>
+            <th>產生時間</th>
         </tr>
     </thead>
     <tbody>

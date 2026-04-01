@@ -3,28 +3,28 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<h2>FAQ Query Log Details</h2>
+<h2>FAQ 查詢記錄詳情</h2>
 
 <dl class="row">
-    <dt class="col-sm-2">Id</dt>
+    <dt class="col-sm-2">編號</dt>
     <dd class="col-sm-10">@Model.Id</dd>
 
-    <dt class="col-sm-2">CreatedAt</dt>
+    <dt class="col-sm-2">建立時間</dt>
     <dd class="col-sm-10">@DateTimeOffset.FromUnixTimeSeconds(Model.CreatedAt).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</dd>
 
-    <dt class="col-sm-2">MessageResultId</dt>
+    <dt class="col-sm-2">訊息結果編號</dt>
     <dd class="col-sm-10">@Model.MessageResultId</dd>
 
-    <dt class="col-sm-2">QueryText</dt>
+    <dt class="col-sm-2">查詢內容</dt>
     <dd class="col-sm-10">@Model.QueryText</dd>
 
-    <dt class="col-sm-2">MatchedFaqId</dt>
+    <dt class="col-sm-2">已匹配 FAQ</dt>
     <dd class="col-sm-10">@Model.MatchedFaqId</dd>
 
-    <dt class="col-sm-2">Confidence</dt>
+    <dt class="col-sm-2">信心</dt>
     <dd class="col-sm-10">@(Model.Confidence?.ToString("F3") ?? "-")</dd>
 
-    <dt class="col-sm-2">Details (JSON)</dt>
+    <dt class="col-sm-2">內容 (JSON)</dt>
     <dd class="col-sm-10">
         <div class="mb-2"><button id="copyDetails" class="btn btn-sm btn-outline-secondary">Copy</button></div>
         <pre id="detailsPre" style="max-height:480px;overflow:auto;white-space:pre-wrap;">@Model.DetailsJson</pre>
