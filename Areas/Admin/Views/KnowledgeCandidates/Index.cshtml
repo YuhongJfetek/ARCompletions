@@ -17,7 +17,7 @@
             <td>@(c.ConfidenceScore?.ToString("0.00") ?? "-")</td>
             <td>@c.Status</td>
             <td>@(DateTimeOffset.FromUnixTimeSeconds(c.CreatedAt).UtcDateTime)</td>
-            <td><a asp-action="Details" asp-route-id="@c.Id" class="btn btn-sm btn-secondary">Details</a></td>
+            <td><a asp-action="Details" asp-route-id="@c.Id" class="btn btn-sm btn-secondary">檢視</a></td>
         </tr>
     }
     </tbody>

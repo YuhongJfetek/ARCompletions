@@ -61,11 +61,11 @@
             <td>@s.SettingValue</td>
             <td>@(DateTimeOffset.FromUnixTimeSeconds(s.UpdatedAt).UtcDateTime)</td>
             <td>
-                <a asp-action="Edit" asp-route-key="@sk" class="btn btn-sm btn-outline-primary">Edit</a>
+                <a asp-action="Edit" asp-route-key="@sk" class="btn btn-sm btn-outline-primary">編輯</a>
                 <form method="post" asp-action="DeletePersona" asp-controller="Analytics" asp-area="Admin" style="display:inline-block;margin-left:6px;">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="key" value="@sk" />
-                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete persona "' + '@sk' + '"?');">Delete</button>
+                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('刪除 persona "' + '@sk' + '"?');">刪除</button>
                 </form>
             </td>
         </tr>

@@ -31,7 +31,7 @@
             <td>@item.ProcessedCount</td>
             <td>@item.Status</td>
             <td>@(item.CreatedAt == 0 ? "-" : DateTimeOffset.FromUnixTimeSeconds(item.CreatedAt).UtcDateTime.ToString("yyyy-MM-dd HH:mm"))</td>
-            <td><a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">Details</a></td>
+            <td><a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">檢視</a></td>
         </tr>
     }
     </tbody>

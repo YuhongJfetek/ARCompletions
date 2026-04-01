@@ -9,7 +9,7 @@
 <form method="get" class="row mb-3">
     <div class="col-auto">
         <select name="vendorId" class="form-select">
-            <option value="">All Vendors</option>
+            <option value="">所有廠商</option>
             @foreach (var v in (IEnumerable<ARCompletions.Domain.Vendor>)ViewBag.Vendors)
             {
                 <option value="@v.Id">@v.Name (@v.Code)</option>
@@ -18,15 +18,15 @@
     </div>
     <div class="col-auto">
         <select name="status" class="form-select">
-            <option value="">All Status</option>
-            <option value="pending">pending</option>
-            <option value="processing">processing</option>
-            <option value="finished">finished</option>
-            <option value="failed">failed</option>
+            <option value="">所有狀態</option>
+            <option value="pending">待處理</option>
+            <option value="processing">處理中</option>
+            <option value="finished">完成</option>
+            <option value="failed">失敗</option>
         </select>
     </div>
     <div class="col-auto">
-        <button class="btn btn-primary">Filter</button>
+        <button class="btn btn-primary">篩選</button>
     </div>
 </form>
 

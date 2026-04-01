@@ -22,7 +22,7 @@
             <input id="apiKeyInput" name="apiKey" type="password" class="form-control" value="@(settings != null && settings.ContainsKey("ApiKey") ? settings["ApiKey"].SettingValue : "")" />
             <button id="toggleApiKey" type="button" class="btn btn-outline-secondary">顯示</button>
         </div>
-        <small class="form-text text-muted">Stored in plain text in SystemSettings table. Consider secrets storage for production.</small>
+        <small class="form-text text-muted">目前以明文儲存在 SystemSettings，建議在生產環境使用機密管理。</small>
     </div>
     <div class="form-group mb-3">
         <label>Webhook Secret</label>
@@ -30,9 +30,9 @@
     </div>
     <div class="form-group form-check mb-3">
         <input type="checkbox" name="enableWebhook" value="true" class="form-check-input" @(settings != null && settings.ContainsKey("EnableWebhook") && settings["EnableWebhook"].SettingValue == "true" ? "checked" : "") />
-        <label class="form-check-label">Enable Webhook</label>
+        <label class="form-check-label">啟用 Webhook</label>
     </div>
-    <button id="saveBtn" class="btn btn-primary" type="submit">Save</button>
+    <button id="saveBtn" class="btn btn-primary" type="submit">儲存</button>
     <span id="saveSpinner" class="spinner-border spinner-border-sm text-primary ms-2" role="status" style="display:none;" aria-hidden="true"></span>
 </form>
 
@@ -47,8 +47,8 @@
 
 <div class="mb-3">
     <div class="input-group" style="width:520px;">
-        <input id="testUrl" class="form-control" placeholder="Use configured URL if empty" />
-        <button id="ajaxTestBtn" class="btn btn-secondary">AJAX Test</button>
+    <input id="testUrl" class="form-control" placeholder="若留空則使用設定的 URL" />
+    <button id="ajaxTestBtn" class="btn btn-secondary">AJAX 測試</button>
         <div id="ajaxSpinner" class="spinner-border spinner-border-sm text-secondary ms-2" role="status" style="display:none;" aria-hidden="true"></div>
     </div>
     <div id="ajaxTestResult" class="mt-2"></div>
@@ -63,18 +63,18 @@
     <div class="mb-2">
         <form asp-action="ClearLogs" method="post" class="d-inline">
             @Html.AntiForgeryToken()
-            <button class="btn btn-sm btn-outline-danger">Clear Logs</button>
+            <button class="btn btn-sm btn-outline-danger">清除紀錄</button>
         </form>
     </div>
     <div class="table-responsive">
         <table class="table table-sm">
             <thead>
                 <tr>
-                    <th>Time</th>
+                    <th>時間</th>
                     <th>URL</th>
-                    <th>Result</th>
-                    <th>By</th>
-                    <th>Message / Error</th>
+                    <th>結果</th>
+                    <th>執行者</th>
+                    <th>訊息 / 錯誤</th>
                 </tr>
             </thead>
             <tbody>
@@ -86,8 +86,8 @@
                     <td>@when</td>
                     <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@((l as dynamic).Url ?? "-")</td>
                     <td>
-                        @if ((bool?)((l as dynamic).Success) == true) { <span class="badge bg-success">OK</span>; }
-                        else { <span class="badge bg-danger">Fail</span>; }
+                        @if ((bool?)((l as dynamic).Success) == true) { <span class="badge bg-success">成功</span>; }
+                        else { <span class="badge bg-danger">失敗</span>; }
                     </td>
                     <td>@((l as dynamic).InitiatedBy ?? "-")</td>
                     <td style="max-width:420px;word-wrap:break-word;">@((l as dynamic).Error ?? ((l as dynamic).Response != null ? (((string)(l as dynamic).Response).Length > 200 ? (((string)(l as dynamic).Response).Substring(0,200) + "...") : (string)(l as dynamic).Response) : "-"))</td>
@@ -141,11 +141,11 @@
                 }).then(function(js){
                     if (js.success) {
                         var txt = '<div class="alert alert-success d-flex justify-content-between align-items-start">';
-                        txt += '<div><strong>OK</strong>';
+                        txt += '<div><strong>成功</strong>';
                         if (js.status) txt += ' Status: ' + js.status + ' ' + (js.reason || '') + '<br/>';
                         txt += '</div>';
                         txt += '<div class="ms-2">';
-                        if (js.response) txt += '<button class="btn btn-sm btn-outline-secondary copy-btn">Copy</button>';
+                        if (js.response) txt += '<button class="btn btn-sm btn-outline-secondary copy-btn">複製</button>';
                         txt += '</div>';
                         if (js.response) txt += '<div class="w-100 mt-2"><pre class="response-text" style="white-space:pre-wrap;max-height:240px;overflow:auto;">' + escapeHtml(js.response) + '</pre></div>';
                         txt += '</div>';
@@ -157,21 +157,21 @@
                                 var txtEl = result.querySelector('.response-text');
                                 var toCopy = txtEl ? txtEl.innerText : (js.response || '');
                                 if (navigator.clipboard) {
-                                    navigator.clipboard.writeText(toCopy).then(function(){ showToast('Copied response to clipboard','info'); }, function(){ showToast('Copy failed','warning'); });
+                                    navigator.clipboard.writeText(toCopy).then(function(){ showToast('已複製回應到剪貼簿','info'); }, function(){ showToast('複製失敗','warning'); });
                                 } else {
                                     // fallback
-                                    var ta = document.createElement('textarea'); ta.value = toCopy; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); showToast('Copied response to clipboard','info'); } catch(e){ showToast('Copy failed','warning'); } document.body.removeChild(ta);
+                                    var ta = document.createElement('textarea'); ta.value = toCopy; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); showToast('已複製回應到剪貼簿','info'); } catch(e){ showToast('複製失敗','warning'); } document.body.removeChild(ta);
                                 }
                             });
                         }
-                        showToast('Webhook test succeeded','success');
+                        showToast('Webhook 測試成功','success');
                     } else {
-                        result.innerHTML = '<div class="alert alert-danger">Error: ' + escapeHtml(js.message || 'unknown') + '</div>';
-                        showToast('Webhook test failed','danger');
+                        result.innerHTML = '<div class="alert alert-danger">錯誤: ' + escapeHtml(js.message || 'unknown') + '</div>';
+                        showToast('Webhook 測試失敗','danger');
                     }
                 }).catch(function(err){
-                    result.innerHTML = '<div class="alert alert-danger">Fetch error: ' + escapeHtml(err) + '</div>';
-                    showToast('Request error','danger');
+                    result.innerHTML = '<div class="alert alert-danger">Fetch 錯誤: ' + escapeHtml(err) + '</div>';
+                    showToast('請求錯誤','danger');
                 }).finally(function(){ btn.disabled = false; ajaxSpinner.style.display = 'none'; });
             });
 

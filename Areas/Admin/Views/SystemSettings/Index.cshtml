@@ -24,7 +24,7 @@
             <td>@s.Description</td>
             <td>@(System.DateTimeOffset.FromUnixTimeSeconds(s.UpdatedAt).UtcDateTime.ToString("yyyy-MM-dd HH:mm"))</td>
             <td>
-                <a asp-area="Admin" asp-controller="SystemSettings" asp-action="Edit" asp-route-id="@s.Id" class="btn btn-sm btn-primary">Edit</a>
+                <a asp-area="Admin" asp-controller="SystemSettings" asp-action="Edit" asp-route-id="@s.Id" class="btn btn-sm btn-primary">編輯</a>
             </td>
         </tr>
     }

@@ -35,7 +35,7 @@
             <td>@j.CandidateCount</td>
             <td>@(DateTimeOffset.FromUnixTimeSeconds(j.CreatedAt).UtcDateTime)</td>
             <td>
-                <a asp-action="Details" asp-route-id="@j.Id" class="btn btn-sm btn-secondary">Details</a>
+                <a asp-action="Details" asp-route-id="@j.Id" class="btn btn-sm btn-secondary">檢視</a>
                 <a asp-action="ExportSummary" asp-route-id="@j.Id" class="btn btn-sm btn-outline-success ms-2">Download Summary</a>
             </td>
         </tr>

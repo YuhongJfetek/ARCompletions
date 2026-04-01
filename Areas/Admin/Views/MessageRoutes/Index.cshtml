@@ -4,10 +4,10 @@
 
 <form method="get" class="row g-2 mb-2">
     <div class="col-auto">
-        <input name="route" value="@ViewBag.FilterRoute" placeholder="Route contains" class="form-control form-control-sm" />
+        <input name="route" value="@ViewBag.FilterRoute" placeholder="路由包含" class="form-control form-control-sm" />
     </div>
     <div class="col-auto">
-        <input name="matchedFaqId" value="@ViewBag.FilterMatchedFaq" placeholder="MatchedFaqId" class="form-control form-control-sm" />
+        <input name="matchedFaqId" value="@ViewBag.FilterMatchedFaq" placeholder="已匹配 FAQ 編號" class="form-control form-control-sm" />
     </div>
     <div class="col-auto">
         <input type="date" name="dateFrom" value="@(ViewBag.FilterDateFrom != null ? DateTimeOffset.FromUnixTimeSeconds((long)ViewBag.FilterDateFrom).UtcDateTime.ToString("yyyy-MM-dd") : "")" class="form-control form-control-sm" />
@@ -17,18 +17,18 @@
     </div>
     <div class="col-auto">
         <button class="btn btn-sm btn-primary" type="submit">篩選</button>
-        <a class="btn btn-sm btn-outline-secondary ms-2" href="@Url.Action("ExportCsv", "MessageRoutes", new { area = "Admin", route = ViewBag.FilterRoute, matchedFaqId = ViewBag.FilterMatchedFaq, dateFrom = ViewBag.FilterDateFrom, dateTo = ViewBag.FilterDateTo })">Export CSV</a>
+        <a class="btn btn-sm btn-outline-secondary ms-2" href="@Url.Action("ExportCsv", "MessageRoutes", new { area = "Admin", route = ViewBag.FilterRoute, matchedFaqId = ViewBag.FilterMatchedFaq, dateFrom = ViewBag.FilterDateFrom, dateTo = ViewBag.FilterDateTo })">匯出 CSV</a>
     </div>
 </form>
 
 <table class="table">
     <thead>
         <tr>
-            <th>Route</th>
-            <th>Reason</th>
-            <th>MatchedFaqId</th>
-            <th>Score</th>
-            <th>CreatedAt</th>
+            <th>路由</th>
+            <th>原因</th>
+            <th>已匹配 FAQ</th>
+            <th>分數</th>
+            <th>建立時間</th>
             <th></th>
         </tr>
     </thead>
@@ -41,9 +41,9 @@
             <td>@item.MatchedScore</td>
             <td>@item.CreatedAt</td>
             <td>
-                <a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Details" asp-route-id="@item.Id">Details</a> |
-                <a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Edit" asp-route-id="@item.Id">Edit</a> |
-                <a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Delete" asp-route-id="@item.Id">Delete</a>
+                <a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Details" asp-route-id="@item.Id">檢視</a> |
+                <a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Edit" asp-route-id="@item.Id">編輯</a> |
+                <a asp-area="Admin" asp-controller="MessageRoutes" asp-action="Delete" asp-route-id="@item.Id">刪除</a>
             </td>
         </tr>
     }
