@@ -94,6 +94,7 @@ public class EmbeddingJobsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "Embedding 任務已建立";
         return RedirectToAction(nameof(Index));
     }
 
@@ -131,6 +132,7 @@ public class EmbeddingJobsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "Embedding 任務已重新排程";
         return RedirectToAction(nameof(Details), new { id });
     }
 }

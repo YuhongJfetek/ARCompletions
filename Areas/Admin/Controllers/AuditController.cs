@@ -86,6 +86,7 @@ public class AuditController : Controller
         s.UpdatedBy = User?.Identity?.Name;
         _db.SystemSettings.Update(s);
         await _db.SaveChangesAsync();
+        TempData["Success"] = "設定已更新";
         return RedirectToAction(nameof(Governance));
     }
 }

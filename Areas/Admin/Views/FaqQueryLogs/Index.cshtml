@@ -1,6 +1,6 @@
 @model IEnumerable<ARCompletions.Domain.FaqQueryLog>
 @{
-    Layout = "~/Areas/Admin/Views/Shared/_AdminLayout.cshtml";
+    Layout = "~/Views/Shared/_Layout.cshtml";
     var page = (int)(ViewBag.Page ?? 1);
     var pageSize = (int)(ViewBag.PageSize ?? 25);
     var total = (int)(ViewBag.Total ?? 0);

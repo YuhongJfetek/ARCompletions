@@ -74,9 +74,11 @@ public class AccountController : Controller
 
         if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
         {
+            TempData["Success"] = "登入成功";
             return Redirect(returnUrl);
         }
 
+        TempData["Success"] = "登入成功";
         return RedirectToAction("Index", "Home", new { area = "Admin" });
     }
 
@@ -102,6 +104,7 @@ public class AccountController : Controller
         }
         catch { }
 
+        TempData["Info"] = "已登出";
         return RedirectToAction("Login", "Account", new { area = "Admin" });
     }
 

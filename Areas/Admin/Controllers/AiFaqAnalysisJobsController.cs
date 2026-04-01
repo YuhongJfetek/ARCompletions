@@ -119,6 +119,7 @@ public class AiFaqAnalysisJobsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "工作已重新排程";
         return RedirectToAction(nameof(Details), new { id });
     }
 }

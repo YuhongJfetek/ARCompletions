@@ -76,6 +76,7 @@ public class MessageApiController : Controller
         await Upsert("EnableWebhook", enableWebhook ? "true" : "false");
 
         await _db.SaveChangesAsync();
+        TempData["Success"] = "設定已儲存";
         TempData["Message"] = "Settings saved.";
         return RedirectToAction(nameof(Index));
     }
@@ -176,6 +177,7 @@ public class MessageApiController : Controller
             _db.SystemSettings.Remove(existing);
             await _db.SaveChangesAsync();
         }
+        TempData["Success"] = "Webhook 測試日誌已清除";
         return RedirectToAction(nameof(Index));
     }
 

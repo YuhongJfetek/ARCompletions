@@ -68,6 +68,8 @@ public class SystemSettingsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "系統設定已更新";
+        TempData["Success"] = "設定已更新";
         return RedirectToAction(nameof(Index));
     }
 }

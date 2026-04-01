@@ -82,6 +82,7 @@ public class VendorsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "廠商已建立";
         return RedirectToAction(nameof(Index));
     }
 
@@ -149,6 +150,7 @@ public class VendorsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "廠商已更新";
         return RedirectToAction(nameof(Index));
     }
 }

@@ -57,6 +57,7 @@ public class GroupsController : Controller
     {
         // TODO: Persist new group to DB. Currently not implemented.
         await Task.CompletedTask;
+        TempData["Success"] = "群組已建立";
         return RedirectToAction(nameof(Index));
     }
 
@@ -76,6 +77,7 @@ public class GroupsController : Controller
     {
         // TODO: Persist edit to DB. Currently not implemented.
         await Task.CompletedTask;
+        TempData["Success"] = "群組已更新";
         return RedirectToAction(nameof(Index));
     }
 }

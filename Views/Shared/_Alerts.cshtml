@@ -1,0 +1,41 @@
+@using System.Collections
+@{
+    var alerts = new List<(string Type, string Message)>();
+    if (TempData.ContainsKey("Success")) alerts.Add(("success", TempData["Success"]?.ToString() ?? ""));
+    if (TempData.ContainsKey("Error")) alerts.Add(("danger", TempData["Error"]?.ToString() ?? ""));
+    if (TempData.ContainsKey("Warning")) alerts.Add(("warning", TempData["Warning"]?.ToString() ?? ""));
+    if (TempData.ContainsKey("Info")) alerts.Add(("info", TempData["Info"]?.ToString() ?? ""));
+    if (TempData.ContainsKey("Errors"))
+    {
+        var obj = TempData["Errors"];
+        if (obj is IEnumerable<string> list)
+        {
+            foreach (var s in list) alerts.Add(("danger", s));
+        }
+        else alerts.Add(("danger", obj?.ToString() ?? ""));
+    }
+
+    if (!ViewData.ModelState.IsValid)
+    {
+        foreach (var v in ViewData.ModelState.Values)
+        {
+            foreach (var e in v.Errors)
+            {
+                alerts.Add(("danger", e.ErrorMessage));
+            }
+        }
+    }
+}
+
+@if (alerts.Any())
+{
+    <div class="alerts-list mb-3">
+        @foreach (var a in alerts)
+        {
+            <div class="alert alert-@a.Type alert-dismissible fade show" role="alert">
+                @a.Message
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        }
+    </div>
+}

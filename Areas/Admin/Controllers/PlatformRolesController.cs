@@ -66,6 +66,7 @@ public class PlatformRolesController : Controller
         }
         catch { }
 
+        TempData["Success"] = "角色已建立";
         return RedirectToAction(nameof(Index));
     }
 
@@ -113,6 +114,7 @@ public class PlatformRolesController : Controller
         }
         catch { }
 
+        TempData["Success"] = "角色已更新";
         return RedirectToAction(nameof(Index));
     }
 
@@ -188,6 +190,7 @@ public class PlatformRolesController : Controller
         }
         catch { }
 
+        TempData["Success"] = "角色權限已更新";
         return RedirectToAction(nameof(Index));
     }
 }

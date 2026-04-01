@@ -82,6 +82,7 @@ public class AiFaqAnalysisJobsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "分析工作已排程";
         return RedirectToAction(nameof(Index));
     }
 

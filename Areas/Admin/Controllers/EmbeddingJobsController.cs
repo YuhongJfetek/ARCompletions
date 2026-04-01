@@ -224,6 +224,7 @@ public class EmbeddingJobsController : Controller
             // 忽略審計寫入錯誤
         }
 
+        TempData["Success"] = "Embedding 任務已重新排程";
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -335,6 +336,7 @@ public class EmbeddingJobsController : Controller
 
         await _db.SaveChangesAsync();
 
+        TempData["Success"] = "已重新排程選取的 Embedding 任務";
         return RedirectToAction(nameof(Index));
     }
 

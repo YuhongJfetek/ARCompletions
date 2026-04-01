@@ -1,10 +1,9 @@
 @model ARCompletions.Areas.Admin.Controllers.PlatformLoginViewModel
 @{
+    Layout = "~/Views/Shared/_Layout.cshtml";
     ViewData["Title"] = "總部登入";
     var returnUrl = ViewData["ReturnUrl"] as string;
 }
-
-@section Styles { <script>document.body.classList.add('login-page');</script> }
 
 <div class="login-wrap">
     <div class="login-card">

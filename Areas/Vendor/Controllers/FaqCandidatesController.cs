@@ -116,6 +116,7 @@ public class FaqCandidatesController : Controller
         }
 
         await _db.SaveChangesAsync();
+        TempData["Success"] = "候選 FAQ 已更新";
         return RedirectToAction(nameof(Index));
     }
 }

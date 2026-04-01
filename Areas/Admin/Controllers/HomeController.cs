@@ -1,6 +1,7 @@
 using ARCompletions.Areas.Admin.Models;
 using ARCompletions.Data;
 using Microsoft.AspNetCore.Authorization;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ARCompletions.Areas.Admin.Controllers;
@@ -10,10 +11,12 @@ namespace ARCompletions.Areas.Admin.Controllers;
 public class HomeController : Controller
 {
     private readonly ARCompletionsContext _db;
+    private readonly IAuthorizationService _authz;
 
-    public HomeController(ARCompletionsContext db)
+    public HomeController(ARCompletionsContext db, IAuthorizationService authz)
     {
         _db = db;
+        _authz = authz;
     }
 
     // 總部後台首頁：顯示全系統統計
@@ -31,6 +34,14 @@ public class HomeController : Controller
         };
 
         ViewData["Title"] = "總部後台首頁";
+
+        // Debug helpers: surface authentication + claims info to the view during troubleshooting
+        ViewBag.IsAuthenticated = User?.Identity?.IsAuthenticated ?? false;
+        ViewBag.UserName = User?.Identity?.Name ?? "(none)";
+        ViewBag.Claims = User?.Claims.Select(c => new { c.Type, c.Value }).ToList();
+        var platformAuth = _authz.AuthorizeAsync(User, null, "Platform").GetAwaiter().GetResult();
+        ViewBag.IsPlatformAuthorized = platformAuth.Succeeded;
+
         return View(vm);
     }
 }

@@ -81,6 +81,7 @@ public class VendorSettingsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "設定已儲存";
         return RedirectToAction(nameof(Index));
     }
 }

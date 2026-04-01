@@ -87,6 +87,7 @@ public class VendorAccountsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "廠商帳號已建立";
         return RedirectToAction(nameof(Index));
     }
 
@@ -149,6 +150,7 @@ public class VendorAccountsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "廠商帳號已更新";
         return RedirectToAction(nameof(Index));
     }
 

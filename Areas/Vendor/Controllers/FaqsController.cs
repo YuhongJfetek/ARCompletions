@@ -128,6 +128,7 @@ public class FaqsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "FAQ 已建立";
         return RedirectToAction(nameof(Index));
     }
 
@@ -231,6 +232,7 @@ public class FaqsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "FAQ 已更新";
         return RedirectToAction(nameof(Index));
     }
 }

@@ -127,6 +127,7 @@ public class PlatformUsersController : Controller
         }
         catch { }
 
+        TempData["Success"] = "後台帳號已建立";
         return RedirectToAction(nameof(Index));
     }
 
@@ -247,6 +248,7 @@ public class PlatformUsersController : Controller
         }
         catch { }
 
+        TempData["Success"] = "後台帳號已更新";
         return RedirectToAction(nameof(Index));
     }
 }

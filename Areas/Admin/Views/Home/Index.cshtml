@@ -5,6 +5,15 @@
 
 <h1>@ViewData["Title"]</h1>
 
+<div class="mb-3">
+    <strong>Debug:</strong>
+    <div>IsAuthenticated: @ViewBag.IsAuthenticated</div>
+    <div>UserName: @ViewBag.UserName</div>
+    <div>IsPlatformAuthorized: @ViewBag.IsPlatformAuthorized</div>
+    <div>Claims:</div>
+    <pre style="max-height:200px;overflow:auto;background:#f8f9fa;padding:8px;border-radius:6px;">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.Claims, new System.Text.Json.JsonSerializerOptions{WriteIndented=true}))</pre>
+</div>
+
 <ul>
     <li>廠商總數：@Model.VendorCount</li>
     <li>啟用廠商數：@Model.ActiveVendorCount</li>

@@ -58,6 +58,7 @@ public class FaqCategoriesController : Controller
 
         _db.FaqCategories.Add(category);
         await _db.SaveChangesAsync();
+        TempData["Success"] = "分類已建立";
         return RedirectToAction(nameof(Index));
     }
 
@@ -98,6 +99,7 @@ public class FaqCategoriesController : Controller
         existing.UpdatedBy = User.Identity?.Name ?? "vendor";
 
         await _db.SaveChangesAsync();
+        TempData["Success"] = "分類已更新";
         return RedirectToAction(nameof(Index));
     }
 }

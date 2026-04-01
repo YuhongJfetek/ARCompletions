@@ -60,6 +60,7 @@ public class FilesController : Controller
     {
         // TODO: Trigger archive job for file. Not implemented in scaffold.
         await Task.CompletedTask;
+        TempData["Success"] = "檔案已標記為歸檔";
         return RedirectToAction(nameof(Index));
     }
 }

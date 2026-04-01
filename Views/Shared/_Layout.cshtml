@@ -89,6 +89,8 @@
         @{ var isLogin = (currentArea == "Admin" && currentController == "Account" && currentAction == "Login") ||
                        (currentArea == "Vendor" && currentController == "Account" && currentAction == "Login"); }
 
+        @await Html.PartialAsync("_Alerts")
+
         @if (!isLogin)
         {
             <div class="main-card">

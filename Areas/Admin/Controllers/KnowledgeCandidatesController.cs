@@ -73,6 +73,7 @@ public class KnowledgeCandidatesController : Controller
 
         _db.FaqCandidates.Update(item);
         await _db.SaveChangesAsync();
+        TempData["Success"] = "已標記為已審核";
         return RedirectToAction(nameof(Details), new { id });
     }
 }

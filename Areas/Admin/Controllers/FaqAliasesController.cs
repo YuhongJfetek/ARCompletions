@@ -45,6 +45,7 @@ public class FaqAliasesController : Controller
         model.CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         _db.FaqAliases.Add(model);
         await _db.SaveChangesAsync();
+        TempData["Success"] = "FAQ Alias 已建立";
         return RedirectToAction(nameof(Index));
     }
 
@@ -65,6 +66,7 @@ public class FaqAliasesController : Controller
         model.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         _db.Entry(model).State = EntityState.Modified;
         await _db.SaveChangesAsync();
+        TempData["Success"] = "FAQ Alias 已更新";
         return RedirectToAction(nameof(Index));
     }
 
@@ -86,6 +88,7 @@ public class FaqAliasesController : Controller
             _db.FaqAliases.Remove(item);
             await _db.SaveChangesAsync();
         }
+        TempData["Success"] = "FAQ Alias 已刪除";
         return RedirectToAction(nameof(Index));
     }
 }

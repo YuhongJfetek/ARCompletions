@@ -78,6 +78,7 @@ public class AnalyticsController : Controller
             _db.SystemSettings.Remove(existing);
             await _db.SaveChangesAsync();
         }
+        TempData["Success"] = "已移除 Persona 設定";
         return RedirectToAction(nameof(Index));
     }
 
@@ -110,6 +111,7 @@ public class AnalyticsController : Controller
         }
 
         await _db.SaveChangesAsync();
+        TempData["Success"] = "Persona 已儲存";
         return RedirectToAction(nameof(Index));
     }
 }

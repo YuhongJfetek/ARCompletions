@@ -338,3 +338,19 @@ body:not(.login-page) {
     font-size: 20px;
   }
 }
+
+/* Alerts list styling: center alerts and constrain width for readability */
+.alerts-list {
+  max-width: 980px;
+  margin: 0 auto 1rem;
+  width: 100%;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+@media (min-width: 992px) {
+  .alerts-list {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}

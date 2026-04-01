@@ -62,6 +62,7 @@ public class PlatformPermissionsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "權限已建立";
         return RedirectToAction(nameof(Index));
     }
 
@@ -105,6 +106,7 @@ public class PlatformPermissionsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "權限已更新";
         return RedirectToAction(nameof(Index));
     }
 
@@ -212,6 +214,7 @@ public class PlatformPermissionsController : Controller
         }
         catch { }
 
+        TempData["Success"] = "角色權限矩陣已更新";
         return RedirectToAction(nameof(Matrix));
     }
 }

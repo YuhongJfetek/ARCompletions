@@ -45,6 +45,7 @@ public class VendorStaffUsersController : Controller
         model.CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         _db.VendorStaffUsers.Add(model);
         await _db.SaveChangesAsync();
+        TempData["Success"] = "廠商員工已建立";
         return RedirectToAction(nameof(Index));
     }
 
@@ -64,6 +65,7 @@ public class VendorStaffUsersController : Controller
         if (!ModelState.IsValid) return View(model);
         _db.Entry(model).State = EntityState.Modified;
         await _db.SaveChangesAsync();
+        TempData["Success"] = "廠商員工已更新";
         return RedirectToAction(nameof(Index));
     }
 
@@ -85,6 +87,7 @@ public class VendorStaffUsersController : Controller
             _db.VendorStaffUsers.Remove(item);
             await _db.SaveChangesAsync();
         }
+        TempData["Success"] = "廠商員工已刪除";
         return RedirectToAction(nameof(Index));
     }
 }
