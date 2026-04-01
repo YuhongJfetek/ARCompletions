@@ -14,13 +14,13 @@
 
             <div class="form-row">
                 <label asp-for="Email">Email</label>
-                <input asp-for="Email" type="email" />
+                <input id="Email" name="Email" type="email" value="@(Model?.Email ?? string.Empty)" />
                 <span asp-validation-for="Email" class="validation"></span>
             </div>
 
             <div class="form-row">
                 <label asp-for="Password">密碼</label>
-                <input asp-for="Password" type="password" />
+                <input id="Password" name="Password" type="password" value="" />
                 <span asp-validation-for="Password" class="validation"></span>
             </div>
 
