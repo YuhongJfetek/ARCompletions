@@ -78,6 +78,12 @@ public class EmbeddingSettingsController : Controller
 
         await _db.SaveChangesAsync();
         TempData["Success"] = "已更新 Embedding 設定";
+        var vendor = await _db.Vendors.FindAsync(vendorId);
+        if (vendor == null)
+        {
+            TempData["Error"] = "找不到對應的廠商，無法顯示設定。";
+            return RedirectToAction("Index", "Vendors", new { area = "Admin" });
+        }
         return RedirectToAction(nameof(Index), new { vendorId });
     }
 }

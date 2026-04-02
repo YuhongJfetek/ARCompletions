@@ -32,7 +32,7 @@
                         <a class="nav-link @(NavActive(currentController == "Home" && string.IsNullOrEmpty(currentArea)))" asp-controller="Home" asp-action="Index">首頁</a>
                     </li>
                     @{ var isPlatform = (User?.Identity?.IsAuthenticated ?? false) && (await AuthorizationService.AuthorizeAsync(User, null, "Platform")).Succeeded; }
-                    @if (isPlatform)
+                    @if (isPlatform && currentArea != "Vendor")
                     {
                         // Define controller groups for top-level sections
                         var faqControllers = new[] { "AiFaqAnalysisJobs", "FaqLogs", "FaqQueryLogs", "FaqAliases", "FaqAnalysis", "KnowledgeCandidates" };
@@ -46,7 +46,7 @@
                             <a class="nav-link dropdown-toggle @(NavActive(InGroup(faqControllers)))" href="#" id="faqDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">FAQ 管理</a>
                             <ul class="dropdown-menu" aria-labelledby="faqDropdown">
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="Faqs" asp-action="Index">FAQ 列表</a></li>
-                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="FaqCategories" asp-action="Index">FAQ 分類</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="Vendors" asp-action="Index">FAQ 分類</a></li>
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="FaqAliases" asp-action="Index">FAQ 別名</a></li>
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="FaqQueryLogs" asp-action="Index">FAQ 查詢紀錄</a></li>
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="FaqLogs" asp-action="Index">FAQ 操作紀錄</a></li>
@@ -58,7 +58,7 @@
                             <a class="nav-link dropdown-toggle @(NavActive(InGroup(embeddingControllers)))" href="#" id="embedDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Embedding 管理</a>
                             <ul class="dropdown-menu" aria-labelledby="embedDropdown">
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="EmbeddingJobs" asp-action="Index">Embedding 任務</a></li>
-                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="EmbeddingJobs" asp-action="Progress">重建進度</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="EmbeddingJobs" asp-action="SyncStatus">重建進度</a></li>
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="EmbeddingSettings" asp-action="Index">Embedding 設定</a></li>
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="EmbeddingJobs" asp-action="SyncStatus">同步狀態</a></li>
                             </ul>
@@ -86,9 +86,12 @@
                             </ul>
                         </li>
                     }
-                    <li class="nav-item">
-                        <a class="nav-link @(NavActive(currentArea == "Vendor"))" asp-area="Vendor" asp-controller="Home" asp-action="Index">廠商後台</a>
-                    </li>
+                    @if (currentArea != "Admin")
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link @(NavActive(currentArea == "Vendor"))" asp-area="Vendor" asp-controller="Home" asp-action="Index">廠商後台</a>
+                        </li>
+                    }
                     <li class="nav-item">
                         <a class="nav-link @(NavActive(currentController == "Venues"))" asp-controller="Venues" asp-action="Index">場地</a>
                     </li>

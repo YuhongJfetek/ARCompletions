@@ -150,6 +150,12 @@ public class FaqsController : Controller
         catch { }
 
         TempData["Success"] = "FAQ 已建立";
+        var vendor = await _db.Vendors.FindAsync(faq.VendorId);
+        if (vendor == null)
+        {
+            TempData["Error"] = "找不到對應的廠商，請先選擇或建立廠商。";
+            return RedirectToAction("Index", "Vendors", new { area = "Admin" });
+        }
         return RedirectToAction(nameof(Index), new { vendorId = faq.VendorId });
     }
 
@@ -222,6 +228,12 @@ public class FaqsController : Controller
         catch { }
 
         TempData["Success"] = "FAQ 已更新";
+        var vendor2 = await _db.Vendors.FindAsync(existing.VendorId);
+        if (vendor2 == null)
+        {
+            TempData["Error"] = "找不到對應的廠商，請先選擇或建立廠商。";
+            return RedirectToAction("Index", "Vendors", new { area = "Admin" });
+        }
         return RedirectToAction(nameof(Index), new { vendorId = existing.VendorId });
     }
 

@@ -135,6 +135,12 @@ builder.Services.AddSingleton<ARCompletions.Services.IDriveService, ARCompletion
 
 var app = builder.Build();
 
+// 在開發環境啟用詳細例外頁，方便本地除錯（Development 環境才會啟用）
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+
 // Log EF Core assembly version for debugging migration/runtime differences
 Console.WriteLine("EF VERSION: " + typeof(Microsoft.EntityFrameworkCore.DbContext).Assembly.GetName().Version);
 

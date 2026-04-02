@@ -499,6 +499,12 @@ public class EmbeddingJobsController : Controller
     public async Task<IActionResult> RebuildSelected(string vendorId, string selectedFaqIds)
     {
         if (string.IsNullOrWhiteSpace(vendorId)) return BadRequest();
+        var vendor = await _db.Vendors.FindAsync(vendorId);
+        if (vendor == null)
+        {
+            TempData["Error"] = "找不到對應的廠商，請先選擇或建立廠商。";
+            return RedirectToAction("Index", "Vendors", new { area = "Admin" });
+        }
 
         var allowed = await _vendorScope.GetAllowedVendorIdsAsync(User);
         if (allowed != null && !allowed.Contains(vendorId)) return Forbid();
