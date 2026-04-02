@@ -247,11 +247,18 @@ app.Use(async (context, next) =>
     {
         var headerKey = context.Request.Headers["X-Internal-API-Key"].FirstOrDefault();
         var expected = Environment.GetEnvironmentVariable("BACKEND_API_KEY") ?? builder.Configuration["BACKEND_API_KEY"];
-        if (string.IsNullOrWhiteSpace(expected) || string.IsNullOrWhiteSpace(headerKey) || !string.Equals(headerKey, expected, StringComparison.Ordinal))
+        var bypass = (Environment.GetEnvironmentVariable("ALLOW_INTERNAL_API_WITHOUT_KEY") ?? "false")
+            .Equals("true", StringComparison.OrdinalIgnoreCase);
+
+        // 若未設定 BACKEND_API_KEY，或明確允許略過驗證，則不檢查 Header（方便開發 / 測試環境使用 Swagger）。
+        if (!bypass && !string.IsNullOrWhiteSpace(expected))
         {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await context.Response.WriteAsJsonAsync(new { success = false, error = new { code = "Unauthorized", message = "Missing or invalid X-Internal-API-Key" } });
-            return;
+            if (string.IsNullOrWhiteSpace(headerKey) || !string.Equals(headerKey, expected, StringComparison.Ordinal))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsJsonAsync(new { success = false, error = new { code = "Unauthorized", message = "Missing or invalid X-Internal-API-Key" } });
+                return;
+            }
         }
     }
 

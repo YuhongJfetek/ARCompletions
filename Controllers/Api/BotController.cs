@@ -90,6 +90,11 @@ public class BotController : ControllerBase
         var now = DateTimeOffset.UtcNow;
         var sourceType = string.IsNullOrWhiteSpace(req.SourceType) ? "group" : req.SourceType;
 
+        // Npgsql 8 僅接受 Offset=0 (UTC) 的 DateTimeOffset，統一轉成 UTC 後再寫入 DB
+        var receivedAt = req.ReceivedAt == default
+            ? now
+            : req.ReceivedAt.ToUniversalTime();
+
         // 1) 寫入 incoming event
         var ev = new BotIncomingEvent
         {
@@ -102,7 +107,7 @@ public class BotController : ControllerBase
             LineRoomId = req.RoomId,
             ConversationId = req.ConversationId,
             ReplyToken = req.ReplyToken,
-            ReceivedAt = req.ReceivedAt == default ? now : req.ReceivedAt
+            ReceivedAt = receivedAt
         };
         _db.BotIncomingEvents.Add(ev);
         await _db.SaveChangesAsync();
@@ -527,6 +532,11 @@ public class BotController : ControllerBase
     {
         if (req == null) return BadRequest(new { error = "invalid request" });
 
+        var now = DateTimeOffset.UtcNow;
+        var receivedAt = req.ReceivedAt == default
+            ? now
+            : req.ReceivedAt.ToUniversalTime();
+
         var ev = new BotIncomingEvent
         {
             RawEventJson = req.RawEventJson ?? "{}",
@@ -538,7 +548,7 @@ public class BotController : ControllerBase
             LineRoomId = req.LineRoomId,
             ConversationId = req.ConversationId,
             ReplyToken = req.ReplyToken,
-            ReceivedAt = req.ReceivedAt == default ? DateTimeOffset.UtcNow : req.ReceivedAt
+            ReceivedAt = receivedAt
         };
 
         _db.BotIncomingEvents.Add(ev);
