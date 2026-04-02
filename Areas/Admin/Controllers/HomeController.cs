@@ -24,13 +24,9 @@ public class HomeController : Controller
     {
         var vm = new AdminDashboardViewModel
         {
-            VendorCount = _db.Vendors.Count(),
-            ActiveVendorCount = _db.Vendors.Count(v => v.IsActive),
-            ConversationCount = _db.Conversations.Count(),
-            FaqCount = _db.Faqs.Count(),
-            FaqCandidateCount = _db.FaqCandidates.Count(),
-            EmbeddingJobCount = _db.EmbeddingJobs.Count(),
-            AiFaqAnalysisJobCount = _db.AiFaqAnalysisJobs.Count()
+            BotFaqItemCount = _db.BotFaqItems.Count(),
+            BotConversationStateCount = _db.BotConversationStates.Count(),
+            BotMessageRouteCount = _db.BotMessageRoutes.Count()
         };
 
         ViewData["Title"] = "總部後台首頁";

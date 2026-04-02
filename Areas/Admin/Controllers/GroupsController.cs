@@ -13,20 +13,15 @@ namespace ARCompletions.Areas.Admin.Controllers;
 public class GroupsController : Controller
 {
     private readonly ARCompletionsContext _db;
-    private readonly ARCompletions.Services.VendorScopeService _vendorScope;
 
-    public GroupsController(ARCompletionsContext db, ARCompletions.Services.VendorScopeService vendorScope)
+    public GroupsController(ARCompletionsContext db)
     {
         _db = db;
-        _vendorScope = vendorScope;
     }
 
     // GET: Admin/Groups
     public async Task<IActionResult> Index(string? vendorId = null)
     {
-        var vendors = await _db.Vendors.ToListAsync();
-        ViewBag.Vendors = vendors;
-
         // NOTE: Currently no LineGroup table exists in domain.
         // This scaffold returns an empty list. Implement DB-backed retrieval later.
         var items = new List<object>();

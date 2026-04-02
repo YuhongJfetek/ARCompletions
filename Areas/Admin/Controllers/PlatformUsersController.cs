@@ -30,20 +30,14 @@ public class PlatformUsersController : Controller
         return View(users);
     }
 
-    private async Task PopulateLookupsAsync(string[]? selectedRoleIds = null, string[]? selectedVendorIds = null)
+    private async Task PopulateLookupsAsync(string[]? selectedRoleIds = null)
     {
         var roles = await _db.PlatformRoles
             .Where(r => r.IsActive)
             .OrderBy(r => r.Code)
             .ToListAsync();
 
-        var vendors = await _db.Vendors
-            .Where(v => v.IsActive)
-            .OrderBy(v => v.Code)
-            .ToListAsync();
-
         ViewBag.Roles = new MultiSelectList(roles, "Id", "Name", selectedRoleIds);
-        ViewBag.Vendors = new MultiSelectList(vendors, "Id", "Name", selectedVendorIds);
     }
 
     public async Task<IActionResult> Create()
@@ -62,7 +56,7 @@ public class PlatformUsersController : Controller
     {
         if (!ModelState.IsValid)
         {
-            await PopulateLookupsAsync(vm.SelectedRoleIds, vm.SelectedVendorIds);
+            await PopulateLookupsAsync(vm.SelectedRoleIds);
             return View(vm);
         }
 
@@ -92,18 +86,6 @@ public class PlatformUsersController : Controller
                 Id = Guid.NewGuid().ToString("N"),
                 PlatformUserId = user.Id,
                 PlatformRoleId = rid,
-                CreatedAt = now,
-                CreatedBy = createdBy
-            });
-        }
-
-        foreach (var vid in vm.SelectedVendorIds ?? Array.Empty<string>())
-        {
-            _db.PlatformUserVendorScopes.Add(new PlatformUserVendorScope
-            {
-                Id = Guid.NewGuid().ToString("N"),
-                PlatformUserId = user.Id,
-                VendorId = vid,
                 CreatedAt = now,
                 CreatedBy = createdBy
             });
@@ -143,11 +125,6 @@ public class PlatformUsersController : Controller
             .Select(ur => ur.PlatformRoleId)
             .ToArrayAsync();
 
-        var vendorIds = await _db.PlatformUserVendorScopes
-            .Where(vs => vs.PlatformUserId == id)
-            .Select(vs => vs.VendorId)
-            .ToArrayAsync();
-
         var vm = new PlatformUserEditViewModel
         {
             Id = user.Id,
@@ -157,11 +134,10 @@ public class PlatformUsersController : Controller
             JobTitle = user.JobTitle,
             Phone = user.Phone,
             IsActive = user.IsActive,
-            SelectedRoleIds = roleIds,
-            SelectedVendorIds = vendorIds
+            SelectedRoleIds = roleIds
         };
 
-        await PopulateLookupsAsync(roleIds, vendorIds);
+        await PopulateLookupsAsync(roleIds);
         return View(vm);
     }
 
@@ -176,7 +152,7 @@ public class PlatformUsersController : Controller
 
         if (!ModelState.IsValid)
         {
-            await PopulateLookupsAsync(vm.SelectedRoleIds, vm.SelectedVendorIds);
+            await PopulateLookupsAsync(vm.SelectedRoleIds);
             return View(vm);
         }
 
@@ -198,11 +174,6 @@ public class PlatformUsersController : Controller
             .ToListAsync();
         _db.PlatformUserRoles.RemoveRange(existingRoles);
 
-        var existingScopes = await _db.PlatformUserVendorScopes
-            .Where(vs => vs.PlatformUserId == id)
-            .ToListAsync();
-        _db.PlatformUserVendorScopes.RemoveRange(existingScopes);
-
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var updatedBy = user.UpdatedBy;
 
@@ -213,18 +184,6 @@ public class PlatformUsersController : Controller
                 Id = Guid.NewGuid().ToString("N"),
                 PlatformUserId = user.Id,
                 PlatformRoleId = rid,
-                CreatedAt = now,
-                CreatedBy = updatedBy
-            });
-        }
-
-        foreach (var vid in vm.SelectedVendorIds ?? Array.Empty<string>())
-        {
-            _db.PlatformUserVendorScopes.Add(new PlatformUserVendorScope
-            {
-                Id = Guid.NewGuid().ToString("N"),
-                PlatformUserId = user.Id,
-                VendorId = vid,
                 CreatedAt = now,
                 CreatedBy = updatedBy
             });

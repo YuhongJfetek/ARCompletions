@@ -4,27 +4,21 @@
 
 說明: 此檔列出「導覽列」下每一子選單項目，對應的 Controller 與 Views 檔案、是否已實作，以及需要補齊或注意的項目。
 
-## FAQ 管理
+## FAQ 管理（JFETEK / Bot Schema）
 
-- FAQ 列表
-  - Controller: `Areas/Vendor/Controllers/FaqsController.cs` (Vendor 區)
-  - Views: `Areas/Vendor/Views/Faqs/Index.cshtml`, `Create.cshtml`, `Edit.cshtml`, `Details.cshtml`
-  - Status: Exists (Vendor-side)
-  - Notes: 若需總部可管理，需新增 Admin `FaqsController` 或共用該功能到 Admin。
+- FAQ 列表（Bot FAQ Items）
+  - Controller: `Areas/Admin/Controllers/BotFaqItemsController.cs`
+  - Views: `Areas/Admin/Views/BotFaqItems/*`
+  - Status: New (Admin-side; based on bot_faq_items)
+  - Notes: 以 JFETEK `bot_faq_items` 為唯一 FAQ 主資料來源；舊 Vendor 區 FAQ / FAQCategories 已移除。
 
-- FAQ 分類
-  - Controller: `Areas/Vendor/Controllers/FaqCategoriesController.cs` (Vendor 區)
-  - Views: `Areas/Vendor/Views/FaqCategories/*`
-  - Status: Exists (Vendor-side); Admin-side missing
-  - Notes: 若總部需管理，新增 Admin 介面。
+- FAQ 別名（Bot FAQ Aliases）
+  - Controller: `Areas/Admin/Controllers/BotFaqAliasesController.cs`
+  - Views: `Areas/Admin/Views/BotFaqAliases/*`
+  - Status: New (Admin-side; based on bot_faq_aliases)
+  - Notes: 採用 Enabled flag 控制啟用/停用，不做實體刪除；舊 FaqAliasesController + Views 已移除。
 
-- FAQ 別名
-  - Controller: `Areas/Admin/Controllers/FaqAliasesController.cs`
-  - Views: `Areas/Admin/Views/FaqAliases/*`
-  - Status: Exists
-  - Notes: `Delete` 實作為實刪；建議改為切換 `IsActive`（需求為停用不刪除）。
-
-- FAQ 查詢紀錄
+- FAQ 查詢紀錄（Legacy 已移除）
   - Controller: `Areas/Admin/Controllers/FaqQueryLogsController.cs`
   - Views: `Areas/Admin/Views/FaqQueryLogs/Index.cshtml`, `Details.cshtml`
   - Status: Exists (包含 ExportCsv)
@@ -44,19 +38,19 @@
 
 ## Embedding 管理
 
-- Embedding 任務
+- Embedding 任務（Legacy 已完全移除）
   - Controller: `Areas/Admin/Controllers/EmbeddingJobsController.cs`
-  - Views: `Areas/Admin/Views/EmbeddingJobs/Index.cshtml`, `Details.cshtml`
-  - Status: Exists (Index/Details/ExportCsv/Retry/BulkRetry/TriggerManual/SetActiveVector 已實作)
-  - Notes: 支援手動觸發與批次重試。
+  - Views: `Areas/Admin/Views/EmbeddingJobs/*`
+  - Status: Removed
+  - Notes: 由 BotEmbeddingsController 及 `bot_faq_embeddings` 取代，亦不再提供 BulkJobs/BulkRetry 功能。
 
-- 重建進度
-  - Controller: Partially provided by `EmbeddingJobsController` (Details / logs)
-  - Views: `Areas/Admin/Views/EmbeddingJobs/Details.cshtml`
-  - Status: Partial
-  - Notes: 若需即時進度（已處理/總數/失敗數），需前端輪詢或 WebSocket/SignalR 支援與相對 endpoint。
+- Bot Embeddings（Bot FAQ 向量）
+  - Controller: `Areas/Admin/Controllers/BotEmbeddingsController.cs`
+  - Views: `Areas/Admin/Views/BotEmbeddings/*`
+  - Status: New (Admin-side; based on bot_faq_embeddings)
+  - Notes: 顯示 FAQ 向量重建紀錄與目前 Active 向量。
 
-- Embedding 設定
+- Embedding 設定（Legacy Vendor-based 設定已移除）
   - Controller: MISSING (`EmbeddingSettingsController` not found)
   - Views: MISSING
   - Status: Missing
@@ -76,29 +70,41 @@
   - Status: Exists
   - Notes: 支援篩選；Raw JSON 顯示在 Details（確認附件欄位顯示）。
 
-- 訊息結果
-  - Controller: `Areas/Admin/Controllers/MessageResultsController.cs`
-  - Views: `Areas/Admin/Views/MessageResults/Index.cshtml`, `Details.cshtml`
-  - Status: Exists
-  - Notes: Details 顯示 payload、複製按鈕；包含 ExportCsv。
+- Bot 會話設定 / 狀態（JFETEK / Bot Schema）
+  - Controller: `Areas/Admin/Controllers/BotConversationsController.cs`
+  - Views: `Areas/Admin/Views/BotConversations/*`（待補）
+  - Status: New (Admin-side; based on bot_conversation_settings / bot_conversation_state)
+  - Notes: 管理每個 SourceType / Conversation 的啟用、handoff 暫停狀態。
 
-- 訊息路由
-  - Controller: `Areas/Admin/Controllers/MessageRoutesController.cs`
-  - Views: `Areas/Admin/Views/MessageRoutes/*`
-  - Status: Exists
-  - Notes: 支援篩選與 ExportCsv。
+- 訊息結果（Legacy）
+  - Controller: (已移除) `Areas/Admin/Controllers/MessageResultsController.cs`
+  - Views: `Areas/Admin/Views/MessageResults/*`（Legacy）
+  - Status: Removed (replaced by BotMessages + BotAuditLogs)
+  - Notes: 由 BotMessages Routes/Events 與 BotAuditLogs 提供查詢。
 
-- 會話狀態
-  - Controller: `Areas/Admin/Controllers/ConversationStatesController.cs`
-  - Views: `Areas/Admin/Views/ConversationStates/*`
-  - Status: Exists
-  - Notes: 支援狀態切換與管理。
+- Bot 訊息路由 / 事件（JFETEK / Bot Schema）
+  - Controller: `Areas/Admin/Controllers/BotMessagesController.cs`
+  - Views: `Areas/Admin/Views/BotMessages/*`（待補）
+  - Status: New (Admin-side; based on bot_incoming_events / bot_message_routes)
+  - Notes: Routes 動作對應 bot_message_routes，Events 對應 bot_incoming_events。
 
-- API 設定
-  - Controller: `Areas/Admin/Controllers/MessageApiController.cs`
-  - Views: `Areas/Admin/Views/MessageApi/Index.cshtml`
-  - Status: Exists
-  - Notes: Webhook 測試、遮罩、儲存設定位於此；支援 Ajax 測試。
+- 訊息路由（Legacy）
+  - Controller: (已移除) `Areas/Admin/Controllers/MessageRoutesController.cs`
+  - Views: `Areas/Admin/Views/MessageRoutes/*`（Legacy）
+  - Status: Removed (replaced by BotMessages Routes)
+  - Notes: BotMessages Routes 使用 bot_message_routes 表提供相同資訊。
+
+- 會話狀態（Legacy）
+  - Controller: (已移除) `Areas/Admin/Controllers/ConversationStatesController.cs`
+  - Views: `Areas/Admin/Views/ConversationStates/*`（Legacy）
+  - Status: Removed (replaced by BotConversations)
+  - Notes: BotConversations 使用 bot_conversation_settings/state 提供管理。
+
+- API 設定（Legacy）
+  - Controller: (已移除) `Areas/Admin/Controllers/MessageApiController.cs`
+  - Views: `Areas/Admin/Views/MessageApi/*`（Legacy）
+  - Status: Removed (integration via /internal/v1/bot/query)
+  - Notes: 新的 webhook / Node.js 端改打 Internal API，不再使用此 UI。
 
 ## 系統管理
 
@@ -108,11 +114,35 @@
   - Status: Exists
   - Notes: Create/Edit 支援 OpenAI Key 欄位（建議改成安全存儲/遮罩）。
 
-- 廠商員工
-  - Controller: `Areas/Admin/Controllers/VendorStaffUsersController.cs`
-  - Views: `Areas/Admin/Views/VendorStaffUsers/*`
-  - Status: Exists
-  - Notes: 支援啟用/停用與角色設定。
+- 廠商員工（Legacy）
+  - Controller: (已移除) `Areas/Admin/Controllers/VendorStaffUsersController.cs`
+  - Views: `Areas/Admin/Views/VendorStaffUsers/*`（Legacy）
+  - Status: Removed (replaced by BotStaffUsers)
+  - Notes: Staff 身分改由 bot_staff_users 與 BotStaffUsersController 管理。
+
+- Bot Staff 使用者
+  - Controller: `Areas/Admin/Controllers/BotStaffUsersController.cs`
+  - Views: `Areas/Admin/Views/BotStaffUsers/*`（待補）
+  - Status: New (Admin-side; based on bot_staff_users)
+  - Notes: 管理可接手人工客服 / 查看對話的 Staff 名單與角色。
+
+- Bot System Prompts
+  - Controller: `Areas/Admin/Controllers/BotSystemPromptsController.cs`
+  - Views: `Areas/Admin/Views/BotSystemPrompts/*`（待補）
+  - Status: New (Admin-side; based on bot_system_prompts)
+  - Notes: 管理 LLM 使用的 System Prompt 版本（如 general / handoff / staff_reply 等）。
+
+- Bot 常數設定
+  - Controller: `Areas/Admin/Controllers/BotConstantsConfigController.cs`
+  - Views: `Areas/Admin/Views/BotConstantsConfig/*`（待補）
+  - Status: New (Admin-side; based on bot_constants_config)
+  - Notes: 管理 JFETEK bot flow 相關常數（如閾值、超時、預設 route 等）。
+
+- Bot 操作稽核紀錄
+  - Controller: `Areas/Admin/Controllers/BotAuditLogsController.cs`
+  - Views: `Areas/Admin/Views/BotAuditLogs/*`（待補）
+  - Status: New (Admin-side; based on bot_audit_logs)
+  - Notes: 記錄 Bot 管理相關的敏感變更（FAQ/Prompt/Config 等）。
 
 - 平台帳號
   - Controller: `Areas/Admin/Controllers/PlatformUsersController.cs`

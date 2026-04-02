@@ -1,0 +1,57 @@
+@model IEnumerable<ARCompletions.Domain.BotAuditLog>
+@{
+    ViewData["Title"] = "Bot Audit Logs";
+}
+
+<h1>Bot 操作稽核紀錄</h1>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+        <input name="targetTable" value="@ViewBag.TargetTable" placeholder="TargetTable" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <input name="actionType" value="@ViewBag.ActionType" placeholder="ActionType" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <input name="changedBy" value="@ViewBag.ChangedBy" placeholder="ChangedBy" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <input type="datetime-local" name="dateFrom" value="@((ViewBag.DateFrom as DateTimeOffset?)?.ToString("yyyy-MM-ddTHH:mm"))" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <input type="datetime-local" name="dateTo" value="@((ViewBag.DateTo as DateTimeOffset?)?.ToString("yyyy-MM-ddTHH:mm"))" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-sm btn-primary" type="submit">搜尋</button>
+    </div>
+</form>
+
+<table class="table table-striped table-sm">
+    <thead>
+        <tr>
+            <th>AuditId</th>
+            <th>ActionType</th>
+            <th>TargetTable</th>
+            <th>TargetId</th>
+            <th>ChangedBy</th>
+            <th>ChangedAt</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.AuditId</td>
+            <td>@item.ActionType</td>
+            <td>@item.TargetTable</td>
+            <td>@item.TargetId</td>
+            <td>@item.ChangedBy</td>
+            <td>@item.ChangedAt</td>
+            <td>
+                <a asp-area="Admin" asp-controller="BotAuditLogs" asp-action="Details" asp-route-id="@item.AuditId" class="btn btn-sm btn-secondary">檢視</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

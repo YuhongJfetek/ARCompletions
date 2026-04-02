@@ -1,0 +1,37 @@
+@model ARCompletions.Domain.BotAuditLog
+@{
+    ViewData["Title"] = "Audit Log Details";
+}
+
+<h1>Audit 詳細</h1>
+
+<dl class="row">
+    <dt class="col-sm-2">AuditId</dt>
+    <dd class="col-sm-10">@Model.AuditId</dd>
+
+    <dt class="col-sm-2">ActionType</dt>
+    <dd class="col-sm-10">@Model.ActionType</dd>
+
+    <dt class="col-sm-2">TargetTable</dt>
+    <dd class="col-sm-10">@Model.TargetTable</dd>
+
+    <dt class="col-sm-2">TargetId</dt>
+    <dd class="col-sm-10">@Model.TargetId</dd>
+
+    <dt class="col-sm-2">ChangedBy</dt>
+    <dd class="col-sm-10">@Model.ChangedBy</dd>
+
+    <dt class="col-sm-2">ChangedAt</dt>
+    <dd class="col-sm-10">@Model.ChangedAt</dd>
+
+    <dt class="col-sm-2">OldValue</dt>
+    <dd class="col-sm-10"><pre class="small">@Model.OldValue</pre></dd>
+
+    <dt class="col-sm-2">NewValue</dt>
+    <dd class="col-sm-10"><pre class="small">@Model.NewValue</pre></dd>
+
+    <dt class="col-sm-2">Note</dt>
+    <dd class="col-sm-10">@Model.Note</dd>
+</dl>
+
+<a asp-area="Admin" asp-controller="BotAuditLogs" asp-action="Index" class="btn btn-secondary">回列表</a>

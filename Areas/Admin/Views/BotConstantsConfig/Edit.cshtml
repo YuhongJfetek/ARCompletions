@@ -1,0 +1,31 @@
+@model ARCompletions.Domain.BotConstantsConfig
+@{
+    ViewData["Title"] = "Edit Constant";
+}
+
+<h1>編輯常數設定</h1>
+
+<form asp-area="Admin" asp-controller="BotConstantsConfig" asp-action="Edit" method="post">
+    <input type="hidden" asp-for="ConfigKey" />
+    <div class="mb-2">
+        <label class="form-label">ConfigKey</label>
+        <input class="form-control" value="@Model.ConfigKey" disabled />
+    </div>
+    <div class="mb-2">
+        <label asp-for="ConfigValue" class="form-label"></label>
+        <input asp-for="ConfigValue" class="form-control" />
+        <span asp-validation-for="ConfigValue" class="text-danger"></span>
+    </div>
+    <div class="mb-2">
+        <label asp-for="ValueType" class="form-label"></label>
+        <input asp-for="ValueType" class="form-control" />
+        <span asp-validation-for="ValueType" class="text-danger"></span>
+    </div>
+    <div class="mb-2">
+        <label asp-for="Description" class="form-label"></label>
+        <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+        <span asp-validation-for="Description" class="text-danger"></span>
+    </div>
+    <button type="submit" class="btn btn-primary">儲存</button>
+    <a asp-area="Admin" asp-controller="BotConstantsConfig" asp-action="Index" class="btn btn-secondary ms-2">取消</a>
+</form>

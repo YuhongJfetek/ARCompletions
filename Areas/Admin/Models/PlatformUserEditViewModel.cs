@@ -14,5 +14,4 @@ public class PlatformUserEditViewModel
     public bool IsActive { get; set; } = true;
 
     public string[] SelectedRoleIds { get; set; } = Array.Empty<string>();
-    public string[] SelectedVendorIds { get; set; } = Array.Empty<string>();
 }

@@ -1,0 +1,95 @@
+@model IEnumerable<ARCompletions.Domain.BotMessageRoute>
+@{
+    ViewData["Title"] = "Bot Message Routes";
+}
+
+<h1>Bot 訊息路由</h1>
+
+@{
+    int ps = ViewBag.PageSize ?? 50;
+}
+
+<form method="get" class="row g-2 mb-2">
+    <div class="col-auto">
+        <input name="conversationId" value="@ViewBag.ConversationId" placeholder="ConversationId" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <input name="route" value="@ViewBag.Route" placeholder="Route" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <input name="reason" value="@ViewBag.Reason" placeholder="Reason" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <input name="faqCategory" value="@ViewBag.FaqCategory" placeholder="FaqCategory" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <input name="logPriority" value="@ViewBag.LogPriority" placeholder="LogPriority" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <select name="pageSize" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="25" @(ps==25?"selected":"")>25</option>
+            <option value="50" @(ps==50?"selected":"")>50</option>
+            <option value="100" @(ps==100?"selected":"")>100</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-sm btn-primary" type="submit">搜尋</button>
+    </div>
+</form>
+
+<table class="table table-striped table-sm">
+    <thead>
+        <tr>
+            <th>RouteRowId</th>
+            <th>ConversationId</th>
+            <th>Route</th>
+            <th>Reason</th>
+            <th>FaqCategory</th>
+            <th>MatchedFaqId</th>
+            <th>MatchedScore</th>
+            <th>CreatedAt</th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.RouteRowId</td>
+            <td>@item.ConversationId</td>
+            <td>@item.Route</td>
+            <td>@item.Reason</td>
+            <td>@item.FaqCategory</td>
+            <td>@item.MatchedFaqId</td>
+            <td>@item.MatchedScore</td>
+            <td>@item.CreatedAt</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@{
+    long total = ViewBag.TotalCount ?? 0L;
+    int page = ViewBag.Page ?? 1;
+    int pageSize = ViewBag.PageSize ?? 50;
+    var totalPages = (int)System.Math.Ceiling(total / (double)pageSize);
+}
+
+@if (totalPages > 1)
+{
+    <nav>
+        <ul class="pagination pagination-sm">
+            <li class="page-item @(page<=1?"disabled":"")">
+                <a class="page-link" href="?page=@(page-1)&pageSize=@pageSize&conversationId=@ViewBag.ConversationId&route=@ViewBag.Route&reason=@ViewBag.Reason&faqCategory=@ViewBag.FaqCategory&logPriority=@ViewBag.LogPriority">上一頁</a>
+            </li>
+            @for (var p = 1; p <= totalPages; p++)
+            {
+                <li class="page-item @(p==page?"active":"")">
+                    <a class="page-link" href="?page=@p&pageSize=@pageSize&conversationId=@ViewBag.ConversationId&route=@ViewBag.Route&reason=@ViewBag.Reason&faqCategory=@ViewBag.FaqCategory&logPriority=@ViewBag.LogPriority">@p</a>
+                </li>
+            }
+            <li class="page-item @(page>=totalPages?"disabled":"")">
+                <a class="page-link" href="?page=@(page+1)&pageSize=@pageSize&conversationId=@ViewBag.ConversationId&route=@ViewBag.Route&reason=@ViewBag.Reason&faqCategory=@ViewBag.FaqCategory&logPriority=@ViewBag.LogPriority">下一頁</a>
+            </li>
+        </ul>
+    </nav>
+}

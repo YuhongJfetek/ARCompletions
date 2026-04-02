@@ -1,0 +1,27 @@
+@model ARCompletions.Domain.BotConversationSetting
+@{
+    ViewData["Title"] = "Edit Conversation Setting";
+}
+
+<h1>編輯會話設定</h1>
+
+<form asp-area="Admin" asp-controller="BotConversations" asp-action="Edit" method="post">
+    <input type="hidden" asp-for="SourceType" />
+    <input type="hidden" asp-for="ConversationId" />
+
+    <div class="mb-2">
+        <label class="form-label">SourceType</label>
+        <input class="form-control" value="@Model.SourceType" disabled />
+    </div>
+    <div class="mb-2">
+        <label class="form-label">ConversationId</label>
+        <input class="form-control" value="@Model.ConversationId" disabled />
+    </div>
+    <div class="form-check mb-2">
+        <input asp-for="Enabled" class="form-check-input" />
+        <label asp-for="Enabled" class="form-check-label"></label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">儲存</button>
+    <a asp-area="Admin" asp-controller="BotConversations" asp-action="Index" class="btn btn-secondary ms-2">取消</a>
+</form>

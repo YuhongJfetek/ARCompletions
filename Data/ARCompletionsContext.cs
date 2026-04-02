@@ -20,58 +20,107 @@ public class ARCompletionsContext : DbContext
     public DbSet<PlatformUserRole> PlatformUserRoles => Set<PlatformUserRole>();
     public DbSet<PlatformPermission> PlatformPermissions => Set<PlatformPermission>();
     public DbSet<PlatformRolePermission> PlatformRolePermissions => Set<PlatformRolePermission>();
-    public DbSet<PlatformUserVendorScope> PlatformUserVendorScopes => Set<PlatformUserVendorScope>();
 
-    // 廠商與帳號
-    public DbSet<Vendor> Vendors => Set<Vendor>();
-    public DbSet<VendorAccount> VendorAccounts => Set<VendorAccount>();
-
-    // Line Bot / 對話紀錄
-    public DbSet<LineBotInputLog> LineBotInputLogs => Set<LineBotInputLog>();
-    public DbSet<LineBotOutputLog> LineBotOutputLogs => Set<LineBotOutputLog>();
-    public DbSet<ARCompletions.Domain.LineEventLog> LineEventLogs => Set<ARCompletions.Domain.LineEventLog>();
-    public DbSet<Conversation> Conversations => Set<Conversation>();
-    public DbSet<ConversationMessage> ConversationMessages => Set<ConversationMessage>();
-
-    // AI FAQ 分析
-    public DbSet<AiFaqAnalysisJob> AiFaqAnalysisJobs => Set<AiFaqAnalysisJob>();
-    public DbSet<FaqCandidate> FaqCandidates => Set<FaqCandidate>();
-
-    // FAQ 與分類、紀錄
-    public DbSet<FaqCategory> FaqCategories => Set<FaqCategory>();
-    public DbSet<Faq> Faqs => Set<Faq>();
-    public DbSet<FaqLog> FaqLogs => Set<FaqLog>();
-
-    // Embedding 任務與紀錄
-    public DbSet<EmbeddingJob> EmbeddingJobs => Set<EmbeddingJob>();
-    public DbSet<EmbeddingItem> EmbeddingItems => Set<EmbeddingItem>();
-    public DbSet<EmbeddingLog> EmbeddingLogs => Set<EmbeddingLog>();
-    public DbSet<EmbeddingSetting> EmbeddingSettings => Set<EmbeddingSetting>();
-
-    // Message results and FAQ query logs
-    public DbSet<ARCompletions.Domain.MessageResult> MessageResults => Set<ARCompletions.Domain.MessageResult>();
-    public DbSet<ARCompletions.Domain.FaqQueryLog> FaqQueryLogs => Set<ARCompletions.Domain.FaqQueryLog>();
-
-    // Phase 2 additions
-    public DbSet<ConversationState> ConversationStates => Set<ConversationState>();
-    public DbSet<FaqAlias> FaqAliases => Set<FaqAlias>();
-    public DbSet<MessageRoute> MessageRoutes => Set<MessageRoute>();
-    public DbSet<VendorStaffUser> VendorStaffUsers => Set<VendorStaffUser>();
-
-    // 系統設定
+    // 系統設定與審計
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
-    // 審計日誌
     public DbSet<ARCompletions.Domain.AuditLog> AuditLogs => Set<ARCompletions.Domain.AuditLog>();
-    // 批次工作
-    public DbSet<ARCompletions.Domain.BulkJob> BulkJobs => Set<ARCompletions.Domain.BulkJob>();
+
+    // JFETEK bot schema (13 tables)
+    public DbSet<BotFaqItem> BotFaqItems => Set<BotFaqItem>();
+    public DbSet<BotFaqAlias> BotFaqAliases => Set<BotFaqAlias>();
+    public DbSet<BotFaqEmbedding> BotFaqEmbeddings => Set<BotFaqEmbedding>();
+    public DbSet<BotStaffUser> BotStaffUsers => Set<BotStaffUser>();
+    public DbSet<BotConversationSetting> BotConversationSettings => Set<BotConversationSetting>();
+    public DbSet<BotConversationState> BotConversationStates => Set<BotConversationState>();
+    public DbSet<BotContextMessage> BotContextMessages => Set<BotContextMessage>();
+    public DbSet<BotSystemPrompt> BotSystemPrompts => Set<BotSystemPrompt>();
+    public DbSet<BotIncomingEvent> BotIncomingEvents => Set<BotIncomingEvent>();
+    public DbSet<BotMessageRoute> BotMessageRoutes => Set<BotMessageRoute>();
+    public DbSet<BotLlmLog> BotLlmLogs => Set<BotLlmLog>();
+    public DbSet<BotConstantsConfig> BotConstantsConfigs => Set<BotConstantsConfig>();
+    public DbSet<BotAuditLog> BotAuditLogs => Set<BotAuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // 目前採用預設慣例：
-        // - string 主鍵 Id 交由上層產生（如 GUID）
-        // - long 時間欄位存 Unix timestamp
-        // 之後如需索引/關聯/限制，可在此處逐步補上 Fluent API 設定。
+        // JFETEK bot tables
+        modelBuilder.Entity<BotFaqItem>(e =>
+        {
+            e.ToTable("bot_faq_items");
+            e.HasKey(x => x.FaqId);
+        });
+
+        modelBuilder.Entity<BotFaqAlias>(e =>
+        {
+            e.ToTable("bot_faq_aliases");
+            e.HasKey(x => x.AliasId);
+        });
+
+        modelBuilder.Entity<BotFaqEmbedding>(e =>
+        {
+            e.ToTable("bot_faq_embeddings");
+            e.HasKey(x => x.EmbeddingId);
+        });
+
+        modelBuilder.Entity<BotStaffUser>(e =>
+        {
+            e.ToTable("bot_staff_users");
+            e.HasKey(x => x.UserId);
+        });
+
+        modelBuilder.Entity<BotConversationSetting>(e =>
+        {
+            e.ToTable("bot_conversation_settings");
+            e.HasKey(x => new { x.SourceType, x.ConversationId });
+        });
+
+        modelBuilder.Entity<BotConversationState>(e =>
+        {
+            e.ToTable("bot_conversation_state");
+            e.HasKey(x => new { x.SourceType, x.ConversationId });
+        });
+
+        modelBuilder.Entity<BotContextMessage>(e =>
+        {
+            e.ToTable("bot_context_messages");
+            e.HasKey(x => x.MessageId);
+        });
+
+        modelBuilder.Entity<BotSystemPrompt>(e =>
+        {
+            e.ToTable("bot_system_prompts");
+            e.HasKey(x => x.PromptKey);
+        });
+
+        modelBuilder.Entity<BotIncomingEvent>(e =>
+        {
+            e.ToTable("bot_incoming_events");
+            e.HasKey(x => x.EventRowId);
+        });
+
+        modelBuilder.Entity<BotMessageRoute>(e =>
+        {
+            e.ToTable("bot_message_routes");
+            e.HasKey(x => x.RouteRowId);
+        });
+
+        modelBuilder.Entity<BotLlmLog>(e =>
+        {
+            e.ToTable("bot_llm_logs");
+            e.HasKey(x => x.LlmLogId);
+        });
+
+        modelBuilder.Entity<BotConstantsConfig>(e =>
+        {
+            e.ToTable("bot_constants_config");
+            e.HasKey(x => x.ConfigKey);
+        });
+
+        modelBuilder.Entity<BotAuditLog>(e =>
+        {
+            e.ToTable("bot_audit_logs");
+            e.HasKey(x => x.AuditId);
+        });
     }
 }

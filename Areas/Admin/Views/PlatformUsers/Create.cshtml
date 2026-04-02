@@ -38,10 +38,6 @@
         <label class="form-label">角色</label>
         <select asp-for="SelectedRoleIds" asp-items="(MultiSelectList)ViewBag.Roles" class="form-select" multiple size="6"></select>
     </div>
-    <div class="mb-3">
-        <label class="form-label">可管理廠商</label>
-        <select asp-for="SelectedVendorIds" asp-items="(MultiSelectList)ViewBag.Vendors" class="form-select" multiple size="8"></select>
-    </div>
     <button type="submit" class="btn btn-primary">儲存</button>
     <a asp-action="Index" class="btn btn-secondary">返回列表</a>
 </form>

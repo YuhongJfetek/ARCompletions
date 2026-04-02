@@ -12,24 +12,19 @@ namespace ARCompletions.Areas.Admin.Controllers;
 public class AuditController : Controller
 {
     private readonly ARCompletionsContext _db;
-    private readonly ARCompletions.Services.VendorScopeService _vendorScope;
 
-    public AuditController(ARCompletionsContext db, ARCompletions.Services.VendorScopeService vendorScope)
+    public AuditController(ARCompletionsContext db)
     {
         _db = db;
-        _vendorScope = vendorScope;
     }
 
     // List audit logs with optional filters and pagination
     public async Task<IActionResult> Index(string? vendorId = null, string? action = null, string? dateFrom = null, string? dateTo = null, int page = 1, int pageSize = 50)
     {
-        var allowed = await _vendorScope.GetAllowedVendorIdsAsync(User);
-
         var query = _db.Set<ARCompletions.Domain.AuditLog>().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(vendorId))
         {
-            if (allowed != null && !allowed.Contains(vendorId)) return Forbid();
             query = query.Where(a => a.Payload != null && a.Payload.Contains(vendorId));
         }
 
@@ -60,9 +55,6 @@ public class AuditController : Controller
         if (string.IsNullOrEmpty(id)) return NotFound();
         var log = await _db.Set<ARCompletions.Domain.AuditLog>().FindAsync(id);
         if (log == null) return NotFound();
-
-        var allowed = await _vendorScope.GetAllowedVendorIdsAsync(User);
-        if (allowed != null && log.Payload != null && !allowed.Any(v => log.Payload.Contains(v))) return Forbid();
 
         return View(log);
     }

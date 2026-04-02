@@ -13,20 +13,15 @@ namespace ARCompletions.Areas.Admin.Controllers;
 public class FilesController : Controller
 {
     private readonly ARCompletionsContext _db;
-    private readonly ARCompletions.Services.VendorScopeService _vendorScope;
 
-    public FilesController(ARCompletionsContext db, ARCompletions.Services.VendorScopeService vendorScope)
+    public FilesController(ARCompletionsContext db)
     {
         _db = db;
-        _vendorScope = vendorScope;
     }
 
     // GET: Admin/Files
     public async Task<IActionResult> Index(string? vendorId = null)
     {
-        var vendors = await _db.Vendors.ToListAsync();
-        ViewBag.Vendors = vendors;
-
         // TODO: Replace with real file list from DB when model exists (e.g., line_uploaded_files)
         var items = new List<object>();
         return View(items);

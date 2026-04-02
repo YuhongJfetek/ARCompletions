@@ -1,0 +1,121 @@
+@using ARCompletions.Domain
+@model IEnumerable<BotConversationSetting>
+@{
+    ViewData["Title"] = "Bot Conversations";
+}
+
+<h1>Bot 會話設定 / 狀態</h1>
+
+@{
+    var states = ViewBag.States as System.Collections.Generic.IDictionary<(string SourceType, string ConversationId), BotConversationState>;
+    int ps = ViewBag.PageSize ?? 50;
+}
+
+<form method="get" class="row g-2 mb-2">
+    <div class="col-auto">
+        <input name="sourceType" value="@ViewBag.SourceType" placeholder="SourceType" class="form-control form-control-sm" />
+    </div>
+    <div class="col-auto">
+        <select name="enabled" class="form-select form-select-sm">
+            <option value="">全部</option>
+            <option value="true" @(ViewBag.Enabled==true?"selected":"")>啟用</option>
+            <option value="false" @(ViewBag.Enabled==false?"selected":"")>停用</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="hasHandoff" class="form-select form-select-sm">
+            <option value="">handoff 全部</option>
+            <option value="true" @(ViewBag.HasHandoff==true?"selected":"")>僅 handoff 中</option>
+            <option value="false" @(ViewBag.HasHandoff==false?"selected":"")>排除 handoff 中</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="pageSize" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="25" @(ps==25?"selected":"")>25</option>
+            <option value="50" @(ps==50?"selected":"")>50</option>
+            <option value="100" @(ps==100?"selected":"")>100</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-sm btn-primary" type="submit">篩選</button>
+    </div>
+</form>
+
+<table class="table table-striped table-sm">
+    <thead>
+        <tr>
+            <th>SourceType</th>
+            <th>ConversationId</th>
+            <th>Enabled</th>
+            <th>Handoff</th>
+            <th>UpdatedAt</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        BotConversationState? st = null;
+        if (states != null)
+        {
+            states.TryGetValue((item.SourceType, item.ConversationId), out st);
+        }
+        var now = DateTimeOffset.UtcNow;
+        bool handoffActive = st?.HandoffUntil != null && st.HandoffUntil > now;
+        <tr>
+            <td>@item.SourceType</td>
+            <td>@item.ConversationId</td>
+            <td>@(item.Enabled ? "是" : "否")</td>
+            <td>
+                @if (handoffActive)
+                {
+                    <span class="badge bg-warning text-dark">handoff 中 至 @st!.HandoffUntil</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">正常</span>
+                }
+            </td>
+            <td>@item.UpdatedAt</td>
+            <td>
+                <a asp-area="Admin" asp-controller="BotConversations" asp-action="Edit" asp-route-sourceType="@item.SourceType" asp-route-conversationId="@item.ConversationId" class="btn btn-sm btn-secondary">編輯</a>
+                @if (handoffActive)
+                {
+                    <form asp-area="Admin" asp-controller="BotConversations" asp-action="ClearHandoff" method="post" class="d-inline">
+                        <input type="hidden" name="sourceType" value="@item.SourceType" />
+                        <input type="hidden" name="conversationId" value="@item.ConversationId" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger">清除 handoff</button>
+                    </form>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@{
+    long total = ViewBag.TotalCount ?? 0L;
+    int page = ViewBag.Page ?? 1;
+    int pageSize = ViewBag.PageSize ?? 50;
+    var totalPages = (int)System.Math.Ceiling(total / (double)pageSize);
+}
+
+@if (totalPages > 1)
+{
+    <nav>
+        <ul class="pagination pagination-sm">
+            <li class="page-item @(page<=1?"disabled":"")">
+                <a class="page-link" href="?page=@(page-1)&pageSize=@pageSize&sourceType=@ViewBag.SourceType&enabled=@ViewBag.Enabled&hasHandoff=@ViewBag.HasHandoff">上一頁</a>
+            </li>
+            @for (var p = 1; p <= totalPages; p++)
+            {
+                <li class="page-item @(p==page?"active":"")">
+                    <a class="page-link" href="?page=@p&pageSize=@pageSize&sourceType=@ViewBag.SourceType&enabled=@ViewBag.Enabled&hasHandoff=@ViewBag.HasHandoff">@p</a>
+                </li>
+            }
+            <li class="page-item @(page>=totalPages?"disabled":"")">
+                <a class="page-link" href="?page=@(page+1)&pageSize=@pageSize&sourceType=@ViewBag.SourceType&enabled=@ViewBag.Enabled&hasHandoff=@ViewBag.HasHandoff">下一頁</a>
+            </li>
+        </ul>
+    </nav>
+}

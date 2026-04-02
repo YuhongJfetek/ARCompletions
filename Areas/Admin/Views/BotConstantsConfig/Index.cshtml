@@ -1,0 +1,32 @@
+@model IEnumerable<ARCompletions.Domain.BotConstantsConfig>
+@{
+    ViewData["Title"] = "Bot Constants Config";
+}
+
+<h1>Bot 常數設定</h1>
+
+<table class="table table-striped table-sm">
+    <thead>
+        <tr>
+            <th>ConfigKey</th>
+            <th>Value</th>
+            <th>ValueType</th>
+            <th>UpdatedAt</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.ConfigKey</td>
+            <td>@item.ConfigValue</td>
+            <td>@item.ValueType</td>
+            <td>@item.UpdatedAt</td>
+            <td>
+                <a asp-area="Admin" asp-controller="BotConstantsConfig" asp-action="Edit" asp-route-id="@item.ConfigKey" class="btn btn-sm btn-secondary">編輯</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>

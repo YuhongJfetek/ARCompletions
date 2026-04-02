@@ -102,34 +102,8 @@ builder.Services.AddHttpClient("OpenAI", c =>
 });
 // HttpClient for external services (LINE)
 builder.Services.AddHttpClient();
-// MessageApi scaffolds (register real FaqQueryService implementation)
-builder.Services.AddScoped<ARCompletions.Services.IFaqQueryService, ARCompletions.Services.FaqQueryService>();
-// register concrete MessageResultService to persist results (requires migrations for DB schema changes)
-builder.Services.AddScoped<ARCompletions.Services.IMessageResultService, ARCompletions.Services.MessageResultService>();
-// register MessageRouteService
-builder.Services.AddScoped<ARCompletions.Services.IMessageRouteService, ARCompletions.Services.MessageRouteService>();
-// 後端 Service 舊實作已移除，暫時註解掉註冊（未來有新的 Service 再補上）
-// builder.Services.AddScoped<ARCompletions.Services.LineBotService>();
-// builder.Services.AddScoped<ARCompletions.Services.ILineService, ARCompletions.Services.LineService>();
-// builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingService, ARCompletions.Services.EmbeddingService>();
-// builder.Services.AddHostedService<ARCompletions.Services.AnalysisWorker>();
-// 新註冊：Embedding service + worker
+// Embedding service for bot_* FAQ embeddings
 builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingService, ARCompletions.Services.EmbeddingService>();
-builder.Services.AddHostedService<ARCompletions.Services.EmbeddingWorker>();
-// background in-memory queue for immediate job enqueueing
-builder.Services.AddSingleton<ARCompletions.Services.IBackgroundJobQueue, ARCompletions.Services.BackgroundJobQueue>();
-// background in-memory queue for incoming message events
-builder.Services.AddSingleton<ARCompletions.Services.IBackgroundMessageQueue, ARCompletions.Services.BackgroundMessageQueue>();
-// bulk job queue + worker for processing large admin batch operations
-builder.Services.AddSingleton<ARCompletions.Services.IBulkJobQueue, ARCompletions.Services.BulkJobQueue>();
-builder.Services.AddHostedService<ARCompletions.Services.BulkJobWorker>();
-// Analysis service + worker (stub)
-builder.Services.AddSingleton<ARCompletions.Services.IAnalysisService, ARCompletions.Services.StubAnalysisService>();
-builder.Services.AddHostedService<ARCompletions.Services.AnalysisWorker>();
-// worker that processes queued incoming LineEventLogs and runs analysis/persist
-builder.Services.AddHostedService<ARCompletions.Services.MessageEventWorker>();
-// Vendor scope helper
-builder.Services.AddScoped<ARCompletions.Services.VendorScopeService>();
 // Drive service for file uploads (uses GOOGLE_SERVICE_ACCOUNT_KEY + GOOGLE_DRIVE_FOLDER_ID)
 builder.Services.AddSingleton<ARCompletions.Services.IDriveService, ARCompletions.Services.GoogleDriveService>();
 
