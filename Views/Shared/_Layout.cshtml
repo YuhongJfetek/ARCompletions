@@ -32,15 +32,29 @@
                         <a class="nav-link @(NavActive(currentController == "Home" && string.IsNullOrEmpty(currentArea)))" asp-controller="Home" asp-action="Index">首頁</a>
                     </li>
                     @{ var isPlatform = (User?.Identity?.IsAuthenticated ?? false) && (await AuthorizationService.AuthorizeAsync(User, null, "Platform")).Succeeded; }
-                    @if (isPlatform && currentArea != "Vendor")
+                    @if (isPlatform)
                     {
                         // Define controller groups for top-level sections
-                        var faqControllers = Array.Empty<string>();
-                        var embeddingControllers = Array.Empty<string>();
-                        var messageControllers = Array.Empty<string>();
-                        var systemControllers = new[] { "PlatformUsers", "PlatformRoles", "PlatformPermissions", "SystemSettings", "Audit", "Files", "Groups" };
+                        var faqControllers = new[] { "BotFaqItems", "BotFaqAliases" };
+                        var embeddingControllers = new[] { "BotEmbeddings" };
+                        var messageControllers = new[] { "BotConversations", "BotMessages", "MessageApi" };
+                        var systemControllers = new[] { "PlatformUsers", "PlatformRoles", "PlatformPermissions", "SystemSettings", "Audit", "Files", "Groups", "BotStaffUsers", "BotSystemPrompts", "BotConstantsConfig" };
 
                         bool InGroup(string[] grp) => grp.Contains(currentController);
+
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle @(NavActive(InGroup(faqControllers) || InGroup(embeddingControllers) || InGroup(messageControllers)))" href="#" id="botDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Bot 管理</a>
+                            <ul class="dropdown-menu" aria-labelledby="botDropdown">
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="BotFaqItems" asp-action="Index">FAQ 管理</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="BotFaqAliases" asp-action="Index">FAQ Alias</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="BotEmbeddings" asp-action="Index">FAQ Embeddings</a></li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="BotConversations" asp-action="Index">會話設定 / 狀態</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="BotMessages" asp-action="Routes">訊息路由紀錄</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="BotMessages" asp-action="Events">Incoming Events</a></li>
+                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="MessageApi" asp-action="Index">訊息 API 設定</a></li>
+                            </ul>
+                        </li>
 
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle @(NavActive(InGroup(systemControllers)))" href="#" id="sysDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">系統管理</a>
@@ -71,9 +85,6 @@
                         <li class="nav-item">
                             <a class="nav-link" asp-area="Admin" asp-controller="Account" asp-action="Login">總部登入</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-area="Vendor" asp-controller="Account" asp-action="Login">廠商登入</a>
-                        </li>
                     }
                 </ul>
             </div>
@@ -81,18 +92,17 @@
     </nav>
 
     <div class="container mt-4">
-        @{ var isLogin = (currentArea == "Admin" && currentController == "Account" && currentAction == "Login") ||
-                       (currentArea == "Vendor" && currentController == "Account" && currentAction == "Login"); }
+        @{ var isLogin = (currentArea == "Admin" && currentController == "Account" && currentAction == "Login"); }
 
         @await Html.PartialAsync("_Alerts")
 
         @* Breadcrumb / section header based on controller grouping *@
         @{
             string sectionName = string.Empty;
-            if (Array.Empty<string>().Contains(currentController)) sectionName = "FAQ 管理";
-            else if (Array.Empty<string>().Contains(currentController)) sectionName = "Embedding 管理";
-            else if (Array.Empty<string>().Contains(currentController)) sectionName = "訊息管理";
-            else if (new[] { "PlatformUsers", "PlatformRoles", "PlatformPermissions", "SystemSettings", "Audit", "Files", "Groups" }.Contains(currentController)) sectionName = "系統管理";
+            if (new[] { "BotFaqItems", "BotFaqAliases" }.Contains(currentController)) sectionName = "FAQ 管理";
+            else if (new[] { "BotEmbeddings" }.Contains(currentController)) sectionName = "Embedding 管理";
+            else if (new[] { "BotConversations", "BotMessages", "MessageApi" }.Contains(currentController)) sectionName = "訊息管理";
+            else if (new[] { "PlatformUsers", "PlatformRoles", "PlatformPermissions", "SystemSettings", "Audit", "Files", "Groups", "BotStaffUsers", "BotSystemPrompts", "BotConstantsConfig" }.Contains(currentController)) sectionName = "系統管理";
         }
 
         @if (!isLogin)

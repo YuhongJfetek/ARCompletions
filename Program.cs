@@ -154,6 +154,31 @@ if (runMigrations)
         Console.WriteLine(ex.ToString());
     }
 }
+
+// Optional one-shot seed from original JFETEK JSON files
+var seedFromJson = (Environment.GetEnvironmentVariable("SEED_BOT_FROM_JSON") ?? "false")
+    .Equals("true", StringComparison.OrdinalIgnoreCase);
+
+if (seedFromJson)
+{
+    var dataRoot = Environment.GetEnvironmentVariable("BOT_DATA_ROOT")
+                   ?? "C:\\Users\\jamie\\Downloads\\linebot-jfetek-bot(1)\\app\\data";
+
+    Console.WriteLine($"Seeding bot_* tables from JSON at: {dataRoot}");
+    try
+    {
+        await BotJsonSeeder.SeedAsync(db, dataRoot);
+        Console.WriteLine("Bot JSON data seeded successfully. Exiting application.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Bot JSON data seeding failed: " + ex.Message);
+        Console.WriteLine(ex.ToString());
+        throw;
+    }
+
+    return;
+}
 else
 {
     app.Logger.LogInformation("Ensuring database is created...");
@@ -230,12 +255,6 @@ app.MapAreaControllerRoute(
     name: "admin",
     areaName: "Admin",
     pattern: "Admin/{controller=Home}/{action=Index}/{id?}");
-
-// Area route for vendor MVC
-app.MapAreaControllerRoute(
-    name: "vendor",
-    areaName: "Vendor",
-    pattern: "Vendor/{controller=Home}/{action=Index}/{id?}");
 
 app.MapControllers();
 
