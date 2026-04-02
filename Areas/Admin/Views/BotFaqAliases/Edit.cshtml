@@ -5,7 +5,7 @@
 
 <h1>編輯 FAQ Alias</h1>
 
-<form asp-area="Admin" asp-controller="BotFaqAliases" asp-action="Edit" method="post">
+<form asp-area="Admin" asp-controller="BotFaqAliases" asp-action="Edit" asp-route-id="@Model.AliasId" method="post">
     @Html.AntiForgeryToken()
     <input type="hidden" asp-for="AliasId" />
     <div class="mb-2">

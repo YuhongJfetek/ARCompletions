@@ -5,7 +5,7 @@
 
 <h1>編輯 FAQ</h1>
 
-<form asp-area="Admin" asp-controller="BotFaqItems" asp-action="Edit" method="post">
+<form asp-area="Admin" asp-controller="BotFaqItems" asp-action="Edit" asp-route-id="@Model.FaqId" method="post">
     @Html.AntiForgeryToken()
     <input type="hidden" asp-for="FaqId" />
     <div class="mb-2">
