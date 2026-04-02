@@ -1,0 +1,35 @@
+@model ARCompletions.Domain.BotFaqAlias
+@{
+    ViewData["Title"] = "FAQ Alias 詳細";
+}
+
+<h1>FAQ Alias 詳細</h1>
+
+<dl class="row">
+    <dt class="col-sm-2">AliasId</dt>
+    <dd class="col-sm-10">@Model.AliasId</dd>
+
+    <dt class="col-sm-2">Term</dt>
+    <dd class="col-sm-10">@Model.Term</dd>
+
+    <dt class="col-sm-2">Mode</dt>
+    <dd class="col-sm-10">@Model.Mode</dd>
+
+    <dt class="col-sm-2">Synonyms</dt>
+    <dd class="col-sm-10"><pre class="mb-0" style="white-space:pre-wrap;">@Model.Synonyms</pre></dd>
+
+    <dt class="col-sm-2">FaqIds</dt>
+    <dd class="col-sm-10"><pre class="mb-0" style="white-space:pre-wrap;">@Model.FaqIds</pre></dd>
+
+    <dt class="col-sm-2">Enabled</dt>
+    <dd class="col-sm-10">@(Model.Enabled ? "是" : "否")</dd>
+
+    <dt class="col-sm-2">CreatedAt</dt>
+    <dd class="col-sm-10">@Model.CreatedAt</dd>
+
+    <dt class="col-sm-2">UpdatedAt</dt>
+    <dd class="col-sm-10">@Model.UpdatedAt</dd>
+</dl>
+
+<a asp-area="Admin" asp-controller="BotFaqAliases" asp-action="Edit" asp-route-id="@Model.AliasId" class="btn btn-primary">編輯</a>
+<a asp-area="Admin" asp-controller="BotFaqAliases" asp-action="Index" class="btn btn-secondary ms-2">回列表</a>

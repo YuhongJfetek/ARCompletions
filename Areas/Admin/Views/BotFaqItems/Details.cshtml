@@ -1,0 +1,50 @@
+@model ARCompletions.Domain.BotFaqItem
+@{
+    ViewData["Title"] = "FAQ 詳細";
+}
+
+<h1>FAQ 詳細</h1>
+
+<dl class="row">
+    <dt class="col-sm-2">FaqId</dt>
+    <dd class="col-sm-10">@Model.FaqId</dd>
+
+    <dt class="col-sm-2">Question</dt>
+    <dd class="col-sm-10">@Model.Question</dd>
+
+    <dt class="col-sm-2">Answer</dt>
+    <dd class="col-sm-10"><pre class="mb-0" style="white-space:pre-wrap;">@Model.Answer</pre></dd>
+
+    <dt class="col-sm-2">Category / Key</dt>
+    <dd class="col-sm-10">@Model.Category (@Model.CategoryKey)</dd>
+
+    <dt class="col-sm-2">Subcategory</dt>
+    <dd class="col-sm-10">@Model.Subcategory</dd>
+
+    <dt class="col-sm-2">Keywords</dt>
+    <dd class="col-sm-10"><pre class="mb-0" style="white-space:pre-wrap;">@Model.Keywords</pre></dd>
+
+    <dt class="col-sm-2">QueryExamples</dt>
+    <dd class="col-sm-10"><pre class="mb-0" style="white-space:pre-wrap;">@Model.QueryExamples</pre></dd>
+
+    <dt class="col-sm-2">AliasTerms</dt>
+    <dd class="col-sm-10"><pre class="mb-0" style="white-space:pre-wrap;">@Model.AliasTerms</pre></dd>
+
+    <dt class="col-sm-2">Sources</dt>
+    <dd class="col-sm-10"><pre class="mb-0" style="white-space:pre-wrap;">@Model.Sources</pre></dd>
+
+    <dt class="col-sm-2">NeedsHumanHandoff</dt>
+    <dd class="col-sm-10">@(Model.NeedsHumanHandoff ? "是" : "否")</dd>
+
+    <dt class="col-sm-2">Enabled</dt>
+    <dd class="col-sm-10">@(Model.Enabled ? "是" : "否")</dd>
+
+    <dt class="col-sm-2">CreatedAt</dt>
+    <dd class="col-sm-10">@Model.CreatedAt</dd>
+
+    <dt class="col-sm-2">UpdatedAt</dt>
+    <dd class="col-sm-10">@Model.UpdatedAt</dd>
+</dl>
+
+<a asp-area="Admin" asp-controller="BotFaqItems" asp-action="Edit" asp-route-id="@Model.FaqId" class="btn btn-primary">編輯</a>
+<a asp-area="Admin" asp-controller="BotFaqItems" asp-action="Index" class="btn btn-secondary ms-2">回列表</a>

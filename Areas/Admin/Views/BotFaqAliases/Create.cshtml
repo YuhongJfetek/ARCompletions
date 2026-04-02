@@ -1,0 +1,36 @@
+@model ARCompletions.Domain.BotFaqAlias
+@{
+    ViewData["Title"] = "新增 FAQ Alias";
+}
+
+<h1>新增 FAQ Alias</h1>
+
+<form asp-area="Admin" asp-controller="BotFaqAliases" asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <div class="mb-2">
+        <label asp-for="Term" class="form-label"></label>
+        <input asp-for="Term" class="form-control" />
+        <span asp-validation-for="Term" class="text-danger"></span>
+    </div>
+    <div class="mb-2">
+        <label asp-for="Mode" class="form-label"></label>
+        <input asp-for="Mode" class="form-control" />
+        <small class="form-text text-muted">direct / disambiguation</small>
+    </div>
+    <div class="mb-2">
+        <label asp-for="Synonyms" class="form-label"></label>
+        <textarea asp-for="Synonyms" class="form-control" rows="2"></textarea>
+        <small class="form-text text-muted">JSON 陣列字串，例如 ["同義1","同義2"]</small>
+    </div>
+    <div class="mb-2">
+        <label asp-for="FaqIds" class="form-label"></label>
+        <textarea asp-for="FaqIds" class="form-control" rows="2"></textarea>
+        <small class="form-text text-muted">JSON 陣列字串，例如 ["faq_001","faq_002"]</small>
+    </div>
+    <div class="form-check mb-3">
+        <input asp-for="Enabled" class="form-check-input" />
+        <label asp-for="Enabled" class="form-check-label"></label>
+    </div>
+    <button type="submit" class="btn btn-primary">儲存</button>
+    <a asp-area="Admin" asp-controller="BotFaqAliases" asp-action="Index" class="btn btn-secondary ms-2">取消</a>
+</form>

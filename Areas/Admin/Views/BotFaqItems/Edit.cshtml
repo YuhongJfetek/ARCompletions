@@ -1,0 +1,63 @@
+@model ARCompletions.Domain.BotFaqItem
+@{
+    ViewData["Title"] = "編輯 FAQ";
+}
+
+<h1>編輯 FAQ</h1>
+
+<form asp-area="Admin" asp-controller="BotFaqItems" asp-action="Edit" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="FaqId" />
+    <div class="mb-2">
+        <label asp-for="FaqId" class="form-label"></label>
+        <input asp-for="FaqId" class="form-control" disabled />
+    </div>
+    <div class="mb-2">
+        <label asp-for="Question" class="form-label"></label>
+        <textarea asp-for="Question" class="form-control" rows="3"></textarea>
+        <span asp-validation-for="Question" class="text-danger"></span>
+    </div>
+    <div class="mb-2">
+        <label asp-for="Answer" class="form-label"></label>
+        <textarea asp-for="Answer" class="form-control" rows="5"></textarea>
+        <span asp-validation-for="Answer" class="text-danger"></span>
+    </div>
+    <div class="mb-2">
+        <label asp-for="Category" class="form-label"></label>
+        <input asp-for="Category" class="form-control" />
+    </div>
+    <div class="mb-2">
+        <label asp-for="CategoryKey" class="form-label"></label>
+        <input asp-for="CategoryKey" class="form-control" />
+    </div>
+    <div class="mb-2">
+        <label asp-for="Subcategory" class="form-label"></label>
+        <input asp-for="Subcategory" class="form-control" />
+    </div>
+    <div class="mb-2">
+        <label asp-for="Keywords" class="form-label"></label>
+        <textarea asp-for="Keywords" class="form-control" rows="2"></textarea>
+    </div>
+    <div class="mb-2">
+        <label asp-for="QueryExamples" class="form-label"></label>
+        <textarea asp-for="QueryExamples" class="form-control" rows="2"></textarea>
+    </div>
+    <div class="mb-2">
+        <label asp-for="AliasTerms" class="form-label"></label>
+        <textarea asp-for="AliasTerms" class="form-control" rows="2"></textarea>
+    </div>
+    <div class="mb-2">
+        <label asp-for="Sources" class="form-label"></label>
+        <textarea asp-for="Sources" class="form-control" rows="2"></textarea>
+    </div>
+    <div class="form-check mb-2">
+        <input asp-for="NeedsHumanHandoff" class="form-check-input" />
+        <label asp-for="NeedsHumanHandoff" class="form-check-label"></label>
+    </div>
+    <div class="form-check mb-3">
+        <input asp-for="Enabled" class="form-check-input" />
+        <label asp-for="Enabled" class="form-check-label"></label>
+    </div>
+    <button type="submit" class="btn btn-primary">儲存</button>
+    <a asp-area="Admin" asp-controller="BotFaqItems" asp-action="Index" class="btn btn-secondary ms-2">取消</a>
+</form>
