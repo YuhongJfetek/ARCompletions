@@ -39,6 +39,7 @@ public class ARCompletionsContext : DbContext
     public DbSet<BotLlmLog> BotLlmLogs => Set<BotLlmLog>();
     public DbSet<BotConstantsConfig> BotConstantsConfigs => Set<BotConstantsConfig>();
     public DbSet<BotAuditLog> BotAuditLogs => Set<BotAuditLog>();
+    public DbSet<BotEmbeddingJob> BotEmbeddingJobs => Set<BotEmbeddingJob>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -121,6 +122,25 @@ public class ARCompletionsContext : DbContext
         {
             e.ToTable("bot_audit_logs");
             e.HasKey(x => x.AuditId);
+        });
+
+        modelBuilder.Entity<BotEmbeddingJob>(e =>
+        {
+            e.ToTable("bot_embedding_jobs");
+            e.HasKey(x => x.JobId);
+            e.Property(x => x.JobId).HasColumnName("job_id");
+            e.Property(x => x.Provider).HasColumnName("provider");
+            e.Property(x => x.Model).HasColumnName("model");
+            e.Property(x => x.Scope).HasColumnName("scope");
+            e.Property(x => x.TargetFaqId).HasColumnName("target_faq_id");
+            e.Property(x => x.Status).HasColumnName("status");
+            e.Property(x => x.TotalCount).HasColumnName("total_count");
+            e.Property(x => x.CompletedCount).HasColumnName("completed_count");
+            e.Property(x => x.FailedCount).HasColumnName("failed_count");
+            e.Property(x => x.TriggeredBy).HasColumnName("triggered_by");
+            e.Property(x => x.StartedAt).HasColumnName("started_at");
+            e.Property(x => x.FinishedAt).HasColumnName("finished_at");
+            e.Property(x => x.ErrorMessage).HasColumnName("error_message");
         });
     }
 }

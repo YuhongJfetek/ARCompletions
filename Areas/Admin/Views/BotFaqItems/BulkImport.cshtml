@@ -1,0 +1,16 @@
+@{
+    ViewData["Title"] = "FAQ 批次匯入";
+}
+
+<h1>FAQ 批次匯入</h1>
+
+<form asp-area="Admin" asp-controller="BotFaqItems" asp-action="BulkImport" method="post" enctype="multipart/form-data">
+    @Html.AntiForgeryToken()
+    <div class="mb-3">
+        <label class="form-label">faq.json 檔案</label>
+        <input type="file" name="faqFile" accept="application/json" class="form-control" />
+        <small class="form-text text-muted">上傳原始 JFETEK faq.json，系統會依據 faq_id 進行新增或更新。</small>
+    </div>
+    <button type="submit" class="btn btn-primary">開始匯入</button>
+    <a asp-area="Admin" asp-controller="BotFaqItems" asp-action="Index" class="btn btn-secondary ms-2">取消</a>
+</form>

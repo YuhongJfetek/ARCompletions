@@ -64,9 +64,6 @@
                             </ul>
                         </li>
                     }
-                    <li class="nav-item">
-                        <a class="nav-link @(NavActive(currentController == "Venues"))" asp-controller="Venues" asp-action="Index">場地</a>
-                    </li>
                 </ul>
                 <ul class="navbar-nav">
                     @if (User?.Identity?.IsAuthenticated ?? false)

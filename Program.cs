@@ -104,6 +104,7 @@ builder.Services.AddHttpClient("OpenAI", c =>
 builder.Services.AddHttpClient();
 // Embedding service for bot_* FAQ embeddings
 builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingService, ARCompletions.Services.EmbeddingService>();
+builder.Services.AddScoped<ARCompletions.Services.IEmbeddingRebuildService, ARCompletions.Services.EmbeddingRebuildService>();
 // Drive service for file uploads (uses GOOGLE_SERVICE_ACCOUNT_KEY + GOOGLE_DRIVE_FOLDER_ID)
 builder.Services.AddSingleton<ARCompletions.Services.IDriveService, ARCompletions.Services.GoogleDriveService>();
 

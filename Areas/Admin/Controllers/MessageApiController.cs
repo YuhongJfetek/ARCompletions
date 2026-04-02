@@ -42,6 +42,13 @@ public class MessageApiController : Controller
 
         ViewBag.Settings = dict;
 
+        var backendKey = Environment.GetEnvironmentVariable("BACKEND_API_KEY")
+                          ?? string.Empty;
+        ViewBag.BackendApiKeyConfigured = !string.IsNullOrWhiteSpace(backendKey);
+        ViewBag.BackendApiKeyPreview = !string.IsNullOrWhiteSpace(backendKey) && backendKey.Length >= 4
+            ? backendKey.Substring(0, 4) + new string('*', Math.Max(0, backendKey.Length - 4))
+            : null;
+
         lock (_logLock)
         {
             ViewBag.WebhookLogs = _logs

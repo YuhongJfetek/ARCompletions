@@ -10,6 +10,23 @@
     <div class="alert alert-success">@TempData["Message"]</div>
 }
 
+@{
+    bool backendConfigured = ViewBag.BackendApiKeyConfigured as bool? ?? false;
+    string preview = ViewBag.BackendApiKeyPreview as string ?? string.Empty;
+}
+
+<div class="alert @(backendConfigured ? "alert-success" : "alert-warning")">
+    <strong>BACKEND_API_KEY 狀態：</strong>
+    @if (backendConfigured)
+    {
+        <span>已在環境變數設定（開頭：@preview）。如需變更，請至 Render 環境變數調整並重新部署。</span>
+    }
+    else
+    {
+        <span>尚未設定 BACKEND_API_KEY。請在 Render 專案的 Environment 中新增 BACKEND_API_KEY，並確保 Node / 呼叫端在 Header 帶入相同值。</span>
+    }
+</div>
+
 <form asp-action="Save" method="post">
     @Html.AntiForgeryToken()
     <div class="form-group mb-3">

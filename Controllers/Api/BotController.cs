@@ -302,12 +302,20 @@ public class BotController : ControllerBase
                 return bool.TryParse(cfg.ConfigValue, out var v) ? v : def;
             }
 
+            string GetString(string key, string def)
+            {
+                var cfg = settings.FirstOrDefault(c => c.ConfigKey == key);
+                return string.IsNullOrWhiteSpace(cfg?.ConfigValue) ? def : cfg!.ConfigValue!;
+            }
+
             var directLow = GetDouble("bot.embedding.directLow", defaultDirectLow);
             var cosineWeight = GetDouble("bot.embedding.cosineWeight", defaultCosineWeight);
             var overlapWeight = GetDouble("bot.embedding.overlapWeight", defaultOverlapWeight);
             var allowDirect = GetBool("bot.embedding.allowDirect", true);
-            var modelNameCfg = settings.FirstOrDefault(c => c.ConfigKey == "bot.embedding.model")?.ConfigValue;
-            var modelName = string.IsNullOrWhiteSpace(modelNameCfg) ? "text-embedding-3-small" : modelNameCfg!;
+
+            // 儲存向量所使用的 provider / model，可透過 bot_constants_config 切換
+            var embeddingProvider = GetString("bot.embedding.provider", "local_hash");
+            var modelName = GetString("bot.embedding.model", "text-embedding-3-small");
 
             double[]? queryVec = null;
             try
@@ -340,7 +348,7 @@ public class BotController : ControllerBase
             {
                 var embItems = await _db.BotFaqEmbeddings
                     .AsNoTracking()
-                    .Where(e => e.IsActive)
+                    .Where(e => e.IsActive && e.EmbeddingProvider == embeddingProvider)
                     .ToListAsync();
 
                 if (embItems.Count > 0)

@@ -1,0 +1,16 @@
+@{
+    ViewData["Title"] = "Embeddings 匯入";
+}
+
+<h1>Embeddings 匯入</h1>
+
+<form asp-area="Admin" asp-controller="BotEmbeddings" asp-action="Import" method="post" enctype="multipart/form-data">
+    @Html.AntiForgeryToken()
+    <div class="mb-3">
+        <label class="form-label">embeddings.json 檔案</label>
+        <input type="file" name="embeddingsFile" accept="application/json" class="form-control" />
+        <small class="form-text text-muted">上傳原始 embeddings.json，會依據 faq_id 進行 Embedding 新增或更新。</small>
+    </div>
+    <button type="submit" class="btn btn-primary">開始匯入</button>
+    <a asp-area="Admin" asp-controller="BotEmbeddings" asp-action="Index" class="btn btn-secondary ms-2">取消</a>
+</form>
