@@ -18,22 +18,22 @@
     <div class="col-auto">
         <select name="enabled" class="form-select form-select-sm">
             <option value="">全部</option>
-            <option value="true" @(ViewBag.Enabled==true?"selected":"")>啟用</option>
-            <option value="false" @(ViewBag.Enabled==false?"selected":"")>停用</option>
+            <option value="true" selected="@(ViewBag.Enabled == true ? "selected" : null)">啟用</option>
+            <option value="false" selected="@(ViewBag.Enabled == false ? "selected" : null)">停用</option>
         </select>
     </div>
     <div class="col-auto">
         <select name="hasHandoff" class="form-select form-select-sm">
             <option value="">handoff 全部</option>
-            <option value="true" @(ViewBag.HasHandoff==true?"selected":"")>僅 handoff 中</option>
-            <option value="false" @(ViewBag.HasHandoff==false?"selected":"")>排除 handoff 中</option>
+            <option value="true" selected="@(ViewBag.HasHandoff == true ? "selected" : null)">僅 handoff 中</option>
+            <option value="false" selected="@(ViewBag.HasHandoff == false ? "selected" : null)">排除 handoff 中</option>
         </select>
     </div>
     <div class="col-auto">
         <select name="pageSize" class="form-select form-select-sm" onchange="this.form.submit()">
-            <option value="25" @(ps==25?"selected":"")>25</option>
-            <option value="50" @(ps==50?"selected":"")>50</option>
-            <option value="100" @(ps==100?"selected":"")>100</option>
+            <option value="25" selected="@(ps == 25 ? "selected" : null)">25</option>
+            <option value="50" selected="@(ps == 50 ? "selected" : null)">50</option>
+            <option value="100" selected="@(ps == 100 ? "selected" : null)">100</option>
         </select>
     </div>
     <div class="col-auto">
@@ -82,6 +82,7 @@
                 @if (handoffActive)
                 {
                     <form asp-area="Admin" asp-controller="BotConversations" asp-action="ClearHandoff" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
                         <input type="hidden" name="sourceType" value="@item.SourceType" />
                         <input type="hidden" name="conversationId" value="@item.ConversationId" />
                         <button type="submit" class="btn btn-sm btn-outline-danger">清除 handoff</button>

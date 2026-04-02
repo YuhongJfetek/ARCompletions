@@ -5,7 +5,8 @@
 
 <h1>編輯常數設定</h1>
 
-<form asp-area="Admin" asp-controller="BotConstantsConfig" asp-action="Edit" method="post">
+<form asp-area="Admin" asp-controller="BotConstantsConfig" asp-action="Edit" asp-route-id="@Model.ConfigKey" method="post">
+    @Html.AntiForgeryToken()
     <input type="hidden" asp-for="ConfigKey" />
     <div class="mb-2">
         <label class="form-label">ConfigKey</label>

@@ -15,8 +15,8 @@
     <div class="col-auto">
         <select name="enabled" class="form-select form-select-sm">
             <option value="">全部</option>
-            <option value="true" @(ViewBag.Enabled==true?"selected":"")>啟用</option>
-            <option value="false" @(ViewBag.Enabled==false?"selected":"")>停用</option>
+            <option value="true" selected="@(ViewBag.Enabled == true ? "selected" : null)">啟用</option>
+            <option value="false" selected="@(ViewBag.Enabled == false ? "selected" : null)">停用</option>
         </select>
     </div>
     <div class="col-auto">

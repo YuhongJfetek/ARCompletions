@@ -5,7 +5,8 @@
 
 <h1>編輯會話設定</h1>
 
-<form asp-area="Admin" asp-controller="BotConversations" asp-action="Edit" method="post">
+<form asp-area="Admin" asp-controller="BotConversations" asp-action="Edit" asp-route-sourceType="@Model.SourceType" asp-route-conversationId="@Model.ConversationId" method="post">
+    @Html.AntiForgeryToken()
     <input type="hidden" asp-for="SourceType" />
     <input type="hidden" asp-for="ConversationId" />
 

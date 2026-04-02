@@ -5,7 +5,8 @@
 
 <h1>編輯 System Prompt</h1>
 
-<form asp-area="Admin" asp-controller="BotSystemPrompts" asp-action="Edit" method="post">
+<form asp-area="Admin" asp-controller="BotSystemPrompts" asp-action="Edit" asp-route-id="@Model.PromptKey" method="post">
+    @Html.AntiForgeryToken()
     <input type="hidden" asp-for="PromptKey" />
     <div class="mb-2">
         <label class="form-label">PromptKey</label>

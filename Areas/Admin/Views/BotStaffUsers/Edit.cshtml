@@ -5,7 +5,8 @@
 
 <h1>編輯 Staff 使用者</h1>
 
-<form asp-area="Admin" asp-controller="BotStaffUsers" asp-action="Edit" method="post">
+<form asp-area="Admin" asp-controller="BotStaffUsers" asp-action="Edit" asp-route-id="@Model.UserId" method="post">
+    @Html.AntiForgeryToken()
     <input type="hidden" asp-for="UserId" />
     <div class="mb-2">
         <label asp-for="UserId" class="form-label"></label>

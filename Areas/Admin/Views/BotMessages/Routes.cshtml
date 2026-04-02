@@ -27,9 +27,9 @@
     </div>
     <div class="col-auto">
         <select name="pageSize" class="form-select form-select-sm" onchange="this.form.submit()">
-            <option value="25" @(ps==25?"selected":"")>25</option>
-            <option value="50" @(ps==50?"selected":"")>50</option>
-            <option value="100" @(ps==100?"selected":"")>100</option>
+            <option value="25" selected="@(ps == 25 ? "selected" : null)">25</option>
+            <option value="50" selected="@(ps == 50 ? "selected" : null)">50</option>
+            <option value="100" selected="@(ps == 100 ? "selected" : null)">100</option>
         </select>
     </div>
     <div class="col-auto">

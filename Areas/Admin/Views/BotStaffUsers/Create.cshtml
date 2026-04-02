@@ -6,6 +6,7 @@
 <h1>新增 Staff 使用者</h1>
 
 <form asp-area="Admin" asp-controller="BotStaffUsers" asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
     <div class="mb-2">
         <label asp-for="UserId" class="form-label"></label>
         <input asp-for="UserId" class="form-control" />

@@ -14,23 +14,23 @@
         <input name="faqId" value="@ViewBag.FaqId" placeholder="FaqId" class="form-control form-control-sm" />
     </div>
     <div class="col-auto">
-        <select name="isActive" class="form-select form-select-sm">
-            <option value="">全部狀態</option>
-            <option value="true" @(ViewBag.IsActive==true?"selected":"")>啟用</option>
-            <option value="false" @(ViewBag.IsActive==false?"selected":"")>停用</option>
-        </select>
-    </div>
-    <div class="col-auto">
         <input name="provider" value="@ViewBag.Provider" placeholder="Provider" class="form-control form-control-sm" />
     </div>
     <div class="col-auto">
         <input name="model" value="@ViewBag.Model" placeholder="Model" class="form-control form-control-sm" />
     </div>
     <div class="col-auto">
+        <select name="isActive" class="form-select form-select-sm">
+            <option value="">全部狀態</option>
+            <option value="true" selected="@(ViewBag.IsActive == true ? "selected" : null)">啟用</option>
+            <option value="false" selected="@(ViewBag.IsActive == false ? "selected" : null)">停用</option>
+        </select>
+    </div>
+    <div class="col-auto">
         <select name="pageSize" class="form-select form-select-sm" onchange="this.form.submit()">
-            <option value="25" @(ps==25?"selected":"")>25</option>
-            <option value="50" @(ps==50?"selected":"")>50</option>
-            <option value="100" @(ps==100?"selected":"")>100</option>
+            <option value="25" selected="@(ps == 25 ? "selected" : null)">25</option>
+            <option value="50" selected="@(ps == 50 ? "selected" : null)">50</option>
+            <option value="100" selected="@(ps == 100 ? "selected" : null)">100</option>
         </select>
     </div>
     <div class="col-auto">

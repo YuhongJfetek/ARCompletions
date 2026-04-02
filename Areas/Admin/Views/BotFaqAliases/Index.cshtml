@@ -22,15 +22,15 @@
     <div class="col-auto">
         <select name="enabled" class="form-select form-select-sm">
             <option value="">全部</option>
-            <option value="true" @(enabled==true?"selected":"")>啟用</option>
-            <option value="false" @(enabled==false?"selected":"")>停用</option>
+            <option value="true" selected="@(enabled == true ? "selected" : null)">啟用</option>
+            <option value="false" selected="@(enabled == false ? "selected" : null)">停用</option>
         </select>
     </div>
     <div class="col-auto">
         <select name="pageSize" class="form-select form-select-sm" onchange="this.form.submit()">
-            <option value="25" @(pageSize==25?"selected":"")>25</option>
-            <option value="50" @(pageSize==50?"selected":"")>50</option>
-            <option value="100" @(pageSize==100?"selected":"")>100</option>
+            <option value="25" selected="@(pageSize == 25 ? "selected" : null)">25</option>
+            <option value="50" selected="@(pageSize == 50 ? "selected" : null)">50</option>
+            <option value="100" selected="@(pageSize == 100 ? "selected" : null)">100</option>
         </select>
     </div>
     <div class="col-auto">
