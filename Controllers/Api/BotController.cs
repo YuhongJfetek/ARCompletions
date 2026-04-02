@@ -247,41 +247,63 @@ public class BotController : ControllerBase
         var contextBefore = 0;
         var contextAfter = 0;
 
-        // 4) 先做 alias 精準比對
-        var alias = await _db.BotFaqAliases
-            .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.Enabled && a.Term == req.Text);
-
-        if (alias != null)
+        // 4) 先做 FAQ 問題精準比對（完全相同的問題直接回覆）
+        if (route == "none")
         {
-            aliasTerm = alias.Term;
-            var aliasFaqIds = ParseStringArrayJson(alias.FaqIds);
+            var directFaq = await _db.BotFaqItems
+                .AsNoTracking()
+                .FirstOrDefaultAsync(f => f.Enabled && f.Question == req.Text);
 
-            if (string.Equals(alias.Mode, "direct", StringComparison.OrdinalIgnoreCase) && aliasFaqIds.Length == 1)
+            if (directFaq != null)
             {
-                matchedFaqId = aliasFaqIds[0];
-                matchedBy = "alias_direct";
-                confidence = 1.0;
                 route = "faq";
-                faqCategory = null;
-
-                var faq = await _db.BotFaqItems.AsNoTracking().FirstOrDefaultAsync(f => f.FaqId == matchedFaqId && f.Enabled);
-                if (faq != null)
-                {
-                    replyText = faq.Answer;
-                    faqCategory = faq.CategoryKey ?? faq.Category;
-                    needsHumanHandoff = faq.NeedsHumanHandoff;
-                }
-            }
-            else if (aliasFaqIds.Length > 0)
-            {
-                route = "candidates";
-                matchedBy = "alias_disambiguation";
-                topFaqIds.AddRange(aliasFaqIds);
+                matchedFaqId = directFaq.FaqId;
+                matchedBy = "faq_exact";
+                confidence = 1.0;
+                replyText = directFaq.Answer;
+                faqCategory = directFaq.CategoryKey ?? directFaq.Category;
+                needsHumanHandoff = directFaq.NeedsHumanHandoff;
             }
         }
 
-        // 5) 若尚未決策，改用 Embedding 搜尋
+        // 5) 若尚未決策，做 alias 精準比對
+        if (route == "none")
+        {
+            var alias = await _db.BotFaqAliases
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Enabled && a.Term == req.Text);
+
+            if (alias != null)
+            {
+                aliasTerm = alias.Term;
+                var aliasFaqIds = ParseStringArrayJson(alias.FaqIds);
+
+                if (string.Equals(alias.Mode, "direct", StringComparison.OrdinalIgnoreCase) && aliasFaqIds.Length == 1)
+                {
+                    matchedFaqId = aliasFaqIds[0];
+                    matchedBy = "alias_direct";
+                    confidence = 1.0;
+                    route = "faq";
+                    faqCategory = null;
+
+                    var faq = await _db.BotFaqItems.AsNoTracking().FirstOrDefaultAsync(f => f.FaqId == matchedFaqId && f.Enabled);
+                    if (faq != null)
+                    {
+                        replyText = faq.Answer;
+                        faqCategory = faq.CategoryKey ?? faq.Category;
+                        needsHumanHandoff = faq.NeedsHumanHandoff;
+                    }
+                }
+                else if (aliasFaqIds.Length > 0)
+                {
+                    route = "candidates";
+                    matchedBy = "alias_disambiguation";
+                    topFaqIds.AddRange(aliasFaqIds);
+                }
+            }
+        }
+
+        // 6) 若尚未決策，改用 Embedding 搜尋
         if (route == "none")
         {
             const double defaultDirectLow = 0.44;
@@ -411,7 +433,7 @@ public class BotController : ControllerBase
             }
         }
 
-        // 6) 更新會話狀態（針對 disambiguation）
+        // 7) 更新會話狀態（針對 disambiguation）
         if (state == null)
         {
             state = new BotConversationState
@@ -438,7 +460,7 @@ public class BotController : ControllerBase
         state.UpdatedAt = now;
         await _db.SaveChangesAsync();
 
-        // 7) 組合回傳物件
+        // 8) 組合回傳物件
         var shouldReply = route == "faq" || (route == "candidates" && topFaqIds.Count > 0);
 
         object[] quickReplies = Array.Empty<object>();
@@ -492,7 +514,7 @@ public class BotController : ControllerBase
             }
         };
 
-        // 8) 寫入 route log
+        // 9) 寫入 route log
         var routeLog = new BotMessageRoute
         {
             EventRowId = ev.EventRowId,
