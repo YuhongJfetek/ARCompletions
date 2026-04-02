@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using ARCompletions.Config;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -69,7 +70,34 @@ if (isPostgres)
 // 其他服務
 builder.Services.AddControllersWithViews();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "ARCompletions API v1",
+        Version = "v1"
+    });
+
+    // 讓需要呼叫 /internal/v1/* 的客戶端，可以在 Swagger UI 透過 Authorize 輸入 X-Internal-API-Key
+    var apiKeyScheme = new OpenApiSecurityScheme
+    {
+        Name = "X-Internal-API-Key",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Description = "Internal API key for /internal/v1/* endpoints",
+        Reference = new OpenApiReference
+        {
+            Type = ReferenceType.SecurityScheme,
+            Id = "InternalApiKey"
+        }
+    };
+
+    c.AddSecurityDefinition("InternalApiKey", apiKeyScheme);
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        { apiKeyScheme, Array.Empty<string>() }
+    });
+});
 
 // 認證與授權：使用 Cookie 登入平台帳號與廠商帳號
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
