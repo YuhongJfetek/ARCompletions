@@ -79,6 +79,7 @@
             <td>@item.UpdatedAt</td>
             <td>
                 <a asp-area="Admin" asp-controller="BotConversations" asp-action="Edit" asp-route-sourceType="@item.SourceType" asp-route-conversationId="@item.ConversationId" class="btn btn-sm btn-secondary">編輯</a>
+                <a asp-area="Admin" asp-controller="BotConversations" asp-action="History" asp-route-sourceType="@item.SourceType" asp-route-conversationId="@item.ConversationId" class="btn btn-sm btn-outline-primary ms-1">對話紀錄</a>
                 @if (handoffActive)
                 {
                     <form asp-area="Admin" asp-controller="BotConversations" asp-action="ClearHandoff" method="post" class="d-inline">

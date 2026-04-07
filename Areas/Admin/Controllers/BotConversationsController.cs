@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using ARCompletions.Areas.Admin.Models;
 using ARCompletions.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -135,5 +136,82 @@ public class BotConversationsController : Controller
         }
         TempData["Success"] = "已清除 handoff 暫停";
         return RedirectToAction(nameof(Index));
+    }
+
+    public async Task<IActionResult> History(string sourceType, string conversationId)
+    {
+        if (string.IsNullOrWhiteSpace(sourceType) || string.IsNullOrWhiteSpace(conversationId))
+        {
+            return NotFound();
+        }
+
+        var events = await _db.BotIncomingEvents
+            .Where(e => e.SourceType == sourceType && e.ConversationId == conversationId)
+            .OrderBy(e => e.ReceivedAt)
+            .ToListAsync();
+
+        if (events.Count == 0)
+        {
+            return View(new ConversationLogViewModel
+            {
+                SourceType = sourceType,
+                ConversationId = conversationId,
+                Messages = Array.Empty<ConversationLogMessageViewModel>()
+            });
+        }
+
+        var eventIds = events.Select(e => e.EventRowId).ToList();
+
+        var routes = await _db.BotMessageRoutes
+            .Where(r => r.EventRowId != null && eventIds.Contains(r.EventRowId.Value))
+            .ToListAsync();
+
+        var llmLogs = await _db.BotLlmLogs
+            .Where(l => l.EventRowId != null && eventIds.Contains(l.EventRowId.Value))
+            .ToListAsync();
+
+        var routeDict = routes
+            .GroupBy(r => r.EventRowId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedAt).First());
+
+        var llmDict = llmLogs
+            .GroupBy(l => l.EventRowId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedAt).First());
+
+        var first = events.First();
+
+        var messages = events.Select(e =>
+        {
+            routeDict.TryGetValue(e.EventRowId, out var route);
+            llmDict.TryGetValue(e.EventRowId, out var llm);
+
+            return new ConversationLogMessageViewModel
+            {
+                EventRowId = e.EventRowId,
+                ReceivedAt = e.ReceivedAt,
+                MessageType = e.MessageType,
+                EventType = e.EventType,
+                RawEventJson = e.RawEventJson,
+                Route = route?.Route,
+                Reason = route?.Reason,
+                FaqCategory = route?.FaqCategory,
+                MatchedFaqId = route?.MatchedFaqId,
+                MatchedScore = route?.MatchedScore,
+                ReplyText = route?.ReplyText,
+                Confidence = llm?.Confidence,
+                LlmModel = llm?.Model,
+                LlmReason = llm?.Reason
+            };
+        }).ToList();
+
+        var vm = new ConversationLogViewModel
+        {
+            SourceType = sourceType,
+            ConversationId = conversationId,
+            LineUserId = first.LineUserId,
+            Messages = messages
+        };
+
+        return View(vm);
     }
 }

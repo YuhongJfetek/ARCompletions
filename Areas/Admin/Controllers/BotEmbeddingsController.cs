@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using ARCompletions.Areas.Admin.Models;
 using ARCompletions.Data;
 using ARCompletions.Domain;
 using ARCompletions.Services;
@@ -154,7 +155,16 @@ public class BotEmbeddingsController : Controller
         try
         {
             var job = await _embeddingRebuildService.RebuildAsync("openai", null, "all", null, triggeredBy, HttpContext.RequestAborted);
-            TempData["Success"] = $"已觸發 Embeddings 全量重建：JobId={job.JobId}, Status={job.Status}, Total={job.TotalCount}, Completed={job.CompletedCount}, Failed={job.FailedCount}";
+            TempData["Success"] = $"已完成 Embeddings 全量重建：JobId={job.JobId}, Status={job.Status}, Total={job.TotalCount}, Completed={job.CompletedCount}, Failed={job.FailedCount}";
+
+            // 只使用當下記憶體中的 job 結果，不再額外查詢資料庫。
+            var vm = new EmbeddingRebuildResultViewModel
+            {
+                Job = job,
+                Embeddings = Array.Empty<BotFaqEmbedding>()
+            };
+
+            return View("RebuildResult", vm);
         }
         catch (Exception ex)
         {

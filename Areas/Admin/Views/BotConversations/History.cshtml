@@ -1,0 +1,100 @@
+@model ARCompletions.Areas.Admin.Models.ConversationLogViewModel
+@{
+    ViewData["Title"] = "對話紀錄";
+}
+
+<h1>對話紀錄</h1>
+
+<div class="mb-2">
+    <span class="badge bg-secondary">SourceType: @Model.SourceType</span>
+    <span class="badge bg-info text-dark">ConversationId: @Model.ConversationId</span>
+    @if (!string.IsNullOrEmpty(Model.LineUserId))
+    {
+        <span class="badge bg-light text-dark">LineUserId: @Model.LineUserId</span>
+    }
+</div>
+
+@if (!Model.Messages.Any())
+{
+    <div class="alert alert-warning">此對話目前沒有任何訊息紀錄。</div>
+}
+else
+{
+    <div class="list-group">
+        @foreach (var m in Model.Messages)
+        {
+            <div class="list-group-item mb-1">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <strong>@m.MessageType</strong>
+                        @if (!string.IsNullOrEmpty(m.EventType))
+                        {
+                            <span class="text-muted">(@m.EventType)</span>
+                        }
+                    </div>
+                    <small class="text-muted">@m.ReceivedAt.ToString("yyyy-MM-dd HH:mm:ss") (EventRowId: @m.EventRowId)</small>
+                </div>
+
+                <div class="mt-1">
+                    @if (!string.IsNullOrEmpty(m.Route) || !string.IsNullOrEmpty(m.MatchedFaqId))
+                    {
+                        <div class="mb-1">
+                            @if (!string.IsNullOrEmpty(m.Route))
+                            {
+                                <span class="badge bg-primary">Route: @m.Route</span>
+                            }
+                            @if (!string.IsNullOrEmpty(m.Reason))
+                            {
+                                <span class="badge bg-secondary">Reason: @m.Reason</span>
+                            }
+                            @if (!string.IsNullOrEmpty(m.MatchedFaqId))
+                            {
+                                <span class="badge bg-success">FAQ: @m.MatchedFaqId (@m.MatchedScore)</span>
+                            }
+                            @if (!string.IsNullOrEmpty(m.FaqCategory))
+                            {
+                                <span class="badge bg-info text-dark">Category: @m.FaqCategory</span>
+                            }
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(m.ReplyText))
+                    {
+                        <div class="mt-1">
+                            <strong>Bot 回覆：</strong>
+                            <pre class="mb-0" style="white-space:pre-wrap;">@m.ReplyText</pre>
+                        </div>
+                    }
+
+                    @if (m.Confidence.HasValue || !string.IsNullOrEmpty(m.LlmModel) || !string.IsNullOrEmpty(m.LlmReason))
+                    {
+                        <div class="mt-2 small text-muted">
+                            <strong>LLM：</strong>
+                            @if (m.Confidence.HasValue)
+                            {
+                                <span>信心值 @m.Confidence.Value.ToString("F3")</span>
+                            }
+                            @if (!string.IsNullOrEmpty(m.LlmModel))
+                            {
+                                <span> | 模型 @m.LlmModel</span>
+                            }
+                            @if (!string.IsNullOrEmpty(m.LlmReason))
+                            {
+                                <span> | 原因 @m.LlmReason</span>
+                            }
+                        </div>
+                    }
+
+                    <details class="mt-2">
+                        <summary class="small text-muted">RawEventJson</summary>
+                        <pre class="mb-0 small" style="white-space:pre-wrap; max-height: 300px; overflow:auto;">@m.RawEventJson</pre>
+                    </details>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<div class="mt-3">
+    <a asp-area="Admin" asp-controller="BotConversations" asp-action="Index" class="btn btn-sm btn-secondary">返回會話列表</a>
+</div>
