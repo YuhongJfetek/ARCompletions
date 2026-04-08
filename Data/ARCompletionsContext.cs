@@ -154,7 +154,10 @@ public class ARCompletionsContext : DbContext
             e.Property(x => x.Message).HasColumnName("message");
             e.Property(x => x.MessageTemplate).HasColumnName("message_template");
             e.Property(x => x.Exception).HasColumnName("exception");
-            e.Property(x => x.Properties).HasColumnName("properties");
+            // `properties` is stored as jsonb in the DB; declare the column type so Npgsql sends JSONB
+            e.Property(x => x.Properties)
+                .HasColumnName("properties")
+                .HasColumnType("jsonb");
             // `log_event` is a JSONB column in the database; ensure EF knows the column type so parameters are sent as JSONB
             e.Property(x => x.LogEvent)
                 .HasColumnName("log_event")

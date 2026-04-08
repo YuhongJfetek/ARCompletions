@@ -26,7 +26,7 @@ namespace ARCompletions.Services
                     Message = message,
                     MessageTemplate = message,
                     Exception = ex?.ToString(),
-                    Properties = properties == null ? null : System.Text.Json.JsonSerializer.Serialize(properties)
+                    Properties = properties == null ? null : System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(properties))
                 };
                 _db.AppLogs.Add(log);
                 await _db.SaveChangesAsync();
@@ -56,7 +56,7 @@ namespace ARCompletions.Services
                     Message = message,
                     MessageTemplate = message,
                     Exception = ex?.ToString(),
-                    Properties = properties == null ? null : System.Text.Json.JsonSerializer.Serialize(properties)
+                    Properties = properties == null ? null : System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(properties))
                 };
                 _db.AppLogs.Add(log);
                 _db.SaveChanges();

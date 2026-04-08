@@ -88,7 +88,7 @@ public class DisambiguationService : IDisambiguationService
                     Message = "Disambiguation processing failed",
                     MessageTemplate = "Disambiguation processing failed for conversation",
                     Exception = ex.ToString(),
-                    Properties = System.Text.Json.JsonSerializer.Serialize(new { ConversationId = conversationId })
+                    Properties = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(new { ConversationId = conversationId }))
                 };
                 _db.AppLogs.Add(log);
                 await _db.SaveChangesAsync();

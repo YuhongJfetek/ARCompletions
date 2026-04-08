@@ -28,7 +28,7 @@ namespace ARCompletions.Services
                     Level = level,
                     Message = message,
                     MessageTemplate = message,
-                    Properties = props == null ? null : System.Text.Json.JsonSerializer.Serialize(props)
+                    Properties = props == null ? null : System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(props))
                 };
                 _db.AppLogs.Add(log);
                 _db.SaveChanges();
