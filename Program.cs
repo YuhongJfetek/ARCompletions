@@ -135,10 +135,13 @@ builder.Services.AddHttpClient("OpenAI", c =>
 // HttpClient for external services (LINE)
 builder.Services.AddHttpClient();
 // Embedding service for bot_* FAQ embeddings
-builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingService, ARCompletions.Services.EmbeddingService>();
+// Previously registered as Singleton but it consumes the scoped ARCompletionsContext.
+// Register as Scoped to avoid DI lifecycle issues when resolving DbContext.
+builder.Services.AddScoped<ARCompletions.Services.IEmbeddingService, ARCompletions.Services.EmbeddingService>();
 builder.Services.AddScoped<ARCompletions.Services.IEmbeddingRebuildService, ARCompletions.Services.EmbeddingRebuildService>();
 // Drive service for file uploads (uses GOOGLE_SERVICE_ACCOUNT_KEY + GOOGLE_DRIVE_FOLDER_ID)
-builder.Services.AddSingleton<ARCompletions.Services.IDriveService, ARCompletions.Services.GoogleDriveService>();
+// GoogleDriveService depends on scoped services (DbContext), register as Scoped.
+builder.Services.AddScoped<ARCompletions.Services.IDriveService, ARCompletions.Services.GoogleDriveService>();
 // Disambiguation service (handles numeric selection and atomic state updates)
 builder.Services.AddScoped<ARCompletions.Services.IDisambiguationService, ARCompletions.Services.DisambiguationService>();
 // New services
