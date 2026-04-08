@@ -155,7 +155,10 @@ public class ARCompletionsContext : DbContext
             e.Property(x => x.MessageTemplate).HasColumnName("message_template");
             e.Property(x => x.Exception).HasColumnName("exception");
             e.Property(x => x.Properties).HasColumnName("properties");
-            e.Property(x => x.LogEvent).HasColumnName("log_event");
+            // `log_event` is a JSONB column in the database; ensure EF knows the column type so parameters are sent as JSONB
+            e.Property(x => x.LogEvent)
+                .HasColumnName("log_event")
+                .HasColumnType("jsonb");
         });
     }
 }
