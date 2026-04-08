@@ -3,11 +3,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using ARCompletions.Data;
 using ARCompletions.Domain;
-using ARCompletions.Services;
+// using ARCompletions.Services; (duplicate removed)
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using ARCompletions.Services;
 using System.Collections.Generic;
 using System.Text.Json;
 using ARCompletions.Areas.Admin.Models;
@@ -20,13 +20,13 @@ public class BotFaqItemsController : Controller
 {
     private readonly ARCompletionsContext _db;
     private readonly IEmbeddingRebuildService _embeddingRebuildService;
-    private readonly ILogger<BotFaqItemsController> _logger;
+    private readonly IDbLogger _dbLogger;
 
-    public BotFaqItemsController(ARCompletionsContext db, IEmbeddingRebuildService embeddingRebuildService, ILogger<BotFaqItemsController> logger)
+    public BotFaqItemsController(ARCompletionsContext db, IEmbeddingRebuildService embeddingRebuildService, IDbLogger dbLogger)
     {
         _db = db;
         _embeddingRebuildService = embeddingRebuildService;
-        _logger = logger;
+        _dbLogger = dbLogger;
     }
 
     public IActionResult BulkImport()
@@ -331,7 +331,7 @@ public class BotFaqItemsController : Controller
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning(ex, "Embedding rebuild failed for created FAQ {FaqId}", model.FaqId);
+            await _dbLogger.LogAsync("Warning", "Embedding rebuild failed for created FAQ {FaqId}", new { FaqId = model.FaqId }, ex);
             // 忽略 Embedding 失敗，避免影響 FAQ CRUD。詳細錯誤可從 bot_embedding_jobs 查詢。
         }
 
@@ -382,7 +382,7 @@ public class BotFaqItemsController : Controller
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning(ex, "Embedding rebuild failed for updated FAQ {FaqId}", existing.FaqId);
+            await _dbLogger.LogAsync("Warning", "Embedding rebuild failed for updated FAQ {FaqId}", new { FaqId = existing.FaqId }, ex);
             // 忽略 Embedding 失敗，避免影響 FAQ CRUD。詳細錯誤可從 bot_embedding_jobs 查詢。
         }
 
@@ -470,7 +470,7 @@ public class BotFaqItemsController : Controller
         }
         catch (Exception ex)
         {
-            _logger?.LogDebug(ex, "TryExtractUserText failed to parse raw event");
+            _dbLogger.LogSync("Debug", "TryExtractUserText failed to parse raw event", null, ex);
         }
 
         return null;

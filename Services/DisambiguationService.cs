@@ -15,13 +15,10 @@ public class DisambiguationService : IDisambiguationService
 {
     private readonly ARCompletionsContext _db;
     private readonly IMemoryCache _cache;
-    private readonly ILogger<DisambiguationService>? _logger;
-
-    public DisambiguationService(ARCompletionsContext db, IMemoryCache cache, ILogger<DisambiguationService>? logger = null)
+    public DisambiguationService(ARCompletionsContext db, IMemoryCache cache)
     {
         _db = db;
         _cache = cache;
-        _logger = logger;
     }
 
     public async Task<DisambiguationResult> TryHandleNumericSelectionAsync(BotConversationState? state, string normalizedText, string sourceType, string conversationId, DateTimeOffset now, bool useMemoryState)
@@ -81,7 +78,25 @@ public class DisambiguationService : IDisambiguationService
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning(ex, "Disambiguation processing failed for conversation {ConversationId}", conversationId);
+            try
+            {
+                var log = new AppLog
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    TimeStamp = DateTime.UtcNow,
+                    Level = "Warning",
+                    Message = "Disambiguation processing failed",
+                    MessageTemplate = "Disambiguation processing failed for conversation",
+                    Exception = ex.ToString(),
+                    Properties = System.Text.Json.JsonSerializer.Serialize(new { ConversationId = conversationId })
+                };
+                _db.AppLogs.Add(log);
+                await _db.SaveChangesAsync();
+            }
+            catch
+            {
+                // swallow
+            }
         }
 
         return res;

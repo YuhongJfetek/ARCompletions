@@ -40,6 +40,7 @@ public class ARCompletionsContext : DbContext
     public DbSet<BotConstantsConfig> BotConstantsConfigs => Set<BotConstantsConfig>();
     public DbSet<BotAuditLog> BotAuditLogs => Set<BotAuditLog>();
     public DbSet<BotEmbeddingJob> BotEmbeddingJobs => Set<BotEmbeddingJob>();
+    public DbSet<AppLog> AppLogs => Set<AppLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -141,6 +142,20 @@ public class ARCompletionsContext : DbContext
             e.Property(x => x.StartedAt).HasColumnName("started_at");
             e.Property(x => x.FinishedAt).HasColumnName("finished_at");
             e.Property(x => x.ErrorMessage).HasColumnName("error_message");
+        });
+
+        modelBuilder.Entity<AppLog>(e =>
+        {
+            e.ToTable("app_logs");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.TimeStamp).HasColumnName("time_stamp");
+            e.Property(x => x.Level).HasColumnName("level");
+            e.Property(x => x.Message).HasColumnName("message");
+            e.Property(x => x.MessageTemplate).HasColumnName("message_template");
+            e.Property(x => x.Exception).HasColumnName("exception");
+            e.Property(x => x.Properties).HasColumnName("properties");
+            e.Property(x => x.LogEvent).HasColumnName("log_event");
         });
     }
 }

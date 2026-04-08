@@ -5,7 +5,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+using ARCompletions.Data;
+using ARCompletions.Domain;
 
 namespace ARCompletions.Services;
 
@@ -13,13 +14,15 @@ public class EmbeddingService : IEmbeddingService
 {
     private readonly IHttpClientFactory _httpFactory;
     private readonly IConfiguration _config;
-    private readonly ILogger<EmbeddingService> _logger;
+    private readonly ARCompletionsContext _db;
+    private readonly IDbLogger _dbLogger;
 
-    public EmbeddingService(IHttpClientFactory httpFactory, IConfiguration config, ILogger<EmbeddingService> logger)
+    public EmbeddingService(IHttpClientFactory httpFactory, IConfiguration config, ARCompletionsContext db, IDbLogger dbLogger)
     {
         _httpFactory = httpFactory;
         _config = config;
-        _logger = logger;
+        _db = db;
+        _dbLogger = dbLogger;
     }
 
     public async Task<string?> GetEmbeddingJsonAsync(string input, string model)
@@ -29,7 +32,7 @@ public class EmbeddingService : IEmbeddingService
         var apiKey = _config["OpenAI:ApiKey"] ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            _logger.LogError("OpenAI API key not configured (OpenAI:ApiKey or OPENAI_API_KEY)");
+            await _dbLogger.LogAsync("Error", "OpenAI API key not configured");
             return null;
         }
 
@@ -61,23 +64,23 @@ public class EmbeddingService : IEmbeddingService
                     var baseDelay = Math.Min(2000 * attempt, 30000);
                     var jitter = rng.Next(0, 500);
                     var waitMs = baseDelay + jitter;
-                    _logger.LogWarning("OpenAI embedding request transient failure {Status}. Retry {Attempt}/{Max} after {Delay}ms. Response: {Resp}", resp.StatusCode, attempt, maxAttempts, waitMs, respText);
+                    await _dbLogger.LogAsync("Warning", "OpenAI embedding transient failure", new { Status = resp.StatusCode, Attempt = attempt, Max = maxAttempts, Delay = waitMs, Resp = respText });
                     await Task.Delay(waitMs);
                     continue;
                 }
 
-                _logger.LogError("OpenAI embedding request failed (non-transient): {Status} {Resp}", resp.StatusCode, respText);
+                await _dbLogger.LogAsync("Error", "OpenAI embedding failed (non-transient)", new { Status = resp.StatusCode, Resp = respText });
                 return respText;
             }
             catch (Exception ex)
             {
                 var waitMs = Math.Min(1000 * attempt * attempt, 30000);
-                _logger.LogWarning(ex, "Exception calling OpenAI embeddings (attempt {Attempt}/{Max}). Retrying after {Delay}ms", attempt, maxAttempts, waitMs);
+                    await _dbLogger.LogAsync("Warning", "Exception calling OpenAI embeddings", new { Attempt = attempt, Max = maxAttempts, Delay = waitMs }, ex);
                 await Task.Delay(waitMs);
             }
         }
 
-        _logger.LogError("OpenAI embedding request failed after {Max} attempts", maxAttempts);
+        await _dbLogger.LogAsync("Error", "OpenAI embedding request failed after attempts", new { Max = maxAttempts });
         return null;
     }
 }

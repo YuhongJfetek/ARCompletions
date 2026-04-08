@@ -15,13 +15,13 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
 {
     private readonly ARCompletionsContext _db;
     private readonly IEmbeddingService _embeddingService;
-    private readonly ILogger<EmbeddingRebuildService> _logger;
+    private readonly IDbLogger _dbLogger;
 
-    public EmbeddingRebuildService(ARCompletionsContext db, IEmbeddingService embeddingService, ILogger<EmbeddingRebuildService> logger)
+    public EmbeddingRebuildService(ARCompletionsContext db, IEmbeddingService embeddingService, IDbLogger dbLogger)
     {
         _db = db;
         _embeddingService = embeddingService;
-        _logger = logger;
+        _dbLogger = dbLogger;
     }
 
     public async Task<BotEmbeddingJob> RebuildAsync(string provider, string? model, string scope, string? faqId, string triggeredBy, CancellationToken cancellationToken = default)
@@ -138,7 +138,7 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
             {
                 job.FailedCount++;
                 errors.Add($"FAQ {faq.FaqId}: {ex.Message}");
-                _logger.LogError(ex, "Embedding rebuild failed for FAQ {FaqId} in job {JobId}", faq.FaqId, job.JobId);
+                await _dbLogger.LogAsync("Error", "Embedding rebuild failed for FAQ", new { FaqId = faq.FaqId, JobId = job.JobId }, ex);
             }
         }
 
@@ -235,7 +235,7 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to parse embedding JSON");
+            await _dbLogger.LogAsync("Error", "Failed to parse embedding JSON", null, ex);
             return null;
         }
     }

@@ -2,17 +2,40 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Logging;
+using ARCompletions.Data;
+using ARCompletions.Domain;
 
 namespace ARCompletions.Services
 {
     public class ScoringService : IScoringService
     {
         private readonly ITextProcessingService _textProcessing;
-        private readonly ILogger<ScoringService> _logger;
-        public ScoringService(ITextProcessingService textProcessing, ILogger<ScoringService> logger)
+        private readonly ARCompletionsContext _db;
+        public ScoringService(ITextProcessingService textProcessing, ARCompletionsContext db)
         {
             _textProcessing = textProcessing;
-            _logger = logger;
+            _db = db;
+        }
+
+        private void WriteAppLogSync(string level, string message, object? props = null)
+        {
+            try
+            {
+                var log = new AppLog
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    TimeStamp = DateTime.UtcNow,
+                    Level = level,
+                    Message = message,
+                    MessageTemplate = message,
+                    Properties = props == null ? null : System.Text.Json.JsonSerializer.Serialize(props)
+                };
+                _db.AppLogs.Add(log);
+                _db.SaveChanges();
+            }
+            catch
+            {
+            }
         }
 
         public double CosineSimilarity(double[] a, double[] b)
@@ -34,7 +57,7 @@ namespace ARCompletions.Services
         {
             var scores = new Dictionary<string,double>();
             var candList = candidates.ToList();
-            _logger?.LogDebug("Scoring {Count} candidates for text length {Len}", candList.Count, (normalizedText ?? string.Empty).Length);
+            WriteAppLogSync("Debug", "Scoring candidates", new { Count = candList.Count, Len = (normalizedText ?? string.Empty).Length });
             foreach (var c in candList)
             {
                 var qNorm = (c.Question ?? string.Empty);
@@ -51,7 +74,7 @@ namespace ARCompletions.Services
             if (scores.Count > 0)
             {
                 var best = scores.OrderByDescending(kv => kv.Value).First();
-                _logger?.LogDebug("Scoring best: FaqId={FaqId} Score={Score}", best.Key, best.Value);
+                WriteAppLogSync("Debug", "Scoring best", new { FaqId = best.Key, Score = best.Value });
             }
             return scores;
         }

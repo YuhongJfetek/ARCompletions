@@ -152,6 +152,8 @@ builder.Services.AddScoped<ARCompletions.Services.IScoringService, ARCompletions
 builder.Services.AddScoped<ARCompletions.Services.ICandidateBuilderService, ARCompletions.Services.CandidateBuilderService>();
 builder.Services.AddScoped<ARCompletions.Services.IRouteLoggingService, ARCompletions.Services.RouteLoggingService>();
 builder.Services.AddScoped<ARCompletions.Services.IResponseBuilder, ARCompletions.Services.ResponseBuilder>();
+// DB-backed logger for services that previously used ILogger
+builder.Services.AddScoped<ARCompletions.Services.IDbLogger, ARCompletions.Services.DbLogger>();
 
 var app = builder.Build();
 
@@ -176,8 +178,7 @@ app.MapGet("/healthz", () => Results.Ok("ok"));
 var runMigrations = (Environment.GetEnvironmentVariable("RUN_MIGRATIONS") ?? "false")
                     .Equals("true", StringComparison.OrdinalIgnoreCase);
 
-app.Logger.LogInformation("DB Provider: {Provider}", isPostgres ? "PostgreSQL" : "SQLite");
-app.Logger.LogInformation("Auto-migrate on startup (RUN_MIGRATIONS): {Run}", runMigrations);
+// startup logs removed: DB Provider and RUN_MIGRATIONS are printed to Console instead
 Console.WriteLine($"DB Provider: {(isPostgres ? "PostgreSQL" : "SQLite")}");
 Console.WriteLine($"Auto-migrate on startup (RUN_MIGRATIONS): {runMigrations}");
 
@@ -186,16 +187,14 @@ var db = scope.ServiceProvider.GetRequiredService<ARCompletionsContext>();
 
 if (runMigrations)
 {
-    app.Logger.LogInformation("Applying EF Core migrations...");
     try
     {
         db.Database.Migrate();
-        app.Logger.LogInformation("Migrations applied successfully.");
+        Console.WriteLine("Migrations applied successfully.");
         Console.WriteLine("Migrations applied successfully.");
     }
     catch (Exception ex)
     {
-        app.Logger.LogError(ex, "Failed to apply migrations on startup. Application will continue without applying migrations.");
         Console.WriteLine($"Failed to apply migrations on startup: {ex.Message}");
         Console.WriteLine(ex.ToString());
     }
@@ -227,7 +226,6 @@ if (seedFromJson)
 }
 else
 {
-    app.Logger.LogInformation("Ensuring database is created...");
     try
     {
         db.Database.EnsureCreated();
@@ -235,7 +233,6 @@ else
     }
     catch (Exception ex)
     {
-        app.Logger.LogError(ex, "Failed to ensure database creation on startup.");
         Console.WriteLine($"Failed to ensure database creation on startup: {ex.Message}");
         Console.WriteLine(ex.ToString());
     }
@@ -302,7 +299,6 @@ if (Directory.Exists(imagePath))
 }
 else
 {
-    app.Logger.LogWarning("Static image path not found: {Path}", imagePath);
     Console.WriteLine($"Static image path not found: {imagePath}");
 }
 

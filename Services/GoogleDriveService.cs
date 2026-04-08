@@ -3,7 +3,8 @@ using Google.Apis.Drive.v3;
 using Google.Apis.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+using ARCompletions.Data;
+using ARCompletions.Domain;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,7 +15,8 @@ namespace ARCompletions.Services
     public class GoogleDriveService : IDriveService
     {
         private readonly IConfiguration _config;
-        private readonly ILogger<GoogleDriveService> _logger;
+        private readonly ARCompletionsContext _db;
+        private readonly IDbLogger _dbLogger;
 
         private static readonly HashSet<string> AllowedMimeTypes = new()
         {
@@ -29,10 +31,11 @@ namespace ARCompletions.Services
 
         private const long MaxFileSizeBytes = 50 * 1024 * 1024; // 50MB
 
-        public GoogleDriveService(IConfiguration config, ILogger<GoogleDriveService> logger)
+        public GoogleDriveService(IConfiguration config, ARCompletionsContext db, IDbLogger dbLogger)
         {
             _config = config;
-            _logger = logger;
+            _db = db;
+            _dbLogger = dbLogger;
         }
 
         public async Task<DriveUploadResult> UploadAsync(IFormFile file, string groupId, string messageId, string messageType)
@@ -70,7 +73,7 @@ namespace ARCompletions.Services
             var progress = await request.UploadAsync();
             if (progress.Status != Google.Apis.Upload.UploadStatus.Completed)
             {
-                _logger.LogError("Drive upload failed: {0}", progress.Exception?.Message);
+                await _dbLogger.LogAsync("Error", "Drive upload failed", new { Message = progress.Exception?.Message }, progress.Exception);
                 throw new Exception("Drive upload failed: " + progress.Exception?.Message);
             }
 

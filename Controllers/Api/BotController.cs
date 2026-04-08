@@ -22,7 +22,7 @@ public class BotController : ControllerBase
 {
     private readonly ARCompletionsContext _db;
     private readonly IMemoryCache _cache;
-    private readonly ILogger<BotController> _logger;
+    private readonly ARCompletions.Services.IDbLogger _dbLogger;
     private readonly IDisambiguationService _disambiguationService;
     private readonly ITextProcessingService _textProcessing;
     private readonly IPrefilterService _prefilter;
@@ -38,8 +38,8 @@ public class BotController : ControllerBase
     public BotController(
         ARCompletionsContext db,
         IMemoryCache cache,
-        ILogger<BotController> logger,
         IDisambiguationService disambiguationService,
+        ARCompletions.Services.IDbLogger dbLogger,
         ITextProcessingService textProcessing,
         IPrefilterService prefilter,
         IStateService stateService,
@@ -53,7 +53,7 @@ public class BotController : ControllerBase
     {
         _db = db;
         _cache = cache;
-        _logger = logger;
+        _dbLogger = dbLogger;
         _disambiguationService = disambiguationService;
         _textProcessing = textProcessing;
         _prefilter = prefilter;
@@ -67,7 +67,23 @@ public class BotController : ControllerBase
         _responseBuilder = responseBuilder;
     }
 
-    
+    // BotController now uses injected IDbLogger (`_dbLogger`) for DB-backed logging.
+
+    private async Task WriteAppLogAsync(string level, string message, object? props = null, Exception? ex = null)
+    {
+        try
+        {
+            if (_dbLogger != null)
+            {
+                await _dbLogger.LogAsync(level, message, props, ex);
+            }
+        }
+        catch
+        {
+            // swallow to avoid interfering with request flow
+        }
+    }
+
 
     // A1 查詢決策 API（簡化版：目前僅回傳 shouldReply=false 骨架，後續可接上實際判斷流程）
     [HttpPost("bot/query")]
@@ -79,7 +95,7 @@ public class BotController : ControllerBase
         }
 
         var sw = Stopwatch.StartNew();
-        _logger?.LogInformation("Query received: ConversationId={ConversationId} UserId={UserId} SourceType={SourceType} TextLen={TextLen}", req.ConversationId, req.UserId, req.SourceType, (req.Text ?? string.Empty).Length);
+        await _dbLogger.LogAsync("Information", "Query received: ConversationId={ConversationId} UserId={UserId} SourceType={SourceType} TextLen={TextLen}", new { ConversationId = req.ConversationId, UserId = req.UserId, SourceType = req.SourceType, TextLen = (req.Text ?? string.Empty).Length });
 
         var now = DateTimeOffset.UtcNow;
         var sourceType = string.IsNullOrWhiteSpace(req.SourceType) ? "group" : req.SourceType;
@@ -118,7 +134,7 @@ public class BotController : ControllerBase
 
         // Prefilter via IPrefilterService
         var pre = _prefilter.EvaluatePrefilter(normalizedText, tokens);
-        _logger?.LogDebug("Prefilter result: ConversationId={ConversationId} ShortCircuit={ShortCircuit} Reason={Reason}", req.ConversationId, pre.ShortCircuit, pre.Reason);
+        await _dbLogger.LogAsync("Debug", "Prefilter result: ConversationId={ConversationId} ShortCircuit={ShortCircuit} Reason={Reason}", new { ConversationId = req.ConversationId, ShortCircuit = pre.ShortCircuit, Reason = pre.Reason });
         if (pre.ShortCircuit)
         {
             var emptyResp = new BotQueryResponse
@@ -174,7 +190,7 @@ public class BotController : ControllerBase
             };
             var persistRouteLogs2 = (Environment.GetEnvironmentVariable("PERSIST_ROUTE_LOGS") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
             await _routeLogger.LogRouteAsync(logEmpty, persistRouteLogs2);
-            _logger?.LogInformation("Prefilter short-circuit: ConversationId={ConversationId} Reason={Reason}", req.ConversationId, pre.Reason);
+            await WriteAppLogAsync("Information", "Prefilter short-circuit: ConversationId={ConversationId} Reason={Reason}", new { ConversationId = req.ConversationId, Reason = pre.Reason });
 
             return Ok(emptyResp);
         }
@@ -183,7 +199,7 @@ public class BotController : ControllerBase
         var useMemoryState = (Environment.GetEnvironmentVariable("USE_INMEMORY_STATE") ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
         var stateCacheKey = $"state:{sourceType}:{req.ConversationId}";
         BotConversationState? state = await _stateService.GetStateAsync(sourceType, req.ConversationId, useMemoryState);
-        _logger?.LogDebug("State loaded: ConversationId={ConversationId} HasState={HasState} HandoffUntil={Handoff}", req.ConversationId, state != null, state?.HandoffUntil);
+        await WriteAppLogAsync("Debug", "State loaded: ConversationId={ConversationId} HasState={HasState} HandoffUntil={Handoff}", new { ConversationId = req.ConversationId, HasState = state != null, Handoff = state?.HandoffUntil });
         var botEnabled = true;
         DateTimeOffset? handoffUntil = null;
         if (state != null && state.HandoffUntil.HasValue && state.HandoffUntil.Value > now)
@@ -342,11 +358,11 @@ public class BotController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning(ex, "Disambiguation handling failed");
+            await WriteAppLogAsync("Warning", "Disambiguation handling failed", null, ex);
         }
         if (route != "none")
         {
-            _logger?.LogInformation("Disambiguation handled: ConversationId={ConversationId} Route={Route} MatchedFaqId={FaqId}", req.ConversationId, route, matchedFaqId);
+            await WriteAppLogAsync("Information", "Disambiguation handled: ConversationId={ConversationId} Route={Route} MatchedFaqId={FaqId}", new { ConversationId = req.ConversationId, Route = route, MatchedFaqId = matchedFaqId });
         }
 
         // 4) 先做 FAQ 問題精準比對（使用 SearchTextCache 嘗試避免載入所有 FAQ）
@@ -368,7 +384,7 @@ public class BotController : ControllerBase
                 replyText = f.Answer;
                 faqCategory = f.CategoryKey ?? f.Category;
                 needsHumanHandoff = f.NeedsHumanHandoff;
-                _logger?.LogInformation("Exact FAQ match: ConversationId={ConversationId} FaqId={FaqId}", req.ConversationId, matchedFaqId);
+                await WriteAppLogAsync("Information", "Exact FAQ match: ConversationId={ConversationId} FaqId={FaqId}", new { ConversationId = req.ConversationId, FaqId = matchedFaqId });
             }
 
             // fuzzy/synonym: token-overlap very high -> treat as exact (limited scan)
@@ -393,7 +409,7 @@ public class BotController : ControllerBase
                         replyText = f.Answer;
                         faqCategory = f.CategoryKey ?? f.Category;
                         needsHumanHandoff = f.NeedsHumanHandoff;
-                        _logger?.LogInformation("High-overlap faq matched: ConversationId={ConversationId} FaqId={FaqId} Overlap={Overlap}", req.ConversationId, f.FaqId, overlap);
+                        await WriteAppLogAsync("Information", "High-overlap faq matched: ConversationId={ConversationId} FaqId={FaqId} Overlap={Overlap}", new { ConversationId = req.ConversationId, FaqId = f.FaqId, Overlap = overlap });
                         break;
                     }
                 }
@@ -406,7 +422,7 @@ public class BotController : ControllerBase
             var am = await _aliasService.MatchAliasAsync(normalizedText);
             if (am != null)
             {
-                _logger?.LogInformation("Alias matched: ConversationId={ConversationId} AliasTerm={Alias} Mode={Mode} FaqIds={FaqIds}", req.ConversationId, am.AliasTerm, am.Mode, string.Join(',', am.FaqIds ?? Array.Empty<string>()));
+                await WriteAppLogAsync("Information", "Alias matched: ConversationId={ConversationId} AliasTerm={Alias} Mode={Mode} FaqIds={FaqIds}", new { ConversationId = req.ConversationId, AliasTerm = am.AliasTerm, Mode = am.Mode, FaqIds = am.FaqIds });
                 aliasTerm = am.AliasTerm;
                 var aliasFaqIds = am.FaqIds ?? Array.Empty<string>();
                 var mode = am.Mode ?? string.Empty;
@@ -512,11 +528,11 @@ public class BotController : ControllerBase
             try
             {
                 queryVec = await _embeddingRetrieval.GetOrCreateEmbeddingAsync(normalizedText, modelName);
-                _logger?.LogDebug("Embedding retrieved: ConversationId={ConversationId} VecLen={Len}", req.ConversationId, queryVec?.Length ?? 0);
+                await WriteAppLogAsync("Debug", "Embedding retrieved: ConversationId={ConversationId} VecLen={Len}", new { ConversationId = req.ConversationId, VecLen = queryVec?.Length ?? 0 });
             }
             catch (Exception ex)
             {
-                _logger?.LogWarning(ex, "Embedding retrieval failed for text: {Text}", normalizedText);
+                await WriteAppLogAsync("Warning", "Embedding retrieval failed for text", new { Text = normalizedText }, ex);
                 queryVec = null;
             }
 
@@ -546,7 +562,7 @@ public class BotController : ControllerBase
                     var bestFb = rankedFb[0];
                     matchedFaqId = bestFb.Key;
                     confidence = bestFb.Value;
-                    _logger?.LogInformation("Keyword fallback ranked: ConversationId={ConversationId} TopIds={TopIds}", req.ConversationId, string.Join(',', topFaqIds));
+                    await WriteAppLogAsync("Information", "Keyword fallback ranked: ConversationId={ConversationId} TopIds={TopIds}", new { ConversationId = req.ConversationId, TopIds = topFaqIds });
 
                     var bestFaq = faqsForFallback.FirstOrDefault(f => f.FaqId == matchedFaqId);
                     var minScore = bestFaq?.MinConfidenceScore ?? directLow;
@@ -578,14 +594,14 @@ public class BotController : ControllerBase
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogWarning(ex, "CandidateBuilder.BuildCandidatesAsync failed for text: {Text}", normalizedText);
+                    await WriteAppLogAsync("Warning", "CandidateBuilder.BuildCandidatesAsync failed", new { Text = normalizedText }, ex);
                     built = null;
                 }
 
                 if (built != null && built.Count > 0)
                 {
                     topFaqIds = built;
-                    _logger?.LogInformation("Candidates built: ConversationId={ConversationId} Ids={Ids}", req.ConversationId, string.Join(',', topFaqIds));
+                    await WriteAppLogAsync("Information", "Candidates built: ConversationId={ConversationId} Ids={Ids}", new { ConversationId = req.ConversationId, Ids = topFaqIds });
 
                     // fetch details for scoring/decision
                     List<ARCompletions.Domain.BotFaqItem> faqs;
@@ -595,10 +611,10 @@ public class BotController : ControllerBase
                     }
                     catch (Exception ex)
                     {
-                        _logger?.LogWarning(ex, "FaqService.FindByIdsAsync failed for ids: {Ids}", string.Join(',', topFaqIds));
+                        await WriteAppLogAsync("Warning", "FaqService.FindByIdsAsync failed", new { Ids = topFaqIds }, ex);
                         faqs = new List<ARCompletions.Domain.BotFaqItem>();
                     }
-                    _logger?.LogDebug("Fetched FAQ details: ConversationId={ConversationId} Count={Count}", req.ConversationId, faqs.Count);
+                    await WriteAppLogAsync("Debug", "Fetched FAQ details: ConversationId={ConversationId} Count={Count}", new { ConversationId = req.ConversationId, Count = faqs.Count });
                     var faqMap = faqs.ToDictionary(f => f.FaqId, f => f);
 
                     // compute scores for these candidates
@@ -610,7 +626,7 @@ public class BotController : ControllerBase
                         .Where(e => faqIds.Contains(e.FaqId) && e.Embedding != null && e.Embedding.Length > 0 && e.EmbeddingProvider == embeddingProvider)
                         .ToListAsync();
                     var embMap = embeddings.ToDictionary(e => e.FaqId, e => e.Embedding);
-                    _logger?.LogDebug("Batch fetched embeddings: ConversationId={ConversationId} FetchedCount={Count}", req.ConversationId, embeddings.Count);
+                    await WriteAppLogAsync("Debug", "Batch fetched embeddings: ConversationId={ConversationId} FetchedCount={Count}", new { ConversationId = req.ConversationId, FetchedCount = embeddings.Count });
 
                     foreach (var f in faqs)
                     {
@@ -620,7 +636,7 @@ public class BotController : ControllerBase
 
                     var scores = _scoring.ScoreCandidates(queryVec ?? Array.Empty<double>(), candidateTuples, normalizedText);
                     var ranked = scores.OrderByDescending(kv => kv.Value).ToList();
-                    _logger?.LogDebug("Scoring results: ConversationId={ConversationId} Ranked={Ranked}", req.ConversationId, string.Join(',', ranked.Select(kv => kv.Key + ":" + kv.Value)));
+                    await WriteAppLogAsync("Debug", "Scoring results: ConversationId={ConversationId} Ranked={Ranked}", new { ConversationId = req.ConversationId, Ranked = string.Join(',', ranked.Select(kv => kv.Key + ":" + kv.Value)) });
                     var best = ranked.FirstOrDefault();
                     if (!string.IsNullOrEmpty(best.Key))
                     {
@@ -671,7 +687,7 @@ public class BotController : ControllerBase
             state.PendingDisambiguationIds = JsonSerializer.Serialize(topFaqIds);
             state.PendingDisambiguationRoute = "faq";
             state.PendingDisambiguationAt = now;
-            _logger?.LogDebug("Set pending disambiguation: ConversationId={ConversationId} Ids={Ids}", req.ConversationId, string.Join(',', topFaqIds));
+            await WriteAppLogAsync("Debug", "Set pending disambiguation: ConversationId={ConversationId} Ids={Ids}", new { ConversationId = req.ConversationId, Ids = topFaqIds });
         }
         else
         {
@@ -681,7 +697,7 @@ public class BotController : ControllerBase
         }
         state.UpdatedAt = now;
         await _stateService.SaveStateAsync(state, useMemoryState, stateCacheKey);
-        _logger?.LogDebug("Saved state: ConversationId={ConversationId} PendingIds={PendingIds}", req.ConversationId, state.PendingDisambiguationIds);
+        await WriteAppLogAsync("Debug", "Saved state: ConversationId={ConversationId} PendingIds={PendingIds}", new { ConversationId = req.ConversationId, PendingIds = state.PendingDisambiguationIds });
 
         // 8) 組合回傳物件
         var shouldReply = route == "faq" || (route == "candidates" && topFaqIds.Count > 0);
@@ -757,7 +773,7 @@ public class BotController : ControllerBase
         await _routeLogger.LogRouteAsync(routeLog, persistRouteLogs3);
 
         sw.Stop();
-        _logger?.LogInformation("Query finished: ConversationId={ConversationId} Route={Route} ShouldReply={ShouldReply} ElapsedMs={Ms}", req.ConversationId, route, shouldReply, sw.ElapsedMilliseconds);
+        await WriteAppLogAsync("Information", "Query finished: ConversationId={ConversationId} Route={Route} ShouldReply={ShouldReply} ElapsedMs={Ms}", new { ConversationId = req.ConversationId, Route = route, ShouldReply = shouldReply, ElapsedMs = sw.ElapsedMilliseconds });
 
         return Ok(resp);
     }

@@ -5,6 +5,8 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using ARCompletions.Data;
+using ARCompletions.Domain;
 
 namespace ARCompletions.Services
 {
@@ -12,14 +14,18 @@ namespace ARCompletions.Services
     {
         private readonly IEmbeddingService _embeddingService;
         private readonly IMemoryCache _cache;
-        private readonly ILogger<EmbeddingRetrievalService> _logger;
+        private readonly ARCompletionsContext _db;
+        private readonly IDbLogger _dbLogger;
 
-        public EmbeddingRetrievalService(IEmbeddingService embeddingService, IMemoryCache cache, ILogger<EmbeddingRetrievalService> logger)
+        public EmbeddingRetrievalService(IEmbeddingService embeddingService, IMemoryCache cache, ARCompletionsContext db, IDbLogger dbLogger)
         {
             _embeddingService = embeddingService;
             _cache = cache;
-            _logger = logger;
+            _db = db;
+            _dbLogger = dbLogger;
         }
+
+        
 
         public async Task<double[]?> GetOrCreateEmbeddingAsync(string normalizedText, string modelName)
         {
@@ -28,9 +34,9 @@ namespace ARCompletions.Services
             var cacheTtlSeconds = int.TryParse(Environment.GetEnvironmentVariable("EMBEDDING_CACHE_TTL_SECONDS"), out var s) ? s : 300;
             if (_cache.TryGetValue<double[]>(cacheKeyVec, out var cachedVec))
             {
-                _logger?.LogDebug("Embedding cache hit: key={Key} Len={Len}", cacheKeyVec, cachedVec?.Length ?? 0);
+                await _dbLogger.LogAsync("Debug", "Embedding cache hit", new { Key = cacheKeyVec, Len = cachedVec?.Length ?? 0 });
                 if (cachedVec != null && cachedVec.Length > 0) return cachedVec;
-                _logger?.LogDebug("Embedding cache contains empty marker for key={Key}", cacheKeyVec);
+                await _dbLogger.LogAsync("Debug", "Embedding cache contains empty marker", new { Key = cacheKeyVec });
                 return null;
             }
 
@@ -38,11 +44,11 @@ namespace ARCompletions.Services
             try
             {
                 embJson = await _embeddingService.GetEmbeddingJsonAsync(normalizedText, modelName);
-                _logger?.LogDebug("Embedding service returned JSON length={Len} for model={Model}", embJson?.Length ?? 0, modelName);
+                await _dbLogger.LogAsync("Debug", "Embedding service returned JSON", new { Len = embJson?.Length ?? 0, Model = modelName });
             }
             catch (Exception ex)
             {
-                _logger?.LogWarning(ex, "Embedding service call failed for model={Model}", modelName);
+                await _dbLogger.LogAsync("Warning", "Embedding service call failed", new { Model = modelName }, ex);
                 embJson = null;
             }
 
@@ -68,7 +74,7 @@ namespace ARCompletions.Services
                                         foreach (var v in embEl.EnumerateArray()) list.Add(v.GetDouble());
                                         var arr = list.ToArray();
                                         _cache.Set(cacheKeyVec, arr, TimeSpan.FromSeconds(cacheTtlSeconds));
-                                        _logger?.LogInformation("Loaded embedding from local file for text. Model={Model} Len={Len}", modelName, arr.Length);
+                                        await _dbLogger.LogAsync("Information", "Loaded embedding from local file", new { Model = modelName, Len = arr.Length });
                                         return arr;
                                     }
                                 }
@@ -77,7 +83,7 @@ namespace ARCompletions.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger?.LogWarning(ex, "Failed to read local embedding JSON from {Path}", localPath);
+                        await _dbLogger.LogAsync("Warning", "Failed to read local embedding JSON", new { Path = localPath }, ex);
                     }
                 }
             }
@@ -96,18 +102,18 @@ namespace ARCompletions.Services
                         {
                             var arr = list.ToArray();
                             _cache.Set(cacheKeyVec, arr, TimeSpan.FromSeconds(cacheTtlSeconds));
-                            _logger?.LogInformation("Parsed embedding JSON and cached: Model={Model} Len={Len}", modelName, arr.Length);
+                            await _dbLogger.LogAsync("Information", "Parsed embedding JSON and cached", new { Model = modelName, Len = arr.Length });
                             return arr;
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogWarning(ex, "Failed to parse embedding JSON for model={Model}", modelName);
+                    await _dbLogger.LogAsync("Warning", "Failed to parse embedding JSON", new { Model = modelName }, ex);
                 }
             }
 
-            _logger?.LogDebug("Setting empty embedding marker for key={Key}", cacheKeyVec);
+            await _dbLogger.LogAsync("Debug", "Setting empty embedding marker", new { Key = cacheKeyVec });
             _cache.Set(cacheKeyVec, Array.Empty<double>(), TimeSpan.FromSeconds(Math.Min(30, cacheTtlSeconds)));
             return null;
         }
