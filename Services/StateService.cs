@@ -28,7 +28,7 @@ namespace ARCompletions.Services
             return await _db.BotConversationStates.FindAsync(sourceType, conversationId);
         }
 
-        public async Task SaveStateAsync(BotConversationState state, bool useMemoryState, string stateCacheKey)
+        public async Task SaveStateAsync(BotConversationState state, bool useMemoryState, string stateCacheKey, bool deferSave = false)
         {
             if (useMemoryState)
             {
@@ -40,7 +40,10 @@ namespace ARCompletions.Services
                 {
                     _db.BotConversationStates.Add(state);
                 }
-                await _db.SaveChangesAsync();
+                if (!deferSave)
+                {
+                    await _db.SaveChangesAsync();
+                }
             }
         }
 

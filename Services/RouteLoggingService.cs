@@ -14,11 +14,12 @@ namespace ARCompletions.Services
             _db = db;
         }
 
-        public async Task LogRouteAsync(BotMessageRoute route, bool persist)
+        public Task LogRouteAsync(BotMessageRoute route, bool persist)
         {
-            if (!persist) return;
+            if (!persist) return Task.CompletedTask;
+            // Add to context; do not SaveChanges here to allow callers to batch commits.
             _db.BotMessageRoutes.Add(route);
-            await _db.SaveChangesAsync();
+            return Task.CompletedTask;
         }
     }
 }

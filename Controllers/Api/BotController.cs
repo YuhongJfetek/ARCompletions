@@ -75,7 +75,7 @@ public class BotController : ControllerBase
         {
             if (_dbLogger != null)
             {
-                await _dbLogger.LogAsync(level, message, props, ex);
+                await _dbLogger.LogAsync(level, message, props, ex, deferSave: true);
             }
         }
         catch
@@ -121,10 +121,12 @@ public class BotController : ControllerBase
             ReceivedAt = receivedAt
         };
         var persistIncoming = (Environment.GetEnvironmentVariable("PERSIST_INCOMING_EVENTS") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
+        // defer SaveChanges where possible to reduce DB roundtrips
+        var deferredSaveNeeded = false;
         if (persistIncoming)
         {
             _db.BotIncomingEvents.Add(ev);
-            await _db.SaveChangesAsync();
+            deferredSaveNeeded = true;
         }
 
         // 2a) 標準化輸入與拆詞 via TextProcessingService
@@ -189,8 +191,18 @@ public class BotController : ControllerBase
                 CreatedAt = now
             };
             var persistRouteLogs2 = (Environment.GetEnvironmentVariable("PERSIST_ROUTE_LOGS") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
-            await _routeLogger.LogRouteAsync(logEmpty, persistRouteLogs2);
+            if (persistRouteLogs2)
+            {
+                _db.BotMessageRoutes.Add(logEmpty);
+                deferredSaveNeeded = true;
+            }
             await WriteAppLogAsync("Information", "Prefilter short-circuit: ConversationId={ConversationId} Reason={Reason}", new { ConversationId = req.ConversationId, Reason = pre.Reason });
+
+            if (deferredSaveNeeded)
+            {
+                try { await _db.SaveChangesAsync(); }
+                catch { /* swallow to avoid affecting response */ }
+            }
 
             return Ok(emptyResp);
         }
@@ -261,7 +273,7 @@ public class BotController : ControllerBase
             if (persistRouteLogs)
             {
                 _db.BotMessageRoutes.Add(logHandoff);
-                await _db.SaveChangesAsync();
+                deferredSaveNeeded = true;
             }
 
             return Ok(respHandoff);
@@ -322,7 +334,7 @@ public class BotController : ControllerBase
             if (persistRouteLogs2)
             {
                 _db.BotMessageRoutes.Add(logEmpty);
-                await _db.SaveChangesAsync();
+                deferredSaveNeeded = true;
             }
 
             return Ok(emptyResp);
@@ -387,16 +399,20 @@ public class BotController : ControllerBase
                 await WriteAppLogAsync("Information", "Exact FAQ match: ConversationId={ConversationId} FaqId={FaqId}", new { ConversationId = req.ConversationId, FaqId = matchedFaqId });
             }
 
-            // fuzzy/synonym: token-overlap very high -> treat as exact (limited scan)
+            // fuzzy/synonym: use pg_trgm trigram similarity in DB to limit candidates
             if (route == "none")
             {
-                var candidatesForOverlap = await _db.BotFaqItems
-                    .AsNoTracking()
-                    .Where(f => f.Enabled && f.SearchTextCache != null)
-                    .Take(500)
-                    .ToListAsync();
+                // Let Postgres use the trigram index and similarity operator to return best candidates
+                                var trigramCandidates = await _db.BotFaqItems
+                                        .FromSqlInterpolated($@"SELECT * FROM bot_faq_items
+                                                WHERE ""Enabled"" = true AND ""SearchTextCache"" IS NOT NULL
+                                                    AND ""SearchTextCache"" % {normalizedText}
+                                                ORDER BY similarity(""SearchTextCache"", {normalizedText}) DESC
+                                                LIMIT 500")
+                                        .AsNoTracking()
+                                        .ToListAsync();
 
-                foreach (var f in candidatesForOverlap)
+                foreach (var f in trigramCandidates)
                 {
                     var qSearchCache = f.SearchTextCache ?? string.Empty;
                     var overlap = _textProcessing.TokenOverlapScore(normalizedText, qSearchCache);
@@ -679,7 +695,8 @@ public class BotController : ControllerBase
                 ConversationId = req.ConversationId,
                 UpdatedAt = now
             };
-            await _stateService.SaveStateAsync(state, useMemoryState, stateCacheKey);
+            // defer DB commit; BotController will SaveChanges once at end
+            await _stateService.SaveStateAsync(state, useMemoryState, stateCacheKey, deferSave: true);
         }
 
         if (route == "candidates" && topFaqIds.Count > 0)
@@ -696,7 +713,7 @@ public class BotController : ControllerBase
             state.PendingDisambiguationAt = null;
         }
         state.UpdatedAt = now;
-        await _stateService.SaveStateAsync(state, useMemoryState, stateCacheKey);
+        await _stateService.SaveStateAsync(state, useMemoryState, stateCacheKey, deferSave: true);
         await WriteAppLogAsync("Debug", "Saved state: ConversationId={ConversationId} PendingIds={PendingIds}", new { ConversationId = req.ConversationId, PendingIds = state.PendingDisambiguationIds });
 
         // 8) 組合回傳物件
@@ -772,6 +789,11 @@ public class BotController : ControllerBase
         var persistRouteLogs3 = (Environment.GetEnvironmentVariable("PERSIST_ROUTE_LOGS") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
         await _routeLogger.LogRouteAsync(routeLog, persistRouteLogs3);
 
+        if (deferredSaveNeeded)
+        {
+            try { await _db.SaveChangesAsync(); }
+            catch { /* swallow to avoid affecting response */ }
+        }
         sw.Stop();
         await WriteAppLogAsync("Information", "Query finished: ConversationId={ConversationId} Route={Route} ShouldReply={ShouldReply} ElapsedMs={Ms}", new { ConversationId = req.ConversationId, Route = route, ShouldReply = shouldReply, ElapsedMs = sw.ElapsedMilliseconds });
 

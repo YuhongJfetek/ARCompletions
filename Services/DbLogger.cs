@@ -14,7 +14,7 @@ namespace ARCompletions.Services
             _db = db;
         }
 
-        public async Task LogAsync(string level, string message, object? properties = null, Exception? ex = null)
+        public async Task LogAsync(string level, string message, object? properties = null, Exception? ex = null, bool deferSave = false)
         {
             try
             {
@@ -29,7 +29,10 @@ namespace ARCompletions.Services
                     Properties = properties == null ? null : System.Text.Json.JsonSerializer.Serialize(properties)
                 };
                 _db.AppLogs.Add(log);
-                await _db.SaveChangesAsync();
+                if (!deferSave)
+                {
+                    await _db.SaveChangesAsync();
+                }
             }
             catch
             {
@@ -37,7 +40,7 @@ namespace ARCompletions.Services
             }
         }
 
-        public void LogSync(string level, string message, object? properties = null, Exception? ex = null)
+        public void LogSync(string level, string message, object? properties = null, Exception? ex = null, bool deferSave = false)
         {
             try
             {
@@ -52,7 +55,10 @@ namespace ARCompletions.Services
                     Properties = properties == null ? null : System.Text.Json.JsonSerializer.Serialize(properties)
                 };
                 _db.AppLogs.Add(log);
-                _db.SaveChanges();
+                if (!deferSave)
+                {
+                    _db.SaveChanges();
+                }
             }
             catch
             {
