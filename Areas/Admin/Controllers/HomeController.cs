@@ -1,6 +1,7 @@
 using ARCompletions.Areas.Admin.Models;
 using ARCompletions.Data;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 
@@ -35,7 +36,7 @@ public class HomeController : Controller
         ViewBag.IsAuthenticated = User?.Identity?.IsAuthenticated ?? false;
         ViewBag.UserName = User?.Identity?.Name ?? "(none)";
         ViewBag.Claims = User?.Claims.Select(c => new { c.Type, c.Value }).ToList();
-        var platformAuth = _authz.AuthorizeAsync(User, null, "Platform").GetAwaiter().GetResult();
+        var platformAuth = _authz.AuthorizeAsync(User ?? new ClaimsPrincipal(), null, "Platform").GetAwaiter().GetResult();
         ViewBag.IsPlatformAuthorized = platformAuth.Succeeded;
 
         return View(vm);

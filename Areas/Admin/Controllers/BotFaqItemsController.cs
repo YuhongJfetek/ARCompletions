@@ -7,6 +7,7 @@ using ARCompletions.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Text.Json;
 using ARCompletions.Areas.Admin.Models;
@@ -18,13 +19,14 @@ namespace ARCompletions.Areas.Admin.Controllers;
 public class BotFaqItemsController : Controller
 {
     private readonly ARCompletionsContext _db;
-
     private readonly IEmbeddingRebuildService _embeddingRebuildService;
+    private readonly ILogger<BotFaqItemsController> _logger;
 
-    public BotFaqItemsController(ARCompletionsContext db, IEmbeddingRebuildService embeddingRebuildService)
+    public BotFaqItemsController(ARCompletionsContext db, IEmbeddingRebuildService embeddingRebuildService, ILogger<BotFaqItemsController> logger)
     {
         _db = db;
         _embeddingRebuildService = embeddingRebuildService;
+        _logger = logger;
     }
 
     public IActionResult BulkImport()
@@ -327,8 +329,9 @@ public class BotFaqItemsController : Controller
         {
             await _embeddingRebuildService.RebuildAsync("openai", null, "single", model.FaqId, User?.Identity?.Name ?? "admin", HttpContext.RequestAborted);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger?.LogWarning(ex, "Embedding rebuild failed for created FAQ {FaqId}", model.FaqId);
             // 忽略 Embedding 失敗，避免影響 FAQ CRUD。詳細錯誤可從 bot_embedding_jobs 查詢。
         }
 
@@ -377,8 +380,9 @@ public class BotFaqItemsController : Controller
         {
             await _embeddingRebuildService.RebuildAsync("openai", null, "single", existing.FaqId, User?.Identity?.Name ?? "admin", HttpContext.RequestAborted);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger?.LogWarning(ex, "Embedding rebuild failed for updated FAQ {FaqId}", existing.FaqId);
             // 忽略 Embedding 失敗，避免影響 FAQ CRUD。詳細錯誤可從 bot_embedding_jobs 查詢。
         }
 
@@ -440,7 +444,7 @@ public class BotFaqItemsController : Controller
         public bool enabled { get; set; } = true;
     }
 
-    private static string? TryExtractUserText(string rawEventJson)
+    private string? TryExtractUserText(string rawEventJson)
     {
         if (string.IsNullOrWhiteSpace(rawEventJson))
         {
@@ -464,9 +468,9 @@ public class BotFaqItemsController : Controller
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // ignore JSON parse errors
+            _logger?.LogDebug(ex, "TryExtractUserText failed to parse raw event");
         }
 
         return null;

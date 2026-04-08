@@ -13,7 +13,7 @@ namespace ARCompletions.migrations
 {
     [DbContext(typeof(ARCompletionsContext))]
     [Migration("20260331020710_updatedata")]
-    partial class updatedata
+    partial class UpdateData
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

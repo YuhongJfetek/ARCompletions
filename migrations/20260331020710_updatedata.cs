@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ARCompletions.migrations
 {
     /// <inheritdoc />
-    public partial class updatedata : Migration
+    public partial class UpdateData : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

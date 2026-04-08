@@ -105,9 +105,9 @@ public static class BotJsonSeeder
                 existing[src.term] = entity;
             }
 
-            entity.Mode = string.IsNullOrWhiteSpace(src.mode) ? "disambiguation" : src.mode;
+            entity.Mode = string.IsNullOrWhiteSpace(src.mode) ? "disambiguation" : src.mode!;
             entity.Synonyms = SerializeJsonArray(src.synonyms);
-            entity.FaqIds = SerializeJsonArray(src.faqIds);
+            entity.FaqIds = SerializeJsonArray(src.faqIds)!;
             entity.Enabled = true;
             entity.UpdatedAt = DateTimeOffset.UtcNow;
         }

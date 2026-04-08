@@ -139,6 +139,19 @@ builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingService, ARComple
 builder.Services.AddScoped<ARCompletions.Services.IEmbeddingRebuildService, ARCompletions.Services.EmbeddingRebuildService>();
 // Drive service for file uploads (uses GOOGLE_SERVICE_ACCOUNT_KEY + GOOGLE_DRIVE_FOLDER_ID)
 builder.Services.AddSingleton<ARCompletions.Services.IDriveService, ARCompletions.Services.GoogleDriveService>();
+// Disambiguation service (handles numeric selection and atomic state updates)
+builder.Services.AddScoped<ARCompletions.Services.IDisambiguationService, ARCompletions.Services.DisambiguationService>();
+// New services
+builder.Services.AddScoped<ARCompletions.Services.ITextProcessingService, ARCompletions.Services.TextProcessingService>();
+builder.Services.AddScoped<ARCompletions.Services.IPrefilterService, ARCompletions.Services.PrefilterService>();
+builder.Services.AddScoped<ARCompletions.Services.IStateService, ARCompletions.Services.StateService>();
+builder.Services.AddScoped<ARCompletions.Services.IAliasService, ARCompletions.Services.AliasService>();
+builder.Services.AddScoped<ARCompletions.Services.IFaqService, ARCompletions.Services.FaqService>();
+builder.Services.AddScoped<ARCompletions.Services.IEmbeddingRetrievalService, ARCompletions.Services.EmbeddingRetrievalService>();
+builder.Services.AddScoped<ARCompletions.Services.IScoringService, ARCompletions.Services.ScoringService>();
+builder.Services.AddScoped<ARCompletions.Services.ICandidateBuilderService, ARCompletions.Services.CandidateBuilderService>();
+builder.Services.AddScoped<ARCompletions.Services.IRouteLoggingService, ARCompletions.Services.RouteLoggingService>();
+builder.Services.AddScoped<ARCompletions.Services.IResponseBuilder, ARCompletions.Services.ResponseBuilder>();
 
 var app = builder.Build();
 
