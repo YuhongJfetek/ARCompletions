@@ -29,10 +29,7 @@ namespace ARCompletions.Services
                     Properties = properties == null ? null : System.Text.Json.JsonSerializer.Serialize(properties)
                 };
                 _db.AppLogs.Add(log);
-                if (!deferSave)
-                {
                     await _db.SaveChangesAsync();
-                }
             }
             catch
             {
@@ -55,10 +52,7 @@ namespace ARCompletions.Services
                     Properties = properties == null ? null : System.Text.Json.JsonSerializer.Serialize(properties)
                 };
                 _db.AppLogs.Add(log);
-                if (!deferSave)
-                {
                     _db.SaveChanges();
-                }
             }
             catch
             {
