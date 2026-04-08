@@ -75,7 +75,10 @@ public class BotController : ControllerBase
         {
             if (_dbLogger != null)
             {
-                await _dbLogger.LogAsync(level, message, props, ex, deferSave: true);
+                // Use immediate save for lightweight app logs to ensure they're persisted.
+                // Deferred-save was causing logs to remain in the context when no other
+                // DB writes happened during the request.
+                await _dbLogger.LogAsync(level, message, props, ex, deferSave: false);
             }
         }
         catch
