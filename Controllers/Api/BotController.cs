@@ -8,6 +8,8 @@ using ARCompletions.Data;
 using ARCompletions.Domain;
 using ARCompletions.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
+using System.IO;
 using Microsoft.EntityFrameworkCore;
 
 namespace ARCompletions.Controllers.Api;
@@ -18,11 +20,13 @@ public class BotController : ControllerBase
 {
     private readonly ARCompletionsContext _db;
     private readonly IEmbeddingService _embeddingService;
+    private readonly IMemoryCache _cache;
 
-    public BotController(ARCompletionsContext db, IEmbeddingService embeddingService)
+    public BotController(ARCompletionsContext db, IEmbeddingService embeddingService, IMemoryCache cache)
     {
         _db = db;
         _embeddingService = embeddingService;
+        _cache = cache;
     }
 
     private static double CosineSimilarity(double[] a, double[] b)
@@ -90,12 +94,13 @@ public class BotController : ControllerBase
         var now = DateTimeOffset.UtcNow;
         var sourceType = string.IsNullOrWhiteSpace(req.SourceType) ? "group" : req.SourceType;
 
-        // Npgsql 8 僅接受 Offset=0 (UTC) 的 DateTimeOffset，統一轉成 UTC 後再寫入 DB
+        // 可配置是否強制轉成 UTC（預設 true）
+        var forceUtc = (Environment.GetEnvironmentVariable("FORCE_UTC") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
         var receivedAt = req.ReceivedAt == default
             ? now
-            : req.ReceivedAt.ToUniversalTime();
+            : (forceUtc ? req.ReceivedAt.ToUniversalTime() : req.ReceivedAt);
 
-        // 1) 寫入 incoming event
+        // 1) 寫入 incoming event（可選擇 persist）
         var ev = new BotIncomingEvent
         {
             RawEventJson = req.RawEvent ?? "{}",
@@ -109,11 +114,25 @@ public class BotController : ControllerBase
             ReplyToken = req.ReplyToken,
             ReceivedAt = receivedAt
         };
-        _db.BotIncomingEvents.Add(ev);
-        await _db.SaveChangesAsync();
+        var persistIncoming = (Environment.GetEnvironmentVariable("PERSIST_INCOMING_EVENTS") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
+        if (persistIncoming)
+        {
+            _db.BotIncomingEvents.Add(ev);
+            await _db.SaveChangesAsync();
+        }
 
         // 2) 讀取會話狀態（handoff 中則不再回覆）
-        var state = await _db.BotConversationStates.FindAsync(sourceType, req.ConversationId);
+        var useMemoryState = (Environment.GetEnvironmentVariable("USE_INMEMORY_STATE") ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+        BotConversationState? state = null;
+        var stateCacheKey = $"state:{sourceType}:{req.ConversationId}";
+        if (useMemoryState)
+        {
+            _cache.TryGetValue(stateCacheKey, out state);
+        }
+        else
+        {
+            state = await _db.BotConversationStates.FindAsync(sourceType, req.ConversationId);
+        }
         var botEnabled = true;
         DateTimeOffset? handoffUntil = null;
         if (state != null && state.HandoffUntil.HasValue && state.HandoffUntil.Value > now)
@@ -171,8 +190,12 @@ public class BotController : ControllerBase
                 LogUseful = true,
                 CreatedAt = now
             };
-            _db.BotMessageRoutes.Add(logHandoff);
-            await _db.SaveChangesAsync();
+            var persistRouteLogs = (Environment.GetEnvironmentVariable("PERSIST_ROUTE_LOGS") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
+            if (persistRouteLogs)
+            {
+                _db.BotMessageRoutes.Add(logHandoff);
+                await _db.SaveChangesAsync();
+            }
 
             return Ok(respHandoff);
         }
@@ -228,8 +251,12 @@ public class BotController : ControllerBase
                 LogUseful = false,
                 CreatedAt = now
             };
-            _db.BotMessageRoutes.Add(logEmpty);
-            await _db.SaveChangesAsync();
+            var persistRouteLogs2 = (Environment.GetEnvironmentVariable("PERSIST_ROUTE_LOGS") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
+            if (persistRouteLogs2)
+            {
+                _db.BotMessageRoutes.Add(logEmpty);
+                await _db.SaveChangesAsync();
+            }
 
             return Ok(emptyResp);
         }
@@ -347,7 +374,59 @@ public class BotController : ControllerBase
             double[]? queryVec = null;
             try
             {
-                var embJson = await _embeddingService.GetEmbeddingJsonAsync(req.Text, modelName);
+                // caching for embeddings per text+model
+                var cacheKey = $"embedding:{modelName}:{req.Text}";
+                var cacheTtlSeconds = int.TryParse(Environment.GetEnvironmentVariable("EMBEDDING_CACHE_TTL_SECONDS"), out var s) ? s : 300;
+                string? embJson = null;
+                if (_cache.TryGetValue<string>(cacheKey, out var cachedJson))
+                {
+                    embJson = cachedJson;
+                }
+                else
+                {
+                    embJson = await _embeddingService.GetEmbeddingJsonAsync(req.Text, modelName);
+                    // local fallback: if service didn't return an embedding, try to find precomputed local vector
+                    if (string.IsNullOrWhiteSpace(embJson))
+                    {
+                        var localPath = Environment.GetEnvironmentVariable("LOCAL_EMBEDDING_JSON");
+                        if (!string.IsNullOrWhiteSpace(localPath) && System.IO.File.Exists(localPath))
+                        {
+                            try
+                            {
+                                using var fs = System.IO.File.OpenRead(localPath);
+                                using var doc = JsonDocument.Parse(fs);
+                                if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                                {
+                                    foreach (var el in doc.RootElement.EnumerateArray())
+                                    {
+                                        if (el.TryGetProperty("text", out var t) && el.TryGetProperty("embedding", out var embEl))
+                                        {
+                                            var txt = t.GetString() ?? string.Empty;
+                                            if (string.Equals(txt.Trim(), req.Text.Trim(), StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                var list = new List<double>();
+                                                foreach (var v in embEl.EnumerateArray()) list.Add(v.GetDouble());
+                                                var wrapper = new { data = new[] { new { embedding = list } } };
+                                                embJson = JsonSerializer.Serialize(wrapper);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                embJson = null;
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(embJson))
+                    {
+                        _cache.Set(cacheKey, embJson, TimeSpan.FromSeconds(cacheTtlSeconds));
+                    }
+                }
+
                 if (!string.IsNullOrWhiteSpace(embJson))
                 {
                     using var doc = JsonDocument.Parse(embJson);
@@ -445,7 +524,15 @@ public class BotController : ControllerBase
                 ConversationId = req.ConversationId,
                 UpdatedAt = now
             };
-            _db.BotConversationStates.Add(state);
+            if (useMemoryState)
+            {
+                _cache.Set(stateCacheKey, state, TimeSpan.FromHours(1));
+            }
+            else
+            {
+                _db.BotConversationStates.Add(state);
+                await _db.SaveChangesAsync();
+            }
         }
 
         if (route == "candidates" && topFaqIds.Count > 0)
@@ -461,7 +548,14 @@ public class BotController : ControllerBase
             state.PendingDisambiguationAt = null;
         }
         state.UpdatedAt = now;
-        await _db.SaveChangesAsync();
+        if (useMemoryState)
+        {
+            _cache.Set(stateCacheKey, state, TimeSpan.FromHours(1));
+        }
+        else
+        {
+            await _db.SaveChangesAsync();
+        }
 
         // 8) 組合回傳物件
         var shouldReply = route == "faq" || (route == "candidates" && topFaqIds.Count > 0);
@@ -545,8 +639,12 @@ public class BotController : ControllerBase
             LogUseful = shouldReply,
             CreatedAt = now
         };
-        _db.BotMessageRoutes.Add(routeLog);
-        await _db.SaveChangesAsync();
+        var persistRouteLogs3 = (Environment.GetEnvironmentVariable("PERSIST_ROUTE_LOGS") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
+        if (persistRouteLogs3)
+        {
+            _db.BotMessageRoutes.Add(routeLog);
+            await _db.SaveChangesAsync();
+        }
 
         return Ok(resp);
     }

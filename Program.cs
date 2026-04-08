@@ -69,6 +69,8 @@ if (isPostgres)
 
 // 其他服務
 builder.Services.AddControllersWithViews();
+// memory cache for optional in-memory state and caching
+builder.Services.AddMemoryCache();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -247,16 +249,21 @@ app.Use(async (context, next) =>
     {
         var headerKey = context.Request.Headers["X-Internal-API-Key"].FirstOrDefault();
         var expected = Environment.GetEnvironmentVariable("BACKEND_API_KEY") ?? builder.Configuration["BACKEND_API_KEY"];
+        // allow a frontend token as alternative (for webhook-forwarding frontends)
+        var headerFrontend = context.Request.Headers["X-Frontend-Token"].FirstOrDefault();
+        var frontendExpected = Environment.GetEnvironmentVariable("FRONTEND_TOKEN") ?? builder.Configuration["FRONTEND_TOKEN"];
         var bypass = (Environment.GetEnvironmentVariable("ALLOW_INTERNAL_API_WITHOUT_KEY") ?? "false")
             .Equals("true", StringComparison.OrdinalIgnoreCase);
 
         // 若未設定 BACKEND_API_KEY，或明確允許略過驗證，則不檢查 Header（方便開發 / 測試環境使用 Swagger）。
         if (!bypass && !string.IsNullOrWhiteSpace(expected))
         {
-            if (string.IsNullOrWhiteSpace(headerKey) || !string.Equals(headerKey, expected, StringComparison.Ordinal))
+            var ok = !string.IsNullOrWhiteSpace(headerKey) && string.Equals(headerKey, expected, StringComparison.Ordinal);
+            var okFrontend = !string.IsNullOrWhiteSpace(headerFrontend) && !string.IsNullOrWhiteSpace(frontendExpected) && string.Equals(headerFrontend, frontendExpected, StringComparison.Ordinal);
+            if (!ok && !okFrontend)
             {
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await context.Response.WriteAsJsonAsync(new { success = false, error = new { code = "Unauthorized", message = "Missing or invalid X-Internal-API-Key" } });
+                await context.Response.WriteAsJsonAsync(new { success = false, error = new { code = "Unauthorized", message = "Missing or invalid X-Internal-API-Key or X-Frontend-Token" } });
                 return;
             }
         }

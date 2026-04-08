@@ -46,6 +46,7 @@
             <th>FaqId</th>
             <th>Question</th>
             <th>CategoryKey</th>
+            <th>MinConfidence</th>
             <th>Enabled</th>
             <th>CreatedAt</th>
             <th>UpdatedAt</th>
@@ -59,6 +60,7 @@
             <td>@item.FaqId</td>
             <td>@item.Question</td>
             <td>@item.CategoryKey</td>
+            <td>@(item.MinConfidenceScore.HasValue ? item.MinConfidenceScore.Value.ToString("F2") : "")</td>
             <td>@(item.Enabled ? "是" : "否")</td>
             <td>@item.CreatedAt</td>
             <td>@item.UpdatedAt</td>
