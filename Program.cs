@@ -99,6 +99,8 @@ builder.Services.AddSwaggerGen(c =>
     {
         { apiKeyScheme, Array.Empty<string>() }
     });
+    // Remove specific internal endpoints from Swagger (if present)
+    c.DocumentFilter<ARCompletions.Swagger.Filters.RemovePathsFilter>();
 });
 
 // 認證與授權：使用 Cookie 登入平台帳號與廠商帳號
