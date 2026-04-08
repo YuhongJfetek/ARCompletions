@@ -50,6 +50,11 @@
         <label asp-for="Sources" class="form-label"></label>
         <textarea asp-for="Sources" class="form-control" rows="2"></textarea>
     </div>
+    <div class="mb-2">
+        <label asp-for="MinConfidenceScore" class="form-label">最小信心分數 (0~1，可空白代表預設)</label>
+        <input asp-for="MinConfidenceScore" class="form-control" type="number" step="0.01" min="0" max="1" />
+        <small class="form-text text-muted">此 FAQ 需要多少相似度才直接回覆；未填則使用系統預設門檻。</small>
+    </div>
     <div class="form-check mb-2">
         <input asp-for="NeedsHumanHandoff" class="form-check-input" />
         <label asp-for="NeedsHumanHandoff" class="form-check-label"></label>

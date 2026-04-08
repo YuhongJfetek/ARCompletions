@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Text.Json;
+using ARCompletions.Areas.Admin.Models;
 
 namespace ARCompletions.Areas.Admin.Controllers;
 
@@ -106,6 +107,107 @@ public class BotFaqItemsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    /// <summary>
+    /// 對話分析：從 Bot 訊息與 LLM log 產生 FAQ 建議清單。
+    /// 不修改資料庫，只提供管理員挑選後建立/編輯 FAQ。
+    /// </summary>
+    public async Task<IActionResult> Suggestions(string? route = null, bool onlyWithoutFaq = true, int days = 7, int page = 1, int pageSize = 50)
+    {
+        if (page < 1) page = 1;
+        if (pageSize <= 0) pageSize = 50;
+        if (pageSize > 200) pageSize = 200;
+        if (days <= 0) days = 7;
+
+        var since = DateTimeOffset.UtcNow.AddDays(-days);
+
+        var routeQuery = _db.BotMessageRoutes
+            .AsNoTracking()
+            .Where(r => r.CreatedAt >= since);
+
+        if (onlyWithoutFaq)
+        {
+            routeQuery = routeQuery.Where(r => r.MatchedFaqId == null || r.MatchedFaqId == "");
+        }
+
+        if (!string.IsNullOrWhiteSpace(route))
+        {
+            routeQuery = routeQuery.Where(r => r.Route == route);
+        }
+
+        var total = await routeQuery.LongCountAsync();
+
+        var routes = await routeQuery
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var eventIds = routes
+            .Where(r => r.EventRowId != null)
+            .Select(r => r.EventRowId!.Value)
+            .Distinct()
+            .ToList();
+
+        var events = await _db.BotIncomingEvents
+            .AsNoTracking()
+            .Where(e => eventIds.Contains(e.EventRowId))
+            .ToListAsync();
+
+        var llmLogs = await _db.BotLlmLogs
+            .AsNoTracking()
+            .Where(l => l.EventRowId != null && eventIds.Contains(l.EventRowId.Value))
+            .ToListAsync();
+
+        var eventDict = events.ToDictionary(e => e.EventRowId, e => e);
+
+        var llmDict = llmLogs
+            .GroupBy(l => l.EventRowId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedAt).First());
+
+        var suggestions = new List<FaqSuggestionViewModel>();
+
+        foreach (var r in routes)
+        {
+            if (r.EventRowId == null)
+            {
+                continue;
+            }
+
+            eventDict.TryGetValue(r.EventRowId.Value, out var ev);
+            llmDict.TryGetValue(r.EventRowId.Value, out var llm);
+
+            var userText = ev != null ? TryExtractUserText(ev.RawEventJson) : null;
+
+            suggestions.Add(new FaqSuggestionViewModel
+            {
+                EventRowId = r.EventRowId.Value,
+                ReceivedAt = ev?.ReceivedAt ?? r.CreatedAt,
+                SourceType = ev?.SourceType,
+                ConversationId = ev?.ConversationId,
+                LineUserId = ev?.LineUserId,
+                UserText = userText,
+                SuggestedAnswer = r.ReplyText,
+                FaqCategory = r.FaqCategory,
+                Route = r.Route,
+                Reason = r.Reason,
+                MatchedFaqId = r.MatchedFaqId,
+                MatchedScore = r.MatchedScore,
+                LlmConfidence = llm?.Confidence,
+                LlmModel = llm?.Model,
+                LlmReason = llm?.Reason
+            });
+        }
+
+        ViewBag.Page = page;
+        ViewBag.PageSize = pageSize;
+        ViewBag.TotalCount = total;
+        ViewBag.Days = days;
+        ViewBag.Route = route;
+        ViewBag.OnlyWithoutFaq = onlyWithoutFaq;
+
+        return View(suggestions);
+    }
+
     public async Task<IActionResult> Index(string? q = null, string? categoryKey = null, bool? enabled = null, int page = 1, int pageSize = 25)
     {
         if (page < 1) page = 1;
@@ -160,13 +262,35 @@ public class BotFaqItemsController : Controller
         return View(item);
     }
 
-    public IActionResult Create()
+    public IActionResult Create(string? question = null, string? answer = null, string? categoryKey = null, string? faqId = null)
     {
-        return View(new BotFaqItem
+        var model = new BotFaqItem
         {
             Enabled = true,
             NeedsHumanHandoff = false
-        });
+        };
+
+        if (!string.IsNullOrWhiteSpace(question))
+        {
+            model.Question = question;
+        }
+
+        if (!string.IsNullOrWhiteSpace(answer))
+        {
+            model.Answer = answer;
+        }
+
+        if (!string.IsNullOrWhiteSpace(categoryKey))
+        {
+            model.CategoryKey = categoryKey;
+        }
+
+        if (!string.IsNullOrWhiteSpace(faqId))
+        {
+            model.FaqId = faqId;
+        }
+
+        return View(model);
     }
 
     [HttpPost]
@@ -241,6 +365,7 @@ public class BotFaqItemsController : Controller
         existing.Sources = model.Sources;
         existing.NeedsHumanHandoff = model.NeedsHumanHandoff;
         existing.Enabled = model.Enabled;
+        existing.MinConfidenceScore = model.MinConfidenceScore;
         existing.SearchTextCache = model.SearchTextCache;
         existing.UpdatedAt = DateTimeOffset.UtcNow;
         existing.UpdatedBy = User?.Identity?.Name;
@@ -313,5 +438,37 @@ public class BotFaqItemsController : Controller
         public string[]? sources { get; set; }
         public bool needsHumanHandoff { get; set; }
         public bool enabled { get; set; } = true;
+    }
+
+    private static string? TryExtractUserText(string rawEventJson)
+    {
+        if (string.IsNullOrWhiteSpace(rawEventJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(rawEventJson);
+            var root = doc.RootElement;
+
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("events", out var eventsElement) && eventsElement.ValueKind == JsonValueKind.Array && eventsElement.GetArrayLength() > 0)
+            {
+                var firstEvent = eventsElement[0];
+                if (firstEvent.TryGetProperty("message", out var messageElement) && messageElement.ValueKind == JsonValueKind.Object)
+                {
+                    if (messageElement.TryGetProperty("text", out var textElement) && textElement.ValueKind == JsonValueKind.String)
+                    {
+                        return textElement.GetString();
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // ignore JSON parse errors
+        }
+
+        return null;
     }
 }

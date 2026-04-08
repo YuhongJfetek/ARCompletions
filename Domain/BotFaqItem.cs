@@ -15,6 +15,11 @@ public class BotFaqItem
     public string? Sources { get; set; }
     public bool NeedsHumanHandoff { get; set; } = false;
     public bool Enabled { get; set; } = true;
+    /// <summary>
+    /// 此 FAQ 允許直接回覆的最小信心分數 (0~1)。
+    /// 若為 null，則使用系統預設門檻。
+    /// </summary>
+    public double? MinConfidenceScore { get; set; }
     public string? SearchTextCache { get; set; }
     public System.DateTimeOffset CreatedAt { get; set; } = System.DateTimeOffset.UtcNow;
     public System.DateTimeOffset? UpdatedAt { get; set; }

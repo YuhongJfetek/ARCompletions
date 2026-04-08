@@ -414,11 +414,14 @@ public class BotController : ControllerBase
                         matchedFaqId = best.Key;
                         confidence = best.Value;
 
-                        if (allowDirect && confidence >= directLow)
+                        var bestFaq = faqMap[matchedFaqId];
+                        var minScore = bestFaq.MinConfidenceScore ?? directLow;
+
+                        if (allowDirect && confidence >= minScore)
                         {
                             route = "faq";
                             matchedBy = "embedding";
-                            var faq = faqMap[matchedFaqId];
+                            var faq = bestFaq;
                             replyText = faq.Answer;
                             faqCategory = faq.CategoryKey ?? faq.Category;
                             needsHumanHandoff = faq.NeedsHumanHandoff;
