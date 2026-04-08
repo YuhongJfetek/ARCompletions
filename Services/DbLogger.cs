@@ -29,11 +29,18 @@ namespace ARCompletions.Services
                     Properties = properties == null ? null : System.Text.Json.JsonSerializer.Serialize(properties)
                 };
                 _db.AppLogs.Add(log);
-                    await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync();
             }
-            catch
+            catch (Exception e)
             {
-                // swallow
+                try
+                {
+                    Console.Error.WriteLine("DbLogger.LogAsync: failed to write AppLog - " + e.ToString());
+                }
+                catch
+                {
+                    // best-effort: don't throw from logger
+                }
             }
         }
 
@@ -52,11 +59,18 @@ namespace ARCompletions.Services
                     Properties = properties == null ? null : System.Text.Json.JsonSerializer.Serialize(properties)
                 };
                 _db.AppLogs.Add(log);
-                    _db.SaveChanges();
+                _db.SaveChanges();
             }
-            catch
+            catch (Exception e)
             {
-                // swallow
+                try
+                {
+                    Console.Error.WriteLine("DbLogger.LogSync: failed to write AppLog - " + e.ToString());
+                }
+                catch
+                {
+                    // best-effort: don't throw from logger
+                }
             }
         }
     }
