@@ -26,6 +26,8 @@
   <!-- Exclude test files placed under tests/ from main project compilation -->
   <ItemGroup>
     <Compile Remove="tests\**\*.cs" />
+    <!-- Exclude script helper projects and tools from main build to avoid top-level program conflicts -->
+    <Compile Remove="scripts\**\*.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Image\**\*">
