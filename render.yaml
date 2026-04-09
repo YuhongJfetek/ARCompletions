@@ -9,6 +9,18 @@ services:
         value: /var/data/app.db
       - key: RUN_MIGRATIONS
         value: "true"
+      - key: bot.embedding.directLow
+        value: "0.44"
+      - key: bot.embedding.cosineWeight
+        value: "0.7"
+      - key: bot.embedding.overlapWeight
+        value: "0.3"
+      - key: bot.embedding.allowDirect
+        value: "true"
+      - key: DETAILED_SCORING_LOGS
+        value: "true"
+      - key: FORCE_IMMEDIATE_SCORING_LOGS
+        value: "true"
       # If you use Postgres on Render, set DATABASE_URL here or in the dashboard
       # - key: DATABASE_URL
       #   value: 'postgres://user:pass@host:5432/dbname'
