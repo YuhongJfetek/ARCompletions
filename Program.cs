@@ -146,6 +146,7 @@ builder.Services.AddScoped<ARCompletions.Services.IDriveService, ARCompletions.S
 builder.Services.AddScoped<ARCompletions.Services.IDisambiguationService, ARCompletions.Services.DisambiguationService>();
 // New services
 builder.Services.AddScoped<ARCompletions.Services.ITextProcessingService, ARCompletions.Services.TextProcessingService>();
+builder.Services.AddScoped<ARCompletions.Services.IQueryHintsService, ARCompletions.Services.QueryHintsService>();
 builder.Services.AddScoped<ARCompletions.Services.IPrefilterService, ARCompletions.Services.PrefilterService>();
 builder.Services.AddScoped<ARCompletions.Services.IStateService, ARCompletions.Services.StateService>();
 builder.Services.AddScoped<ARCompletions.Services.IAliasService, ARCompletions.Services.AliasService>();

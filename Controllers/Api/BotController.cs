@@ -555,17 +555,17 @@ public class BotController : ControllerBase
             {
                 // Try in-memory cache first to reduce latency for repeated queries
                 var embedCacheKey = $"embed:{modelName}:{Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(normalizedText))).Substring(0,16)}";
-                if (!_cache.TryGetValue(embedCacheKey, out double[]? cachedVec))
-                {
-                    cachedVec = await _embeddingRetrieval.GetOrCreateEmbeddingAsync(normalizedText, modelName);
-                    if (cachedVec != null)
+                    if (!_cache.TryGetValue(embedCacheKey, out double[]? cachedVec))
                     {
-                        var cacheSecsStr = Environment.GetEnvironmentVariable("EMBEDDING_CACHE_SECONDS") ?? "300";
-                        if (!int.TryParse(cacheSecsStr, out var cacheSecs)) cacheSecs = 300;
-                        _cache.Set(embedCacheKey, cachedVec, TimeSpan.FromSeconds(cacheSecs));
+                        cachedVec = await _embeddingRetrieval.GetOrCreateEmbeddingAsync(normalizedText, modelName, embeddingProvider);
+                        if (cachedVec != null)
+                        {
+                            var cacheSecsStr = Environment.GetEnvironmentVariable("EMBEDDING_CACHE_SECONDS") ?? "300";
+                            if (!int.TryParse(cacheSecsStr, out var cacheSecs)) cacheSecs = 300;
+                            _cache.Set(embedCacheKey, cachedVec, TimeSpan.FromSeconds(cacheSecs));
+                        }
                     }
-                }
-                queryVec = cachedVec;
+                    queryVec = cachedVec;
                 await WriteAppLogAsync("Debug", "Embedding retrieved: ConversationId={ConversationId} VecLen={Len}", new { ConversationId = req.ConversationId, VecLen = queryVec?.Length ?? 0 });
             }
             catch (Exception ex)
@@ -661,9 +661,14 @@ public class BotController : ControllerBase
                     // Batch fetch embeddings to avoid N+1 queries
                     var faqIds = faqs.Select(f => f.FaqId).ToList();
                     var embeddings = await _db.BotFaqEmbeddings.AsNoTracking()
-                        .Where(e => faqIds.Contains(e.FaqId) && e.Embedding != null && e.Embedding.Length > 0 && e.EmbeddingProvider == embeddingProvider)
+                        .Where(e => faqIds.Contains(e.FaqId) && e.Embedding != null && e.Embedding.Length > 0 && e.EmbeddingProvider == embeddingProvider && e.IsActive)
                         .ToListAsync();
-                    var embMap = embeddings.ToDictionary(e => e.FaqId, e => e.Embedding);
+
+                    // If multiple rows exist per FaqId, pick the most recently rebuilt one
+                    var embMap = embeddings
+                        .GroupBy(e => e.FaqId)
+                        .Select(g => g.OrderByDescending(e => e.RebuiltAt ?? DateTimeOffset.MinValue).First())
+                        .ToDictionary(e => e.FaqId, e => e.Embedding);
                     await WriteAppLogAsync("Debug", "Batch fetched embeddings: ConversationId={ConversationId} FetchedCount={Count}", new { ConversationId = req.ConversationId, FetchedCount = embeddings.Count });
 
                     foreach (var f in faqs)
@@ -672,7 +677,7 @@ public class BotController : ControllerBase
                         candidateTuples.Add((f.FaqId, vec, f.Question ?? string.Empty, f.SearchTextCache ?? string.Empty));
                     }
 
-                    var scores = _scoring.ScoreCandidates(queryVec ?? Array.Empty<double>(), candidateTuples, normalizedText);
+                    var scores = _scoring.ScoreCandidates(queryVec ?? Array.Empty<double>(), candidateTuples, normalizedText, faqMap);
 
                     // filter out extremely tiny/noise scores (guard)
                     var filtered = scores.Where(kv => kv.Value >= 0.0001).ToDictionary(kv => kv.Key, kv => kv.Value);
@@ -690,7 +695,7 @@ public class BotController : ControllerBase
                     {
                         try
                         {
-                            var details = _scoring.ScoreCandidatesDetailed(queryVec ?? Array.Empty<double>(), candidateTuples, normalizedText);
+                            var details = _scoring.ScoreCandidatesDetailed(queryVec ?? Array.Empty<double>(), candidateTuples, normalizedText, faqMap);
                             var detailedLog = details.Select(d => new { d.FaqId, d.Cosine, d.QuestionSimilarity, d.KeywordScore, d.Overlap, d.FinalScore }).ToArray();
                             await WriteAppLogAsync("Information", "Scoring detailed: ConversationId={ConversationId} Candidates={Candidates}", new { ConversationId = req.ConversationId, Candidates = detailedLog });
 

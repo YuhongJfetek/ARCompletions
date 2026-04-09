@@ -5,6 +5,7 @@ namespace ARCompletions.Services
 {
     public interface IEmbeddingRetrievalService
     {
-        Task<double[]?> GetOrCreateEmbeddingAsync(string normalizedText, string modelName);
+        // provider: e.g. "local_hash" or an external provider identifier
+        Task<double[]?> GetOrCreateEmbeddingAsync(string normalizedText, string modelName, string provider = "local_hash");
     }
 }

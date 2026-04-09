@@ -41,7 +41,6 @@ public class EmbeddingService : IEmbeddingService
 
         var payload = new { model = model ?? "text-embedding-3-small", input };
         var json = JsonSerializer.Serialize(payload);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // exponential backoff with jitter
         var maxAttempts = 6;
@@ -52,6 +51,7 @@ public class EmbeddingService : IEmbeddingService
             attempt++;
             try
             {
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
                 var resp = await client.PostAsync("v1/embeddings", content);
                 var respText = await resp.Content.ReadAsStringAsync();
                 if (resp.IsSuccessStatusCode)

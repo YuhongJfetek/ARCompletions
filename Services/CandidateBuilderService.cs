@@ -52,7 +52,7 @@ namespace ARCompletions.Services
 
                 await _dbLogger.LogAsync("Debug", "Candidate tuples prepared", new { Count = candidateTuples.Count });
 
-            var scores = _scoring.ScoreCandidates(queryVec ?? Array.Empty<double>(), candidateTuples, normalizedText ?? string.Empty);
+            var scores = _scoring.ScoreCandidates(queryVec ?? Array.Empty<double>(), candidateTuples, normalizedText ?? string.Empty, faqMap);
             var ranked = scores.OrderByDescending(kv => kv.Value).Select(kv => kv.Key).Take(topN).ToList();
                 await _dbLogger.LogAsync("Information", "Candidates built", new { ConversationTextLen = (normalizedText ?? string.Empty).Length, TopIds = ranked });
             return ranked;
