@@ -75,10 +75,14 @@ public class BotController : ControllerBase
         {
             if (_dbLogger != null)
             {
-                // Use immediate save for lightweight app logs to ensure they're persisted.
-                // Deferred-save was causing logs to remain in the context when no other
-                // DB writes happened during the request.
-                await _dbLogger.LogAsync(level, message, props, ex, deferSave: false);
+                // Default to deferred save to reduce DB roundtrips. Only force immediate
+                // save for critical end-of-request logs or exceptions.
+                var deferSave = true;
+                if (ex != null) deferSave = false;
+                // keep "Query finished" immediate so end-to-end latency is recorded
+                if (!string.IsNullOrEmpty(message) && message.Contains("Query finished")) deferSave = false;
+
+                await _dbLogger.LogAsync(level, message, props, ex, deferSave: deferSave);
             }
         }
         catch
@@ -406,14 +410,17 @@ public class BotController : ControllerBase
             if (route == "none")
             {
                 // Let Postgres use the trigram index and similarity operator to return best candidates
+                                var trigramMinSimStr = Environment.GetEnvironmentVariable("TRIGRAM_MIN_SIMILARITY") ?? "0.1";
+                                if (!double.TryParse(trigramMinSimStr, out var trigramMinSim)) trigramMinSim = 0.1;
                                 var trigramCandidates = await _db.BotFaqItems
-                                        .FromSqlInterpolated($@"SELECT * FROM bot_faq_items
-                                                WHERE ""Enabled"" = true AND ""SearchTextCache"" IS NOT NULL
-                                                    AND ""SearchTextCache"" % {normalizedText}
-                                                ORDER BY similarity(""SearchTextCache"", {normalizedText}) DESC
-                                                LIMIT 500")
-                                        .AsNoTracking()
-                                        .ToListAsync();
+                                                        .FromSqlInterpolated($@"SELECT * FROM bot_faq_items
+                                                                WHERE ""Enabled"" = true AND ""SearchTextCache"" IS NOT NULL
+                                                                    AND ""SearchTextCache"" % {normalizedText}
+                                                                    AND similarity(""SearchTextCache"", {normalizedText}) > {trigramMinSim}
+                                                                ORDER BY similarity(""SearchTextCache"", {normalizedText}) DESC
+                                                                LIMIT 500")
+                                                        .AsNoTracking()
+                                                        .ToListAsync();
 
                 foreach (var f in trigramCandidates)
                 {
@@ -495,7 +502,7 @@ public class BotController : ControllerBase
         // 6) 若尚未決策，改用 Embedding 搜尋
         if (route == "none")
         {
-            const double defaultDirectLow = 0.44;
+            const double defaultDirectLow = 0.012;
             const double defaultCosineWeight = 0.7;
             const double defaultOverlapWeight = 0.3;
 
@@ -546,7 +553,19 @@ public class BotController : ControllerBase
             double[]? queryVec = null;
             try
             {
-                queryVec = await _embeddingRetrieval.GetOrCreateEmbeddingAsync(normalizedText, modelName);
+                // Try in-memory cache first to reduce latency for repeated queries
+                var embedCacheKey = $"embed:{modelName}:{Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(normalizedText))).Substring(0,16)}";
+                if (!_cache.TryGetValue(embedCacheKey, out double[]? cachedVec))
+                {
+                    cachedVec = await _embeddingRetrieval.GetOrCreateEmbeddingAsync(normalizedText, modelName);
+                    if (cachedVec != null)
+                    {
+                        var cacheSecsStr = Environment.GetEnvironmentVariable("EMBEDDING_CACHE_SECONDS") ?? "300";
+                        if (!int.TryParse(cacheSecsStr, out var cacheSecs)) cacheSecs = 300;
+                        _cache.Set(embedCacheKey, cachedVec, TimeSpan.FromSeconds(cacheSecs));
+                    }
+                }
+                queryVec = cachedVec;
                 await WriteAppLogAsync("Debug", "Embedding retrieved: ConversationId={ConversationId} VecLen={Len}", new { ConversationId = req.ConversationId, VecLen = queryVec?.Length ?? 0 });
             }
             catch (Exception ex)
@@ -654,8 +673,54 @@ public class BotController : ControllerBase
                     }
 
                     var scores = _scoring.ScoreCandidates(queryVec ?? Array.Empty<double>(), candidateTuples, normalizedText);
-                    var ranked = scores.OrderByDescending(kv => kv.Value).ToList();
+
+                    // filter out extremely tiny/noise scores (guard)
+                    var filtered = scores.Where(kv => kv.Value >= 0.0001).ToDictionary(kv => kv.Key, kv => kv.Value);
+                    var ranked = filtered.OrderByDescending(kv => kv.Value).ToList();
+                    // if all filtered out, fall back to original scores so analyzer can still see them
+                    if (ranked.Count == 0 && scores.Count > 0)
+                    {
+                        ranked = scores.OrderByDescending(kv => kv.Value).ToList();
+                    }
                     await WriteAppLogAsync("Debug", "Scoring results: ConversationId={ConversationId} Ranked={Ranked}", new { ConversationId = req.ConversationId, Ranked = string.Join(',', ranked.Select(kv => kv.Key + ":" + kv.Value)) });
+
+                    // Detailed per-candidate scoring logs when enabled
+                    var detailedScoring = GetBool("DETAILED_SCORING_LOGS", false) || (Environment.GetEnvironmentVariable("DETAILED_SCORING_LOGS") ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+                    if (detailedScoring)
+                    {
+                        try
+                        {
+                            var details = _scoring.ScoreCandidatesDetailed(queryVec ?? Array.Empty<double>(), candidateTuples, normalizedText);
+                            var detailedLog = details.Select(d => new { d.FaqId, d.Cosine, d.QuestionSimilarity, d.KeywordScore, d.Overlap, d.FinalScore }).ToArray();
+                            await WriteAppLogAsync("Information", "Scoring detailed: ConversationId={ConversationId} Candidates={Candidates}", new { ConversationId = req.ConversationId, Candidates = detailedLog });
+                        }
+                        catch
+                        {
+                            // swallow to avoid affecting response
+                        }
+                    }
+
+                    // Optionally force immediate DB write for scoring logs to increase log volume
+                    var forceImmediateScoringLogs = (Environment.GetEnvironmentVariable("FORCE_IMMEDIATE_SCORING_LOGS") ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+                    if (forceImmediateScoringLogs && _dbLogger != null)
+                    {
+                        try
+                        {
+                            // write a copy that forces SaveChanges immediately so analyzer can pick it up
+                            await _dbLogger.LogAsync("Debug", "Scoring results (immediate): ConversationId={ConversationId} Ranked={Ranked}", new { ConversationId = req.ConversationId, Ranked = string.Join(',', ranked.Select(kv => kv.Key + ":" + kv.Value)) }, null, deferSave: false);
+
+                            // also log top 3 entries individually to increase sample count
+                            var topN = ranked.Take(3).ToList();
+                            foreach (var kv in topN)
+                            {
+                                await _dbLogger.LogAsync("Debug", "Scoring top: ConversationId={ConversationId} FaqId={FaqId} Score={Score}", new { ConversationId = req.ConversationId, FaqId = kv.Key, Score = kv.Value }, null, deferSave: false);
+                            }
+                        }
+                        catch
+                        {
+                            // swallow to avoid affecting response
+                        }
+                    }
                     var best = ranked.FirstOrDefault();
                     if (!string.IsNullOrEmpty(best.Key))
                     {
@@ -704,7 +769,9 @@ public class BotController : ControllerBase
 
         if (route == "candidates" && topFaqIds.Count > 0)
         {
-            state.PendingDisambiguationIds = JsonSerializer.Serialize(topFaqIds);
+            // store as JsonDocument so DB column can be jsonb for querying/indexing
+            var json = JsonSerializer.Serialize(topFaqIds);
+            state.PendingDisambiguationIds = JsonDocument.Parse(json);
             state.PendingDisambiguationRoute = "faq";
             state.PendingDisambiguationAt = now;
             await WriteAppLogAsync("Debug", "Set pending disambiguation: ConversationId={ConversationId} Ids={Ids}", new { ConversationId = req.ConversationId, Ids = topFaqIds });

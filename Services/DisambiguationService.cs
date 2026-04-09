@@ -26,9 +26,9 @@ public class DisambiguationService : IDisambiguationService
         var res = new DisambiguationResult { Handled = false };
         try
         {
-            if (state == null || string.IsNullOrWhiteSpace(state.PendingDisambiguationIds)) return res;
+            if (state == null || state.PendingDisambiguationIds == null) return res;
 
-            var pending = JsonSerializer.Deserialize<string[]>(state.PendingDisambiguationIds) ?? Array.Empty<string>();
+            var pending = JsonSerializer.Deserialize<string[]>(state.PendingDisambiguationIds.RootElement.GetRawText()) ?? Array.Empty<string>();
             if (pending.Length == 0) return res;
 
             var mnum = Regex.Match(normalizedText ?? string.Empty, "\\d+");

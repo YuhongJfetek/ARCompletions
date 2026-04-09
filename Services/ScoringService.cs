@@ -17,6 +17,8 @@ namespace ARCompletions.Services
             _db = db;
         }
 
+        // CandidateScoreDetail moved to Services/CandidateScoreDetail.cs
+
         private void WriteAppLogSync(string level, string message, object? props = null)
         {
             try
@@ -77,6 +79,42 @@ namespace ARCompletions.Services
                 WriteAppLogSync("Debug", "Scoring best", new { FaqId = best.Key, Score = best.Value });
             }
             return scores;
+        }
+
+        public List<CandidateScoreDetail> ScoreCandidatesDetailed(double[] queryVec, IEnumerable<(string FaqId, double[]? Vec, string Question, string SearchTextCache)> candidates, string normalizedText)
+        {
+            var details = new List<CandidateScoreDetail>();
+            var candList = candidates.ToList();
+            WriteAppLogSync("Debug", "Scoring candidates (detailed)", new { Count = candList.Count, Len = (normalizedText ?? string.Empty).Length });
+            foreach (var c in candList)
+            {
+                var qNorm = (c.Question ?? string.Empty);
+                var questionSimilarity = _textProcessing.TokenOverlapScore(normalizedText ?? string.Empty, qNorm);
+                var searchSimilarity = 0.0;
+                if (queryVec != null && c.Vec != null) searchSimilarity = CosineSimilarity(queryVec, c.Vec);
+                var keywordScore = _textProcessing.TokenOverlapScore(normalizedText ?? string.Empty, (c.SearchTextCache ?? string.Empty));
+                var overlap = _textProcessing.TokenOverlapScore(normalizedText ?? string.Empty, qNorm);
+                double finalScore = questionSimilarity * 0.65 + searchSimilarity * 0.20 + keywordScore * 0.08 + overlap * 0.05;
+                if (finalScore < 0) finalScore = 0;
+                if (finalScore > 0.99) finalScore = 0.99;
+
+                details.Add(new CandidateScoreDetail
+                {
+                    FaqId = c.FaqId,
+                    Cosine = searchSimilarity,
+                    QuestionSimilarity = questionSimilarity,
+                    SearchSimilarity = searchSimilarity,
+                    KeywordScore = keywordScore,
+                    Overlap = overlap,
+                    FinalScore = finalScore
+                });
+            }
+            if (details.Count > 0)
+            {
+                var best = details.OrderByDescending(d => d.FinalScore).First();
+                WriteAppLogSync("Debug", "Scoring best (detailed)", new { FaqId = best.FaqId, Score = best.FinalScore });
+            }
+            return details;
         }
     }
 }

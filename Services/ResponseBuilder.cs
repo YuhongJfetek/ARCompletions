@@ -23,7 +23,7 @@ namespace ARCompletions.Services
                 {
                     BotEnabled = botEnabled,
                     HandoffUntil = handoffUntil,
-                    PendingDisambiguationIds = route == "candidates" && quickReplies.Length > 0 ? (state?.PendingDisambiguationIds != null ? System.Text.Json.JsonSerializer.Deserialize<string[]>(state.PendingDisambiguationIds) ?? Array.Empty<string>() : Array.Empty<string>()) : Array.Empty<string>(),
+                    PendingDisambiguationIds = route == "candidates" && quickReplies.Length > 0 ? (state?.PendingDisambiguationIds != null ? System.Text.Json.JsonSerializer.Deserialize<string[]>(state.PendingDisambiguationIds.RootElement.GetRawText()) ?? Array.Empty<string>() : Array.Empty<string>()) : Array.Empty<string>(),
                     PendingDisambiguationRoute = route == "candidates" && quickReplies.Length > 0 ? "faq" : null
                 },
                 LogPayload = new BotQueryLogPayload

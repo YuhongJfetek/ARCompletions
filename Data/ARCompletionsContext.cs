@@ -81,6 +81,9 @@ public class ARCompletionsContext : DbContext
         {
             e.ToTable("bot_conversation_state");
             e.HasKey(x => new { x.SourceType, x.ConversationId });
+            e.Property(x => x.PendingDisambiguationIds)
+                .HasColumnName("pending_disambiguation_ids")
+                .HasColumnType("jsonb");
         });
 
         modelBuilder.Entity<BotContextMessage>(e =>
