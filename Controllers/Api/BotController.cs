@@ -693,6 +693,38 @@ public class BotController : ControllerBase
                             var details = _scoring.ScoreCandidatesDetailed(queryVec ?? Array.Empty<double>(), candidateTuples, normalizedText);
                             var detailedLog = details.Select(d => new { d.FaqId, d.Cosine, d.QuestionSimilarity, d.KeywordScore, d.Overlap, d.FinalScore }).ToArray();
                             await WriteAppLogAsync("Information", "Scoring detailed: ConversationId={ConversationId} Candidates={Candidates}", new { ConversationId = req.ConversationId, Candidates = detailedLog });
+
+                            // Persist detailed per-candidate scoring into bot_llm_logs (direct DB writes, not via _dbLogger)
+                            try
+                            {
+                                var nowUtc = DateTimeOffset.UtcNow;
+                                var llmEntries = details.Select(d => new ARCompletions.Domain.BotLlmLog
+                                {
+                                    EventRowId = ev.EventRowId,
+                                    LogEvent = "SCORING_DETAILED",
+                                    Task = "scoring_detailed",
+                                    FaqId = d.FaqId,
+                                    MatchedBy = "embedding",
+                                    Confidence = d.FinalScore,
+                                    Reason = System.Text.Json.JsonSerializer.Serialize(new { Cosine = d.Cosine, QuestionSimilarity = d.QuestionSimilarity, KeywordScore = d.KeywordScore, Overlap = d.Overlap }),
+                                    ErrorMessage = null,
+                                    CreatedAt = nowUtc
+                                }).ToList();
+
+                                if (llmEntries.Count > 0)
+                                {
+                                    _db.BotLlmLogs.AddRange(llmEntries);
+                                    var forceNow = (Environment.GetEnvironmentVariable("FORCE_IMMEDIATE_SCORING_LOGS") ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+                                    if (forceNow)
+                                    {
+                                        try { await _db.SaveChangesAsync(); } catch { }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                // swallow to avoid affecting response
+                            }
                         }
                         catch
                         {
