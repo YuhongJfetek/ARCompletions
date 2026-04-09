@@ -10,11 +10,11 @@ services:
       - key: RUN_MIGRATIONS
         value: "true"
       - key: bot.embedding.directLow
-        value: "0.44"
+        value: "0.01"
       - key: bot.embedding.cosineWeight
-        value: "0.7"
+        value: "0.9"
       - key: bot.embedding.overlapWeight
-        value: "0.3"
+        value: "0.1"
       - key: bot.embedding.allowDirect
         value: "true"
       - key: DETAILED_SCORING_LOGS
