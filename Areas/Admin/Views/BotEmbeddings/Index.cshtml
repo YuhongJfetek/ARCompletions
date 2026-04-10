@@ -170,7 +170,7 @@
 
 @if (totalPages > 1)
 {
-    <nav>
+    <nav id="emb-pagination">
         <ul class="pagination pagination-sm">
             <li class="page-item @(page<=1?"disabled":"")">
                 <a class="page-link" href="?page=@(page-1)&pageSize=@pageSize&faqId=@ViewBag.FaqId&isActive=@ViewBag.IsActive&provider=@ViewBag.Provider&model=@ViewBag.Model">上一頁</a>
@@ -187,3 +187,14 @@
         </ul>
     </nav>
 }
+
+<script>
+    // Hide pagination when viewing rebuild result (jobId present)
+    (function(){
+        const params = new URLSearchParams(window.location.search);
+        const jobId = params.get('jobId');
+        if (!jobId) return;
+        const nav = document.getElementById('emb-pagination');
+        if (nav) nav.style.display = 'none';
+    })();
+</script>
