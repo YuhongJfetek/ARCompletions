@@ -184,9 +184,16 @@ public class BotEmbeddingsController : Controller
             var query = _db.BotFaqEmbeddings.AsNoTracking().Where(e => e.EmbeddingProvider == job.Provider && e.EmbeddingModel == job.Model);
             if (!string.IsNullOrWhiteSpace(job.TargetFaqId)) query = query.Where(e => e.FaqId == job.TargetFaqId);
 
+            // Only return embeddings created/updated at or after the job started to avoid showing older rows.
+            if (job.StartedAt.HasValue)
+            {
+                var started = job.StartedAt.Value;
+                query = query.Where(e => (e.RebuiltAt ?? e.CreatedAt) >= started);
+            }
+
             var embeddings = await query
                 .OrderByDescending(e => e.RebuiltAt ?? e.CreatedAt)
-                .Take(1000)
+                .Take(2000)
                 .ToListAsync();
 
             return Json(new { Job = job, Embeddings = embeddings });
