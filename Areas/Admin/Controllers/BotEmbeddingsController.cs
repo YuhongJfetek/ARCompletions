@@ -95,24 +95,7 @@ public class BotEmbeddingsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RebuildFaq(string faqId)
-    {
-        if (string.IsNullOrWhiteSpace(faqId)) return BadRequest(new { error = "faqId required" });
-
-        var triggeredBy = User?.Identity?.Name ?? "admin";
-        try
-        {
-            var job = await _embeddingRebuildService.StartRebuildAsync("openai", null, "single", faqId, triggeredBy);
-            TempData["RebuildTriggered"] = job.JobId.ToString();
-            return Json(new { JobId = job.JobId.ToString() });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-    }
+    // Per-FAQ rebuild endpoint removed — single-FAQ rebuilds are handled automatically during full rebuilds.
 
     public async Task<IActionResult> Details(System.Guid id)
     {

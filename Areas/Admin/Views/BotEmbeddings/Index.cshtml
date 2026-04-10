@@ -73,40 +73,7 @@
 </div>
 
 <script>
-    // helper to POST a single-FAQ rebuild (moved out of the removed search form)
-    async function rebuildFaq(faqId) {
-        if (!faqId) return alert('無效的 FaqId');
-        if (!confirm('確定要對 FaqId ' + faqId + ' 觸發重建？')) return;
-
-        // grab antiforgery token from the existing RebuildAll form
-        const form = document.querySelector('form[asp-action="RebuildAll"]') || document.querySelector('form');
-        let token = null;
-        if (form) {
-            const t = form.querySelector('input[name="__RequestVerificationToken"]');
-            if (t) token = t.value;
-        }
-
-        const body = new URLSearchParams();
-        body.append('faqId', faqId);
-        if (token) body.append('__RequestVerificationToken', token);
-
-        try {
-            const res = await fetch('/Admin/BotEmbeddings/RebuildFaq', {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: body
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(()=>({ error: '未知錯誤' }));
-                return alert('重建請求失敗: ' + (err.error || ''));
-            }
-            const data = await res.json();
-            alert('已觸發重建，JobId: ' + (data.JobId || data.jobId || ''));
-        } catch (e) {
-            console.error(e);
-            alert('重建請求失敗（網路或伺服器錯誤）');
-        }
-    }
+    // per-FAQ rebuild removed — embeddings are rebuilt automatically during full rebuilds
     (function(){
         const params = new URLSearchParams(window.location.search);
         const jobId = params.get('jobId');
@@ -164,6 +131,8 @@
                 }
                 const data = await res.json();
                 const job = data.job || data.Job || {};
+                // update job summary on every poll so completed/failed counts refresh in realtime
+                fillJob(job);
                 const emb = data.embeddings || data.Embeddings || [];
 
                 const status = (job.status || job.Status || '').toLowerCase();
@@ -171,7 +140,7 @@
 
                 // If backend indicates readiness -> render both job and details at once
                 if (ready) {
-                    fillJob(job);
+                    // already filled above
                     if (emb && emb.length > 0) {
                         clearRows();
                         for (const e of emb) {
@@ -185,7 +154,6 @@
                                     <td>
                                         <div class="btn-group">
                                             <a class="btn btn-sm btn-outline-primary" href="/Admin/BotEmbeddings/Details/${e.embeddingId || e.EmbeddingId}">檢視</a>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="rebuildFaq('${e.faqId || e.FaqId}')">重建此 FAQ</button>
                                         </div>
                                     </td>
                                     <td>${e.createdAt || e.CreatedAt}</td>
@@ -202,6 +170,7 @@
 
                 // Not ready yet: show progress if running, otherwise keep waiting
                 if (status === 'running') {
+                    // ensure counts are shown while running
                     showLoading(`重建中，已完成 ${job.completedCount || job.CompletedCount || 0} / ${job.totalCount || job.TotalCount || '?'}，請稍候…`);
                     if (attempts < maxAttempts) setTimeout(poll, 3000);
                     return;
@@ -225,7 +194,6 @@
                                     <td>
                                         <div class="btn-group">
                                             <a class="btn btn-sm btn-outline-primary" href="/Admin/BotEmbeddings/Details/${e.embeddingId || e.EmbeddingId}">檢視</a>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="rebuildFaq('${e.faqId || e.FaqId}')">重建此 FAQ</button>
                                         </div>
                                     </td>
                                     <td>${e.createdAt || e.CreatedAt}</td>
@@ -257,9 +225,10 @@
                 const ready = data.ready || data.Ready || false;
                 const status = (job.status || job.Status || '').toLowerCase();
 
+                // update counts immediately so UI reflects progress while job is running
+                fillJob(job);
+
                 if (ready) {
-                    // job already ready -> render results immediately
-                    fillJob(job);
                     const emb = data.embeddings || data.Embeddings || [];
                     if (emb && emb.length > 0) {
                         clearRows();
@@ -274,7 +243,6 @@
                                     <td>
                                         <div class="btn-group">
                                             <a class="btn btn-sm btn-outline-primary" href="/Admin/BotEmbeddings/Details/${e.embeddingId || e.EmbeddingId}">檢視</a>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="rebuildFaq('${e.faqId || e.FaqId}')">重建此 FAQ</button>
                                         </div>
                                     </td>
                                     <td>${e.createdAt || e.CreatedAt}</td>
@@ -308,46 +276,5 @@
 </script>
 
 @{
-    long total = ViewBag.TotalCount ?? 0L;
-    int page = ViewBag.Page ?? 1;
-    int pageSize = ViewBag.PageSize ?? 25;
-    var totalPages = (int)System.Math.Ceiling(total / (double)pageSize);
+    // Pagination removed — the list displays all returned items.
 }
-
-@{
-    // Only render pagination when not showing rebuild results.
-    var rebuildTriggered = TempData["RebuildTriggered"] != null;
-    var hasJobIdQuery = !string.IsNullOrWhiteSpace(Context.Request.Query["jobId"].ToString());
-}
-@if (!rebuildTriggered && !hasJobIdQuery && totalPages > 1)
-{
-    <nav id="emb-pagination">
-        <ul class="pagination pagination-sm">
-            <li class="page-item @(page<=1?"disabled":"")">
-                <a class="page-link" href="?page=@(page-1)&pageSize=@pageSize&faqId=@ViewBag.FaqId&isActive=@ViewBag.IsActive&provider=@ViewBag.Provider&model=@ViewBag.Model">上一頁</a>
-            </li>
-            @for (var p = 1; p <= totalPages; p++)
-            {
-                <li class="page-item @(p==page?"active":"")">
-                    <a class="page-link" href="?page=@p&pageSize=@pageSize&faqId=@ViewBag.FaqId&isActive=@ViewBag.IsActive&provider=@ViewBag.Provider&model=@ViewBag.Model">@p</a>
-                </li>
-            }
-            <li class="page-item @(page>=totalPages?"disabled":"")">
-                <a class="page-link" href="?page=@(page+1)&pageSize=@pageSize&faqId=@ViewBag.FaqId&isActive=@ViewBag.IsActive&provider=@ViewBag.Provider&model=@ViewBag.Model">下一頁</a>
-            </li>
-        </ul>
-    </nav>
-}
-
-<script>
-    // Hide pagination when viewing rebuild result (jobId present)
-    (function(){
-        const params = new URLSearchParams(window.location.search);
-        const jobId = params.get('jobId');
-        var rebuildTriggered = '@(TempData["RebuildTriggered"] != null ? "1" : "0")';
-        // hide pagination when a rebuild was actually triggered or when a jobId exists
-        if (!jobId && rebuildTriggered !== '1') return;
-        const nav = document.getElementById('emb-pagination');
-        if (nav) nav.style.display = 'none';
-    })();
-</script>
