@@ -92,6 +92,23 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         var newEmbeddings = new List<BotFaqEmbedding>();
         var errors = new List<string>();
 
+            // Start a transaction: delete old embeddings for this provider+model and target FAQ set
+            var faqIdsForScope = faqs.Select(f => f.FaqId).ToList();
+            using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                if (faqIdsForScope.Count > 0)
+                {
+                    var old = await _db.BotFaqEmbeddings
+                        .Where(e => e.EmbeddingProvider == provider && e.EmbeddingModel == resolvedModel && faqIdsForScope.Contains(e.FaqId))
+                        .ToListAsync(cancellationToken);
+                    if (old.Count > 0)
+                    {
+                        _db.BotFaqEmbeddings.RemoveRange(old);
+                        await _db.SaveChangesAsync(cancellationToken);
+                    }
+                }
+
         foreach (var faq in faqs)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -169,7 +186,14 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
         return job;
+        }
+        catch (Exception ex)
+        {
+            try { await tx.RollbackAsync(cancellationToken); } catch { }
+            throw;
+        }
     }
 
     public async Task<BotEmbeddingJob?> GetJobAsync(Guid jobId, CancellationToken cancellationToken = default)
