@@ -144,6 +144,17 @@ public class BotController : ControllerBase
         // Prefilter via IPrefilterService
         var pre = _prefilter.EvaluatePrefilter(normalizedText, tokens);
         await _dbLogger.LogAsync("Debug", "Prefilter result: ConversationId={ConversationId} ShortCircuit={ShortCircuit} Reason={Reason}", new { ConversationId = req.ConversationId, ShortCircuit = pre.ShortCircuit, Reason = pre.Reason });
+
+        // Additional debug information: record normalized text and token summary to help diagnose short-circuits
+        try
+        {
+            await _dbLogger.LogAsync("Debug", "Prefilter debug: ConversationId={ConversationId} Reason={Reason} Text={Text} Tokens={Tokens}",
+                new { ConversationId = req.ConversationId, Reason = pre.Reason, Text = normalizedText, Tokens = string.Join(' ', tokens ?? Array.Empty<string>()) });
+        }
+        catch
+        {
+            // swallow logging errors to avoid affecting request flow
+        }
         if (pre.ShortCircuit)
         {
             var emptyResp = new BotQueryResponse

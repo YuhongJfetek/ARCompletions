@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace ARCompletions.Services
 {
@@ -9,7 +10,10 @@ namespace ARCompletions.Services
         {
             var res = new PrefilterResult { ShortCircuit = false, IsStaffTriggered = false, Reason = null };
 
-            var isNonText = tokens == null || tokens.Length == 0;
+            // Consider text present if there is at least one Unicode letter (supports CJK)
+            var hasLetters = !string.IsNullOrWhiteSpace(normalizedText) && Regex.IsMatch(normalizedText, "\\p{L}");
+            var isNonText = !hasLetters;
+
             var chit = new HashSet<string> { "hi", "hello", "你好", "謝謝", "thanks", "ok", "好的", "嗨" };
             var isShortChit = tokens != null && tokens.Length > 0 && tokens.Length < 2 && chit.Contains(tokens[0]);
             var isStaffTrigger = (!string.IsNullOrWhiteSpace(normalizedText) && (normalizedText.StartsWith("/staff", StringComparison.OrdinalIgnoreCase) || normalizedText.Contains("@staff", StringComparison.OrdinalIgnoreCase)));
