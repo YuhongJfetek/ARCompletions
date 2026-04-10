@@ -189,7 +189,13 @@ public class BotEmbeddingsController : Controller
         }
 
         var embeddingsList = await q.OrderByDescending(e => e.RebuiltAt ?? e.CreatedAt).Take(2000).ToListAsync();
-        return Json(new { Job = job, Embeddings = embeddingsList });
+        // readiness: job completed and at least one embedding present, or job failed (show what we have)
+        var status = (job.Status ?? string.Empty).ToLowerInvariant();
+        bool ready = false;
+        if (status == "failed") ready = true;
+        if (status == "completed" && embeddingsList != null && embeddingsList.Count > 0) ready = true;
+
+        return Json(new { Job = job, Embeddings = embeddingsList, Ready = ready });
     }
 
     private sealed class EmbeddingImportDto
