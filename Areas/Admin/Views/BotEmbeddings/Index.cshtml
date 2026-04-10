@@ -1,45 +1,17 @@
 @model IEnumerable<ARCompletions.Domain.BotFaqEmbedding>
 @{
-    ViewData["Title"] = "Bot Embeddings";
+    ViewData["Title"] = "重建Bot Embeddings";
 }
 
-<h1>Bot Embeddings</h1>
+<h1>重建Bot Embeddings</h1>
 
 @{
     int ps = ViewBag.PageSize ?? 25;
 }
 
-<form method="get" class="row g-2 mb-2">
-    <div class="col-auto">
-        <input name="faqId" value="@ViewBag.FaqId" placeholder="FaqId" class="form-control form-control-sm" />
-    </div>
-    <div class="col-auto">
-        <input name="provider" value="@ViewBag.Provider" placeholder="Provider" class="form-control form-control-sm" />
-    </div>
-    <div class="col-auto">
-        <input name="model" value="@ViewBag.Model" placeholder="Model" class="form-control form-control-sm" />
-    </div>
-    <div class="col-auto">
-        <select name="isActive" class="form-select form-select-sm">
-            <option value="">全部狀態</option>
-            <option value="true" selected="@(ViewBag.IsActive == true ? "selected" : null)">啟用</option>
-            <option value="false" selected="@(ViewBag.IsActive == false ? "selected" : null)">停用</option>
-        </select>
-    </div>
-    <div class="col-auto">
-        <select name="pageSize" class="form-select form-select-sm" onchange="this.form.submit()">
-            <option value="25" selected="@(ps == 25 ? "selected" : null)">25</option>
-            <option value="50" selected="@(ps == 50 ? "selected" : null)">50</option>
-            <option value="100" selected="@(ps == 100 ? "selected" : null)">100</option>
-        </select>
-    </div>
-    <div class="col-auto">
-        <button class="btn btn-sm btn-primary" type="submit">搜尋</button>
-    </div>
-</form>
+@* 搜尋表單已移除 (搜尋/輸入欄位已改由其他管理工具或篩選面板處理) *@
 
 <div class="mb-2">
-    <a asp-area="Admin" asp-controller="BotEmbeddings" asp-action="Import" class="btn btn-sm btn-outline-secondary">匯入 embeddings.json</a>
     <form asp-area="Admin" asp-controller="BotEmbeddings" asp-action="RebuildAll" method="post" class="d-inline ms-2">
         @Html.AntiForgeryToken()
         <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('確定要觸發 Embeddings 全量重建嗎？可能需要一些時間完成。');">重建 Embeddings</button>
@@ -89,6 +61,7 @@
                 <th>Provider</th>
                 <th>Model</th>
                 <th>IsActive</th>
+                <th>Actions</th>
                 <th>CreatedAt</th>
                 <th>RebuiltAt</th>
             </tr>
@@ -100,6 +73,40 @@
 </div>
 
 <script>
+    // helper to POST a single-FAQ rebuild (moved out of the removed search form)
+    async function rebuildFaq(faqId) {
+        if (!faqId) return alert('無效的 FaqId');
+        if (!confirm('確定要對 FaqId ' + faqId + ' 觸發重建？')) return;
+
+        // grab antiforgery token from the existing RebuildAll form
+        const form = document.querySelector('form[asp-action="RebuildAll"]') || document.querySelector('form');
+        let token = null;
+        if (form) {
+            const t = form.querySelector('input[name="__RequestVerificationToken"]');
+            if (t) token = t.value;
+        }
+
+        const body = new URLSearchParams();
+        body.append('faqId', faqId);
+        if (token) body.append('__RequestVerificationToken', token);
+
+        try {
+            const res = await fetch('/Admin/BotEmbeddings/RebuildFaq', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: body
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(()=>({ error: '未知錯誤' }));
+                return alert('重建請求失敗: ' + (err.error || ''));
+            }
+            const data = await res.json();
+            alert('已觸發重建，JobId: ' + (data.JobId || data.jobId || ''));
+        } catch (e) {
+            console.error(e);
+            alert('重建請求失敗（網路或伺服器錯誤）');
+        }
+    }
     (function(){
         const params = new URLSearchParams(window.location.search);
         const jobId = params.get('jobId');
@@ -170,13 +177,19 @@
                         for (const e of emb) {
                             const tr = document.createElement('tr');
                             tr.innerHTML = `
-                                <td>${e.embeddingId || e.EmbeddingId}</td>
-                                <td>${e.faqId || e.FaqId}</td>
-                                <td>${e.embeddingProvider || e.EmbeddingProvider}</td>
-                                <td>${e.embeddingModel || e.EmbeddingModel}</td>
-                                <td>${(e.isActive || e.IsActive) ? '是' : '否'}</td>
-                                <td>${e.createdAt || e.CreatedAt}</td>
-                                <td>${e.rebuiltAt || e.RebuiltAt}</td>
+                                    <td>${e.embeddingId || e.EmbeddingId}</td>
+                                    <td>${e.faqId || e.FaqId}</td>
+                                    <td>${e.embeddingProvider || e.EmbeddingProvider}</td>
+                                    <td>${e.embeddingModel || e.EmbeddingModel}</td>
+                                    <td>${(e.isActive || e.IsActive) ? '是' : '否'}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a class="btn btn-sm btn-outline-primary" href="/Admin/BotEmbeddings/Details/${e.embeddingId || e.EmbeddingId}">檢視</a>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="rebuildFaq('${e.faqId || e.FaqId}')">重建此 FAQ</button>
+                                        </div>
+                                    </td>
+                                    <td>${e.createdAt || e.CreatedAt}</td>
+                                    <td>${e.rebuiltAt || e.RebuiltAt}</td>
                             `;
                             tbody.appendChild(tr);
                         }
@@ -204,13 +217,19 @@
                         for (const e of emb) {
                             const tr = document.createElement('tr');
                             tr.innerHTML = `
-                                <td>${e.embeddingId || e.EmbeddingId}</td>
-                                <td>${e.faqId || e.FaqId}</td>
-                                <td>${e.embeddingProvider || e.EmbeddingProvider}</td>
-                                <td>${e.embeddingModel || e.EmbeddingModel}</td>
-                                <td>${(e.isActive || e.IsActive) ? '是' : '否'}</td>
-                                <td>${e.createdAt || e.CreatedAt}</td>
-                                <td>${e.rebuiltAt || e.RebuiltAt}</td>
+                                    <td>${e.embeddingId || e.EmbeddingId}</td>
+                                    <td>${e.faqId || e.FaqId}</td>
+                                    <td>${e.embeddingProvider || e.EmbeddingProvider}</td>
+                                    <td>${e.embeddingModel || e.EmbeddingModel}</td>
+                                    <td>${(e.isActive || e.IsActive) ? '是' : '否'}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a class="btn btn-sm btn-outline-primary" href="/Admin/BotEmbeddings/Details/${e.embeddingId || e.EmbeddingId}">檢視</a>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="rebuildFaq('${e.faqId || e.FaqId}')">重建此 FAQ</button>
+                                        </div>
+                                    </td>
+                                    <td>${e.createdAt || e.CreatedAt}</td>
+                                    <td>${e.rebuiltAt || e.RebuiltAt}</td>
                             `;
                             tbody.appendChild(tr);
                         }
@@ -247,13 +266,19 @@
                         for (const e of emb) {
                             const tr = document.createElement('tr');
                             tr.innerHTML = `
-                                <td>${e.embeddingId || e.EmbeddingId}</td>
-                                <td>${e.faqId || e.FaqId}</td>
-                                <td>${e.embeddingProvider || e.EmbeddingProvider}</td>
-                                <td>${e.embeddingModel || e.EmbeddingModel}</td>
-                                <td>${(e.isActive || e.IsActive) ? '是' : '否'}</td>
-                                <td>${e.createdAt || e.CreatedAt}</td>
-                                <td>${e.rebuiltAt || e.RebuiltAt}</td>
+                                    <td>${e.embeddingId || e.EmbeddingId}</td>
+                                    <td>${e.faqId || e.FaqId}</td>
+                                    <td>${e.embeddingProvider || e.EmbeddingProvider}</td>
+                                    <td>${e.embeddingModel || e.EmbeddingModel}</td>
+                                    <td>${(e.isActive || e.IsActive) ? '是' : '否'}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a class="btn btn-sm btn-outline-primary" href="/Admin/BotEmbeddings/Details/${e.embeddingId || e.EmbeddingId}">檢視</a>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="rebuildFaq('${e.faqId || e.FaqId}')">重建此 FAQ</button>
+                                        </div>
+                                    </td>
+                                    <td>${e.createdAt || e.CreatedAt}</td>
+                                    <td>${e.rebuiltAt || e.RebuiltAt}</td>
                             `;
                             tbody.appendChild(tr);
                         }
@@ -289,7 +314,12 @@
     var totalPages = (int)System.Math.Ceiling(total / (double)pageSize);
 }
 
-@if (totalPages > 1)
+@{
+    // Only render pagination when not showing rebuild results.
+    var rebuildTriggered = TempData["RebuildTriggered"] != null;
+    var hasJobIdQuery = !string.IsNullOrWhiteSpace(Context.Request.Query["jobId"].ToString());
+}
+@if (!rebuildTriggered && !hasJobIdQuery && totalPages > 1)
 {
     <nav id="emb-pagination">
         <ul class="pagination pagination-sm">
