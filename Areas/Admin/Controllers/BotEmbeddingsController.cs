@@ -179,27 +179,17 @@ public class BotEmbeddingsController : Controller
         var job = await _embeddingRebuildService.GetJobAsync(jobId);
         if (job == null) return NotFound();
 
-        if (string.Equals(job.Status, "completed", StringComparison.OrdinalIgnoreCase) || string.Equals(job.Status, "failed", StringComparison.OrdinalIgnoreCase))
+        // Always return job + any embeddings produced since job.StartedAt (allows progressive updates while running)
+        var q = _db.BotFaqEmbeddings.AsNoTracking().Where(e => e.EmbeddingProvider == job.Provider && e.EmbeddingModel == job.Model);
+        if (!string.IsNullOrWhiteSpace(job.TargetFaqId)) q = q.Where(e => e.FaqId == job.TargetFaqId);
+        if (job.StartedAt.HasValue)
         {
-            var query = _db.BotFaqEmbeddings.AsNoTracking().Where(e => e.EmbeddingProvider == job.Provider && e.EmbeddingModel == job.Model);
-            if (!string.IsNullOrWhiteSpace(job.TargetFaqId)) query = query.Where(e => e.FaqId == job.TargetFaqId);
-
-            // Only return embeddings created/updated at or after the job started to avoid showing older rows.
-            if (job.StartedAt.HasValue)
-            {
-                var started = job.StartedAt.Value;
-                query = query.Where(e => (e.RebuiltAt ?? e.CreatedAt) >= started);
-            }
-
-            var embeddings = await query
-                .OrderByDescending(e => e.RebuiltAt ?? e.CreatedAt)
-                .Take(2000)
-                .ToListAsync();
-
-            return Json(new { Job = job, Embeddings = embeddings });
+            var started = job.StartedAt.Value;
+            q = q.Where(e => (e.RebuiltAt ?? e.CreatedAt) >= started);
         }
 
-        return Json(new { Job = job, Embeddings = Array.Empty<BotFaqEmbedding>() });
+        var embeddingsList = await q.OrderByDescending(e => e.RebuiltAt ?? e.CreatedAt).Take(2000).ToListAsync();
+        return Json(new { Job = job, Embeddings = embeddingsList });
     }
 
     private sealed class EmbeddingImportDto
