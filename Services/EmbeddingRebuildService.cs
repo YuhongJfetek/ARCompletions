@@ -16,12 +16,14 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
     private readonly ARCompletionsContext _db;
     private readonly IEmbeddingService _embeddingService;
     private readonly IDbLogger _dbLogger;
+    private readonly IServiceProvider _serviceProvider;
 
-    public EmbeddingRebuildService(ARCompletionsContext db, IEmbeddingService embeddingService, IDbLogger dbLogger)
+    public EmbeddingRebuildService(ARCompletionsContext db, IEmbeddingService embeddingService, IDbLogger dbLogger, IServiceProvider serviceProvider)
     {
         _db = db;
         _embeddingService = embeddingService;
         _dbLogger = dbLogger;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<BotEmbeddingJob> RebuildAsync(string provider, string? model, string scope, string? faqId, string triggeredBy, CancellationToken cancellationToken = default)
@@ -141,22 +143,31 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         _db.BotEmbeddingJobs.Add(job);
         await _db.SaveChangesAsync();
 
-        // fire-and-forget
+        // fire-and-forget: create a fresh DI scope and process the job there to get a fresh DbContext
         _ = Task.Run(async () =>
         {
             try
             {
-                await ProcessJobAsync(job, faqs, resolvedModel, CancellationToken.None);
+                using var scope = _serviceProvider.CreateScope();
+                var svc = scope.ServiceProvider.GetRequiredService<IEmbeddingRebuildService>();
+                await svc.ProcessExistingJobAsync(job.JobId);
             }
             catch (Exception ex)
             {
                 try
                 {
-                    job.Status = "failed";
-                    job.ErrorMessage = ex.Message;
-                    job.FinishedAt = DateTimeOffset.UtcNow;
-                    _db.BotEmbeddingJobs.Update(job);
-                    await _db.SaveChangesAsync();
+                    // Use a fresh scope and DbContext to persist the job failure safely
+                    using var errorScope = _serviceProvider.CreateScope();
+                    var scopedDb = errorScope.ServiceProvider.GetRequiredService<ARCompletionsContext>();
+                    var existing = await scopedDb.BotEmbeddingJobs.FirstOrDefaultAsync(j => j.JobId == job.JobId);
+                    if (existing != null)
+                    {
+                        existing.Status = "failed";
+                        existing.ErrorMessage = ex.Message;
+                        existing.FinishedAt = DateTimeOffset.UtcNow;
+                        scopedDb.BotEmbeddingJobs.Update(existing);
+                        await scopedDb.SaveChangesAsync();
+                    }
                 }
                 catch { }
             }
@@ -272,6 +283,20 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
             try { await tx.RollbackAsync(cancellationToken); } catch { }
             throw;
         }
+    }
+
+    public async Task ProcessExistingJobAsync(Guid jobId)
+    {
+        // This method runs inside a fresh scope with its own DbContext.
+        var job = await GetJobAsync(jobId);
+        if (job == null) return;
+
+        // load faqs according to job scope
+        var faqQuery = _db.BotFaqItems.AsNoTracking().Where(f => f.Enabled);
+        if (job.Scope == "single" && !string.IsNullOrWhiteSpace(job.TargetFaqId)) faqQuery = faqQuery.Where(f => f.FaqId == job.TargetFaqId);
+        var faqs = await faqQuery.ToListAsync();
+
+        await ProcessJobAsync(job, faqs, job.Model, CancellationToken.None);
     }
 
     public async Task<BotEmbeddingJob?> GetJobAsync(Guid jobId, CancellationToken cancellationToken = default)

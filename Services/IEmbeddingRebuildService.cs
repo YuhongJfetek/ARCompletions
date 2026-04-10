@@ -13,4 +13,7 @@ public interface IEmbeddingRebuildService
 
     // Start a rebuild in background and return the created job immediately.
     Task<BotEmbeddingJob> StartRebuildAsync(string provider, string? model, string scope, string? faqId, string triggeredBy);
+
+    // Process an existing job (used by background worker scopes).
+    Task ProcessExistingJobAsync(Guid jobId);
 }
