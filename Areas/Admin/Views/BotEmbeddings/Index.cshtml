@@ -49,7 +49,7 @@
 <div id="rebuild-result">
     <h2>Embeddings 重建結果</h2>
 
-    <div id="detail-loading" class="alert alert-info" style="display:block">
+    <div id="detail-loading" class="alert alert-info" style="display:none">
         <div class="spinner-border spinner-border-sm me-2" role="status"></div>
         <span id="detail-loading-text">正在彙整重建結果與明細，請稍候…</span>
     </div>
@@ -103,7 +103,18 @@
     (function(){
         const params = new URLSearchParams(window.location.search);
         const jobId = params.get('jobId');
-        if (!jobId) return; // no job to wait for
+        // Remove jobId from URL to avoid accidental re-entry showing loading state
+        try {
+            if (jobId && window.history && history.replaceState) {
+                const u = new URL(window.location.href);
+                u.searchParams.delete('jobId');
+                history.replaceState(null, '', u.pathname + u.search + u.hash);
+            }
+        } catch (e) {
+            // ignore
+        }
+        var rebuildTriggered = '@(TempData["RebuildTriggered"] != null ? "1" : "0")';
+        if (!jobId || rebuildTriggered !== '1') return; // only poll when rebuild button actually triggered
 
         const tbody = document.querySelector('#emb-table tbody');
         const clearRows = () => { tbody.innerHTML = ''; };
@@ -217,8 +228,57 @@
             if (attempts < maxAttempts) setTimeout(poll, 3000);
         }
 
-        clearRows();
-        poll();
+        // Initialize: fetch once to decide whether to show loading/polling.
+        (async function init() {
+            try {
+                const res = await fetch('/Admin/BotEmbeddings/RebuildStatus?jobId=' + encodeURIComponent(jobId));
+                if (!res.ok) return; // no job or error
+                const data = await res.json();
+                const job = data.job || data.Job || {};
+                const ready = data.ready || data.Ready || false;
+                const status = (job.status || job.Status || '').toLowerCase();
+
+                if (ready) {
+                    // job already ready -> render results immediately
+                    fillJob(job);
+                    const emb = data.embeddings || data.Embeddings || [];
+                    if (emb && emb.length > 0) {
+                        clearRows();
+                        for (const e of emb) {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td>${e.embeddingId || e.EmbeddingId}</td>
+                                <td>${e.faqId || e.FaqId}</td>
+                                <td>${e.embeddingProvider || e.EmbeddingProvider}</td>
+                                <td>${e.embeddingModel || e.EmbeddingModel}</td>
+                                <td>${(e.isActive || e.IsActive) ? '是' : '否'}</td>
+                                <td>${e.createdAt || e.CreatedAt}</td>
+                                <td>${e.rebuiltAt || e.RebuiltAt}</td>
+                            `;
+                            tbody.appendChild(tr);
+                        }
+                    }
+                    document.getElementById('rebuild-content').style.display = 'block';
+                    hideLoading();
+                    document.getElementById('job-status').textContent = status || 'ready';
+                    return;
+                }
+
+                // only show loading and start polling if job is actively running
+                if (status === 'running') {
+                    showLoading(`重建中，已完成 ${job.completedCount || job.CompletedCount || 0} / ${job.totalCount || job.TotalCount || '?'}，請稍候…`);
+                    clearRows();
+                    poll();
+                    return;
+                }
+
+                // otherwise do nothing (no visible loading) — likely jobId was present accidentally
+                hideLoading();
+            } catch (err) {
+                console.error(err);
+            }
+        })();
+
     })();
 </script>
 
@@ -254,7 +314,9 @@
     (function(){
         const params = new URLSearchParams(window.location.search);
         const jobId = params.get('jobId');
-        if (!jobId) return;
+        var rebuildTriggered = '@(TempData["RebuildTriggered"] != null ? "1" : "0")';
+        // hide pagination when a rebuild was actually triggered or when a jobId exists
+        if (!jobId && rebuildTriggered !== '1') return;
         const nav = document.getElementById('emb-pagination');
         if (nav) nav.style.display = 'none';
     })();

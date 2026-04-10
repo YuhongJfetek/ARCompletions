@@ -155,6 +155,8 @@ public class BotEmbeddingsController : Controller
         try
         {
             var job = await _embeddingRebuildService.StartRebuildAsync("openai", null, "all", null, triggeredBy);
+            // set TempData so the Index view knows this redirect came from pressing Rebuild
+            TempData["RebuildTriggered"] = job.JobId.ToString();
             // redirect to Index with jobId so the UI can poll and display results
             return RedirectToAction(nameof(Index), new { jobId = job.JobId });
         }
