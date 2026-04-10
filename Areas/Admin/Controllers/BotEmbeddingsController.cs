@@ -181,6 +181,28 @@ public class BotEmbeddingsController : Controller
         return View(item);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> RebuildStatus(Guid jobId)
+    {
+        var job = await _embeddingRebuildService.GetJobAsync(jobId);
+        if (job == null) return NotFound();
+
+        if (string.Equals(job.Status, "completed", StringComparison.OrdinalIgnoreCase) || string.Equals(job.Status, "failed", StringComparison.OrdinalIgnoreCase))
+        {
+            var query = _db.BotFaqEmbeddings.AsNoTracking().Where(e => e.EmbeddingProvider == job.Provider && e.EmbeddingModel == job.Model);
+            if (!string.IsNullOrWhiteSpace(job.TargetFaqId)) query = query.Where(e => e.FaqId == job.TargetFaqId);
+
+            var embeddings = await query
+                .OrderByDescending(e => e.RebuiltAt ?? e.CreatedAt)
+                .Take(1000)
+                .ToListAsync();
+
+            return Json(new { Job = job, Embeddings = embeddings });
+        }
+
+        return Json(new { Job = job, Embeddings = Array.Empty<BotFaqEmbedding>() });
+    }
+
     private sealed class EmbeddingImportDto
     {
         public string id { get; set; } = string.Empty;
