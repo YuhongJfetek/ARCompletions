@@ -154,17 +154,9 @@ public class BotEmbeddingsController : Controller
 
         try
         {
-            var job = await _embeddingRebuildService.RebuildAsync("openai", null, "all", null, triggeredBy, HttpContext.RequestAborted);
-            TempData["Success"] = $"已完成 Embeddings 全量重建：JobId={job.JobId}, Status={job.Status}, Total={job.TotalCount}, Completed={job.CompletedCount}, Failed={job.FailedCount}";
-
-            // 只使用當下記憶體中的 job 結果，不再額外查詢資料庫。
-            var vm = new EmbeddingRebuildResultViewModel
-            {
-                Job = job,
-                Embeddings = Array.Empty<BotFaqEmbedding>()
-            };
-
-            return View("RebuildResult", vm);
+            var job = await _embeddingRebuildService.StartRebuildAsync("openai", null, "all", null, triggeredBy);
+            // redirect to Index with jobId so the UI can poll and display results
+            return RedirectToAction(nameof(Index), new { jobId = job.JobId });
         }
         catch (Exception ex)
         {

@@ -84,112 +84,190 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
             return job;
         }
 
+        // persist job as running
         job.Status = "running";
         job.StartedAt = DateTimeOffset.UtcNow;
         _db.BotEmbeddingJobs.Add(job);
         await _db.SaveChangesAsync(cancellationToken);
 
-        var newEmbeddings = new List<BotFaqEmbedding>();
-        var errors = new List<string>();
+        // process synchronously
+        await ProcessJobAsync(job, faqs, resolvedModel, cancellationToken);
+        return job;
+    }
 
-            // Start a transaction: delete old embeddings for this provider+model and target FAQ set
-            var faqIdsForScope = faqs.Select(f => f.FaqId).ToList();
-            using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
-            try
-            {
-                if (faqIdsForScope.Count > 0)
-                {
-                    var old = await _db.BotFaqEmbeddings
-                        .Where(e => e.EmbeddingProvider == provider && e.EmbeddingModel == resolvedModel && faqIdsForScope.Contains(e.FaqId))
-                        .ToListAsync(cancellationToken);
-                    if (old.Count > 0)
-                    {
-                        _db.BotFaqEmbeddings.RemoveRange(old);
-                        await _db.SaveChangesAsync(cancellationToken);
-                    }
-                }
+    public async Task<BotEmbeddingJob> StartRebuildAsync(string provider, string? model, string scope, string? faqId, string triggeredBy)
+    {
+        if (string.IsNullOrWhiteSpace(scope)) scope = "all";
+        scope = scope.ToLowerInvariant();
+        if (scope != "all" && scope != "single") throw new ArgumentException("scope must be 'all' or 'single'", nameof(scope));
+        if (scope == "single" && string.IsNullOrWhiteSpace(faqId)) throw new ArgumentException("faqId is required when scope = 'single'", nameof(faqId));
+        if (string.IsNullOrWhiteSpace(provider)) provider = "openai";
+        if (!string.Equals(provider, "openai", StringComparison.OrdinalIgnoreCase)) throw new NotSupportedException("Only provider 'openai' is supported for automatic rebuild.");
 
-        foreach (var faq in faqs)
+        var resolvedModel = await ResolveModelAsync(model, CancellationToken.None);
+
+        var faqQuery = _db.BotFaqItems.AsNoTracking().Where(f => f.Enabled);
+        if (scope == "single" && !string.IsNullOrWhiteSpace(faqId)) faqQuery = faqQuery.Where(f => f.FaqId == faqId);
+        var faqs = await faqQuery.ToListAsync();
+
+        var job = new BotEmbeddingJob
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            JobId = Guid.NewGuid(),
+            Provider = provider,
+            Model = resolvedModel,
+            Scope = scope,
+            TargetFaqId = scope == "single" ? faqId : null,
+            Status = "pending",
+            TotalCount = faqs.Count,
+            CompletedCount = 0,
+            FailedCount = 0,
+            TriggeredBy = string.IsNullOrWhiteSpace(triggeredBy) ? "system" : triggeredBy,
+            StartedAt = null,
+            FinishedAt = null,
+            ErrorMessage = null
+        };
 
+        if (faqs.Count == 0)
+        {
+            job.Status = "failed";
+            job.ErrorMessage = "沒有符合條件的 FAQ 可重建";
+            _db.BotEmbeddingJobs.Add(job);
+            await _db.SaveChangesAsync();
+            return job;
+        }
+
+        job.Status = "running";
+        job.StartedAt = DateTimeOffset.UtcNow;
+        _db.BotEmbeddingJobs.Add(job);
+        await _db.SaveChangesAsync();
+
+        // fire-and-forget
+        _ = Task.Run(async () =>
+        {
             try
             {
-                var text = BuildEmbeddingText(faq);
-                if (string.IsNullOrWhiteSpace(text))
-                {
-                    job.FailedCount++;
-                    errors.Add($"FAQ {faq.FaqId}: 無可用文字產生向量");
-                    continue;
-                }
-
-                var vector = await CreateEmbeddingVectorAsync(text, resolvedModel, cancellationToken);
-                if (vector == null || vector.Length == 0)
-                {
-                    job.FailedCount++;
-                    errors.Add($"FAQ {faq.FaqId}: 取得向量失敗");
-                    continue;
-                }
-
-                var now = DateTimeOffset.UtcNow;
-                var entity = new BotFaqEmbedding
-                {
-                    FaqId = faq.FaqId,
-                    Question = faq.Question,
-                    SearchText = faq.SearchTextCache ?? faq.Question,
-                    CategoryKey = faq.CategoryKey,
-                    EmbeddingProvider = provider,
-                    EmbeddingModel = resolvedModel,
-                    VectorDim = vector.Length,
-                    Embedding = vector,
-                    IsActive = false,
-                    CreatedAt = now,
-                    RebuiltAt = now
-                };
-
-                _db.BotFaqEmbeddings.Add(entity);
-                newEmbeddings.Add(entity);
-                job.CompletedCount++;
+                await ProcessJobAsync(job, faqs, resolvedModel, CancellationToken.None);
             }
             catch (Exception ex)
             {
-                job.FailedCount++;
-                errors.Add($"FAQ {faq.FaqId}: {ex.Message}");
-                await _dbLogger.LogAsync("Error", "Embedding rebuild failed for FAQ", new { FaqId = faq.FaqId, JobId = job.JobId }, ex);
+                try
+                {
+                    job.Status = "failed";
+                    job.ErrorMessage = ex.Message;
+                    job.FinishedAt = DateTimeOffset.UtcNow;
+                    _db.BotEmbeddingJobs.Update(job);
+                    await _db.SaveChangesAsync();
+                }
+                catch { }
             }
-        }
+        });
 
-        await _db.SaveChangesAsync(cancellationToken);
+        return job;
+    }
 
-        if (newEmbeddings.Count > 0)
+    private async Task ProcessJobAsync(BotEmbeddingJob job, List<BotFaqItem> faqs, string resolvedModel, CancellationToken cancellationToken)
+    {
+        var provider = job.Provider;
+        var newEmbeddings = new List<BotFaqEmbedding>();
+        var errors = new List<string>();
+
+        var faqIdsForScope = faqs.Select(f => f.FaqId).ToList();
+        using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            var targetFaqIds = newEmbeddings.Select(e => e.FaqId).Distinct().ToList();
-            var newIds = newEmbeddings.Select(e => e.EmbeddingId).ToList();
-
-            var allForScope = await _db.BotFaqEmbeddings
-                .Where(e => e.EmbeddingProvider == provider && e.EmbeddingModel == resolvedModel && targetFaqIds.Contains(e.FaqId))
-                .ToListAsync(cancellationToken);
-
-            foreach (var emb in allForScope)
+            if (faqIdsForScope.Count > 0)
             {
-                emb.IsActive = newIds.Contains(emb.EmbeddingId);
+                var old = await _db.BotFaqEmbeddings
+                    .Where(e => e.EmbeddingProvider == provider && e.EmbeddingModel == resolvedModel && faqIdsForScope.Contains(e.FaqId))
+                    .ToListAsync(cancellationToken);
+                if (old.Count > 0)
+                {
+                    _db.BotFaqEmbeddings.RemoveRange(old);
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+            }
+
+            foreach (var faq in faqs)
+            {
+                if (cancellationToken.IsCancellationRequested) break;
+
+                try
+                {
+                    var text = BuildEmbeddingText(faq);
+                    if (string.IsNullOrWhiteSpace(text))
+                    {
+                        job.FailedCount++;
+                        errors.Add($"FAQ {faq.FaqId}: 無可用文字產生向量");
+                        continue;
+                    }
+
+                    var vector = await CreateEmbeddingVectorAsync(text, resolvedModel, cancellationToken);
+                    if (vector == null || vector.Length == 0)
+                    {
+                        job.FailedCount++;
+                        errors.Add($"FAQ {faq.FaqId}: 取得向量失敗");
+                        continue;
+                    }
+
+                    var now = DateTimeOffset.UtcNow;
+                    var entity = new BotFaqEmbedding
+                    {
+                        FaqId = faq.FaqId,
+                        Question = faq.Question,
+                        SearchText = faq.SearchTextCache ?? faq.Question,
+                        CategoryKey = faq.CategoryKey,
+                        EmbeddingProvider = provider,
+                        EmbeddingModel = resolvedModel,
+                        VectorDim = vector.Length,
+                        Embedding = vector,
+                        IsActive = false,
+                        CreatedAt = now,
+                        RebuiltAt = now
+                    };
+
+                    _db.BotFaqEmbeddings.Add(entity);
+                    newEmbeddings.Add(entity);
+                    job.CompletedCount++;
+                }
+                catch (Exception ex)
+                {
+                    job.FailedCount++;
+                    errors.Add($"FAQ {faq.FaqId}: {ex.Message}");
+                    await _dbLogger.LogAsync("Error", "Embedding rebuild failed for FAQ", new { FaqId = faq.FaqId, JobId = job.JobId }, ex);
+                }
             }
 
             await _db.SaveChangesAsync(cancellationToken);
-        }
 
-        job.FinishedAt = DateTimeOffset.UtcNow;
-        job.Status = job.CompletedCount > 0 ? "completed" : "failed";
-        if (errors.Count > 0)
-        {
-            job.ErrorMessage = string.Join("; ", errors.Take(10));
-        }
+            if (newEmbeddings.Count > 0)
+            {
+                var targetFaqIds = newEmbeddings.Select(e => e.FaqId).Distinct().ToList();
+                var newIds = newEmbeddings.Select(e => e.EmbeddingId).ToList();
 
-        await _db.SaveChangesAsync(cancellationToken);
-        await tx.CommitAsync(cancellationToken);
-        return job;
+                var allForScope = await _db.BotFaqEmbeddings
+                    .Where(e => e.EmbeddingProvider == provider && e.EmbeddingModel == resolvedModel && targetFaqIds.Contains(e.FaqId))
+                    .ToListAsync(cancellationToken);
+
+                foreach (var emb in allForScope)
+                {
+                    emb.IsActive = newIds.Contains(emb.EmbeddingId);
+                }
+
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+
+            job.FinishedAt = DateTimeOffset.UtcNow;
+            job.Status = job.CompletedCount > 0 ? "completed" : "failed";
+            if (errors.Count > 0)
+            {
+                job.ErrorMessage = string.Join("; ", errors.Take(10));
+            }
+
+            _db.BotEmbeddingJobs.Update(job);
+            await _db.SaveChangesAsync(cancellationToken);
+            await tx.CommitAsync(cancellationToken);
         }
-        catch (Exception ex)
+        catch
         {
             try { await tx.RollbackAsync(cancellationToken); } catch { }
             throw;
