@@ -576,11 +576,8 @@ public class BotController : ControllerBase
                         }
                         catch (OperationCanceledException)
                         {
-                            // synchronous attempt timed out — fire-and-forget background generation
-                            _ = Task.Run(async () =>
-                            {
-                                try { await _embeddingRetrieval.GetOrCreateEmbeddingAsync(normalizedText, modelName, embeddingProvider); } catch { }
-                            });
+                            // synchronous attempt timed out — do NOT trigger background generation here per request
+                            // simply proceed without an embedding (fallback to keyword/token overlap)
                             cachedVec = null;
                         }
 
@@ -725,32 +722,30 @@ public class BotController : ControllerBase
                             var detailedLog = details.Select(d => new { d.FaqId, d.Cosine, d.QuestionSimilarity, d.KeywordScore, d.Overlap, d.FinalScore }).ToArray();
                             await WriteAppLogAsync("Information", "Scoring detailed: ConversationId={ConversationId} Candidates={Candidates}", new { ConversationId = req.ConversationId, Candidates = detailedLog });
 
-                            // Persist detailed per-candidate scoring into bot_llm_logs (direct DB writes, not via _dbLogger)
+                            // Persist detailed scoring diagnostics into `app_logs` for easier debugging/analysis
                             try
                             {
-                                var nowUtc = DateTimeOffset.UtcNow;
-                                var llmEntries = details.Select(d => new ARCompletions.Domain.BotLlmLog
+                                var diagPayload = new
                                 {
-                                    EventRowId = ev.EventRowId,
-                                    LogEvent = "SCORING_DETAILED",
-                                    Task = "scoring_detailed",
-                                    FaqId = d.FaqId,
-                                    MatchedBy = "embedding",
-                                    Confidence = d.FinalScore,
-                                    Reason = System.Text.Json.JsonSerializer.Serialize(new { Cosine = d.Cosine, QuestionSimilarity = d.QuestionSimilarity, KeywordScore = d.KeywordScore, Overlap = d.Overlap }),
-                                    ErrorMessage = null,
-                                    CreatedAt = nowUtc
-                                }).ToList();
+                                    ConversationId = req.ConversationId,
+                                    QueryVecExists = queryVec != null,
+                                    QueryVecLen = queryVec?.Length ?? 0,
+                                    Candidates = details.Select(d => {
+                                        var tuple = candidateTuples.FirstOrDefault(t => t.FaqId == d.FaqId);
+                                        return new {
+                                            d.FaqId,
+                                            d.Cosine,
+                                            d.QuestionSimilarity,
+                                            d.KeywordScore,
+                                            d.Overlap,
+                                            d.FinalScore,
+                                            EmbeddingPresent = tuple.Vec != null,
+                                            EmbeddingLen = tuple.Vec?.Length ?? 0
+                                        };
+                                    }).ToArray()
+                                };
 
-                                if (llmEntries.Count > 0)
-                                {
-                                    _db.BotLlmLogs.AddRange(llmEntries);
-                                    var forceNow = (Environment.GetEnvironmentVariable("FORCE_IMMEDIATE_SCORING_LOGS") ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
-                                    if (forceNow)
-                                    {
-                                        try { await _db.SaveChangesAsync(); } catch { }
-                                    }
-                                }
+                                await WriteAppLogAsync("Information", "Scoring detailed (debug): ConversationId={ConversationId}", diagPayload);
                             }
                             catch
                             {
