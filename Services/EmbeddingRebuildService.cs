@@ -186,21 +186,25 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
         try
         {
-            if (faqIdsForScope.Count > 0)
-            {
-                var old = await _db.BotFaqEmbeddings
-                    .Where(e => e.EmbeddingProvider == provider && e.EmbeddingModel == resolvedModel && faqIdsForScope.Contains(e.FaqId))
-                    .ToListAsync(cancellationToken);
-                if (old.Count > 0)
-                {
-                    _db.BotFaqEmbeddings.RemoveRange(old);
-                    await _db.SaveChangesAsync(cancellationToken);
-                }
-            }
-
             foreach (var faq in faqs)
             {
                 if (cancellationToken.IsCancellationRequested) break;
+                // Ensure any existing embeddings for this FAQ are removed before creating a new one
+                try
+                {
+                    var existingForFaq = await _db.BotFaqEmbeddings
+                        .Where(e => e.FaqId == faq.FaqId)
+                        .ToListAsync(cancellationToken);
+                    if (existingForFaq.Count > 0)
+                    {
+                        _db.BotFaqEmbeddings.RemoveRange(existingForFaq);
+                        await _db.SaveChangesAsync(cancellationToken);
+                    }
+                }
+                catch
+                {
+                    // swallowing to avoid aborting the whole job on cleanup failure
+                }
 
                 try
                 {
