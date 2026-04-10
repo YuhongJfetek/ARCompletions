@@ -18,7 +18,8 @@ namespace ARCompletions.Services
         public string[] Tokenize(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return Array.Empty<string>();
-            return Regex.Matches(text, "\\w+")
+            // Use Unicode-aware tokenization: letters, numbers, and underscore
+            return Regex.Matches(text, @"[\p{L}\p{N}_]+")
                 .Select(m => m.Value)
                 .Where(t => !string.IsNullOrWhiteSpace(t))
                 .ToArray();
@@ -40,7 +41,8 @@ namespace ARCompletions.Services
         public bool IsNonText(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return true;
-            return Regex.Matches(text, "\\w+").Count == 0;
+            // Consider non-text only if there are no Unicode letters
+            return !Regex.IsMatch(text, @"\p{L}");
         }
 
         public bool IsComposite(string normalizedText, string[] tokens)
@@ -65,8 +67,8 @@ namespace ARCompletions.Services
         public double TokenOverlapScore(string a, string b)
         {
             if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return 0.0;
-            var ta = Regex.Matches(a.ToLowerInvariant(), "\\w+").Select(m => m.Value).Distinct();
-            var tb = Regex.Matches(b.ToLowerInvariant(), "\\w+").Select(m => m.Value).Distinct();
+            var ta = Regex.Matches(a.ToLowerInvariant(), @"[\p{L}\p{N}_]+").Select(m => m.Value).Distinct();
+            var tb = Regex.Matches(b.ToLowerInvariant(), @"[\p{L}\p{N}_]+").Select(m => m.Value).Distinct();
             var setA = new HashSet<string>(ta);
             var setB = new HashSet<string>(tb);
             if (setA.Count == 0 || setB.Count == 0) return 0.0;

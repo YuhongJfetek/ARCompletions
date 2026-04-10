@@ -28,6 +28,8 @@
     <Compile Remove="tests\**\*.cs" />
     <!-- Exclude script helper projects and tools from main build to avoid top-level program conflicts -->
     <Compile Remove="scripts\**\*.cs" />
+    <!-- Exclude tools folder (local helper projects) from main compilation -->
+    <Compile Remove="tools\**\*.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Image\**\*">
