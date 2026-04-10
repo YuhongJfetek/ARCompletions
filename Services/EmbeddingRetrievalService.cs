@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ARCompletions.Data;
 using ARCompletions.Domain;
@@ -17,19 +18,21 @@ namespace ARCompletions.Services
         private readonly ARCompletionsContext _db;
         private readonly IDbLogger _dbLogger;
         private readonly ITextProcessingService _textProcessing;
+        private readonly Func<IDistributedLock> _distributedLockFactory;
 
-        public EmbeddingRetrievalService(IEmbeddingService embeddingService, IMemoryCache cache, ARCompletionsContext db, IDbLogger dbLogger, ITextProcessingService textProcessing)
+        public EmbeddingRetrievalService(IEmbeddingService embeddingService, IMemoryCache cache, ARCompletionsContext db, IDbLogger dbLogger, ITextProcessingService textProcessing, Func<IDistributedLock> distributedLockFactory)
         {
             _embeddingService = embeddingService;
             _cache = cache;
             _db = db;
             _dbLogger = dbLogger;
             _textProcessing = textProcessing;
+            _distributedLockFactory = distributedLockFactory;
         }
 
         
 
-        public async Task<double[]?> GetOrCreateEmbeddingAsync(string normalizedText, string modelName, string provider = "local_hash")
+        public async Task<double[]?> GetOrCreateEmbeddingAsync(string normalizedText, string modelName, string provider = "local_hash", System.Threading.CancellationToken cancellationToken = default)
         {
             if (normalizedText == null) return null;
             var cacheKeyVec = $"embedding_vec:{provider}:{modelName}:{normalizedText}";
@@ -120,16 +123,65 @@ namespace ARCompletions.Services
             }
 
             string? embJson = null;
+                var checksumKey = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(normalizedText))).Substring(0,16);
+                var lockKey = $"emb_lock:{provider}:{modelName}:{checksumKey}";
+            IDistributedLock? dl = null;
             try
             {
-                embJson = await _embeddingService.GetEmbeddingJsonAsync(normalizedText, modelName);
-                await _dbLogger.LogAsync("Debug", "Embedding service returned JSON", new { Len = embJson?.Length ?? 0, Model = modelName });
+                // Attempt to avoid duplicate provider calls by acquiring a distributed lock.
+                dl = _distributedLockFactory();
+                var acquired = await dl.TryAcquireAsync(lockKey, TimeSpan.FromSeconds(30), cancellationToken);
+                    if (!acquired)
+                    {
+                        // someone else is generating; poll cache/DB until available or cancelled
+                        var sw = System.Diagnostics.Stopwatch.StartNew();
+                        while (!cancellationToken.IsCancellationRequested && sw.ElapsedMilliseconds < 5000)
+                        {
+                            if (_cache.TryGetValue<double[]>(cacheKeyVec, out var cv) && cv != null && cv.Length > 0)
+                            {
+                                await _dbLogger.LogAsync("Information", "Embedding became available from other worker", new { Key = cacheKeyVec });
+                                return cv;
+                            }
+                            await Task.Delay(150, cancellationToken);
+                        }
+                        // fallback: attempt to call provider ourselves if still no value and not cancelled
+                        if (cancellationToken.IsCancellationRequested) throw new OperationCanceledException(cancellationToken);
+                        // try to acquire again (non-blocking)
+                        acquired = await dl.TryAcquireAsync(lockKey, TimeSpan.Zero, cancellationToken);
+                    }
+
+                    if (acquired)
+                    {
+                        // we hold the lock and should call provider
+                        embJson = await _embeddingService.GetEmbeddingJsonAsync(normalizedText, modelName);
+                        await _dbLogger.LogAsync("Debug", "Embedding service returned JSON", new { Len = embJson?.Length ?? 0, Model = modelName });
+                    }
+                    else
+                    {
+                        // last-resort: try to read from DB before giving up
+                        var fromDb = await _db.BotFaqEmbeddings.AsNoTracking()
+                            .FirstOrDefaultAsync(e => e.EmbeddingProvider == provider && e.EmbeddingModel == modelName && e.Embedding != null && e.Embedding.Length > 0, cancellationToken: cancellationToken);
+                        if (fromDb != null)
+                        {
+                            var arr = fromDb.Embedding;
+                            _cache.Set(cacheKeyVec, arr, TimeSpan.FromSeconds(cacheTtlSeconds));
+                            return arr;
+                        }
+                    }
             }
             catch (Exception ex)
             {
-                await _dbLogger.LogAsync("Warning", "Embedding service call failed", new { Model = modelName }, ex);
-                embJson = null;
+                    await _dbLogger.LogAsync("Warning", "Embedding service call failed or waiting cancelled", new { Model = modelName }, ex);
+                    embJson = null;
             }
+                finally
+                {
+                    if (dl != null)
+                    {
+                        try { await dl.ReleaseAsync(); } catch { }
+                        try { await dl.DisposeAsync(); } catch { }
+                    }
+                }
 
             if (string.IsNullOrWhiteSpace(embJson))
             {

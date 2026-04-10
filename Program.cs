@@ -158,6 +158,10 @@ builder.Services.AddScoped<ARCompletions.Services.IRouteLoggingService, ARComple
 builder.Services.AddScoped<ARCompletions.Services.IResponseBuilder, ARCompletions.Services.ResponseBuilder>();
 // DB-backed logger for services that previously used ILogger
 builder.Services.AddScoped<ARCompletions.Services.IDbLogger, ARCompletions.Services.DbLogger>();
+// Distributed lock implementation (Postgres advisory lock)
+// Register as Transient and expose a factory so callers can create a fresh lock per call.
+builder.Services.AddTransient<ARCompletions.Services.IDistributedLock, ARCompletions.Services.PostgresAdvisoryLock>();
+builder.Services.AddScoped<Func<ARCompletions.Services.IDistributedLock>>(sp => () => sp.GetRequiredService<ARCompletions.Services.IDistributedLock>());
 
 var app = builder.Build();
 

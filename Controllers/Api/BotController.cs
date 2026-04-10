@@ -568,7 +568,22 @@ public class BotController : ControllerBase
                 var embedCacheKey = $"embed:{modelName}:{Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(normalizedText))).Substring(0,16)}";
                     if (!_cache.TryGetValue(embedCacheKey, out double[]? cachedVec))
                     {
-                        cachedVec = await _embeddingRetrieval.GetOrCreateEmbeddingAsync(normalizedText, modelName, embeddingProvider);
+                        var syncTimeoutMs = int.TryParse(Environment.GetEnvironmentVariable("EMBEDDING_SYNC_TIMEOUT_MS") ?? "1500", out var t) ? t : 1500;
+                        using var cts = new System.Threading.CancellationTokenSource(syncTimeoutMs);
+                        try
+                        {
+                            cachedVec = await _embeddingRetrieval.GetOrCreateEmbeddingAsync(normalizedText, modelName, embeddingProvider, cts.Token);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // synchronous attempt timed out — fire-and-forget background generation
+                            _ = Task.Run(async () =>
+                            {
+                                try { await _embeddingRetrieval.GetOrCreateEmbeddingAsync(normalizedText, modelName, embeddingProvider); } catch { }
+                            });
+                            cachedVec = null;
+                        }
+
                         if (cachedVec != null)
                         {
                             var cacheSecsStr = Environment.GetEnvironmentVariable("EMBEDDING_CACHE_SECONDS") ?? "300";
