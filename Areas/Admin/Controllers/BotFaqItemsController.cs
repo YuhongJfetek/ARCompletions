@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ARCompletions.Services;
 using System.Collections.Generic;
-using System.Text.Json;
 using ARCompletions.Areas.Admin.Models;
 
 namespace ARCompletions.Areas.Admin.Controllers;
@@ -93,7 +92,8 @@ public class BotFaqItemsController : Controller
         var summaries = convos.Select(c =>
         {
             eventDict.TryGetValue(c.LastEventId, out var ev);
-            var lastUserText = ev != null ? TryExtractUserText(ev.RawEventJson) : null;
+            // Prefer explicit Text column.
+            var lastUserText = ev?.Text;
             return new Areas.Admin.Models.ConversationSummaryViewModel
             {
                 SourceType = c.SourceType,
@@ -311,35 +311,5 @@ public class BotFaqItemsController : Controller
 
     // Bulk import DTO and helpers removed together with the BulkImport actions.
 
-    private string? TryExtractUserText(string rawEventJson)
-    {
-        if (string.IsNullOrWhiteSpace(rawEventJson))
-        {
-            return null;
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(rawEventJson);
-            var root = doc.RootElement;
-
-            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("events", out var eventsElement) && eventsElement.ValueKind == JsonValueKind.Array && eventsElement.GetArrayLength() > 0)
-            {
-                var firstEvent = eventsElement[0];
-                if (firstEvent.TryGetProperty("message", out var messageElement) && messageElement.ValueKind == JsonValueKind.Object)
-                {
-                    if (messageElement.TryGetProperty("text", out var textElement) && textElement.ValueKind == JsonValueKind.String)
-                    {
-                        return textElement.GetString();
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _dbLogger.LogSync("Debug", "TryExtractUserText failed to parse raw event", null, ex);
-        }
-
-        return null;
-    }
+    // Raw vendor payload parsing removed — use stored `Text` on events instead.
 }

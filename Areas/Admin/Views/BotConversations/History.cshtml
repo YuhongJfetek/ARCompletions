@@ -25,105 +25,28 @@ else
         {
             <div class="list-group-item mb-1">
                 <div class="d-flex justify-content-between">
-                    <div>
-                        <strong>@m.MessageType</strong>
-                        @if (!string.IsNullOrEmpty(m.EventType))
-                        {
-                            <span class="text-muted">(@m.EventType)</span>
-                        }
-                    </div>
-                    <small class="text-muted">@m.ReceivedAt.ToString("yyyy-MM-dd HH:mm:ss") (EventRowId: @m.EventRowId)</small>
+                    <div></div>
+                    <small class="text-muted">@m.ReceivedAt.ToString("yyyy-MM-dd HH:mm:ss") &nbsp;|&nbsp; EventRowId: @m.EventRowId</small>
                 </div>
 
-                <div class="mt-1">
-                    @if (!string.IsNullOrEmpty(m.Route) || !string.IsNullOrEmpty(m.MatchedFaqId))
-                    {
-                        <div class="mb-1">
-                            @if (!string.IsNullOrEmpty(m.Route))
-                            {
-                                <span class="badge bg-primary">Route: @m.Route</span>
-                            }
-                            @if (!string.IsNullOrEmpty(m.Reason))
-                            {
-                                <span class="badge bg-secondary">Reason: @m.Reason</span>
-                            }
-                            @if (!string.IsNullOrEmpty(m.MatchedFaqId))
-                            {
-                                <span class="badge bg-success">FAQ: @m.MatchedFaqId (@m.MatchedScore)</span>
-                            }
-                            @if (!string.IsNullOrEmpty(m.FaqCategory))
-                            {
-                                <span class="badge bg-info text-dark">Category: @m.FaqCategory</span>
-                            }
-                        </div>
-                    }
+                <div class="mt-2">
+                    <div>
+                        <strong>使用者訊息：</strong>
+                    </div>
+                    <div style="white-space:pre-wrap; margin-bottom:0.5rem;">@(string.IsNullOrWhiteSpace(m.UserText) ? "(無)" : m.UserText)</div>
 
-                    @if (!string.IsNullOrEmpty(m.ReplyText))
-                    {
-                        <div class="mt-1">
-                            <strong>Bot 回覆：</strong>
-                            <pre class="mb-0" style="white-space:pre-wrap;">@m.ReplyText</pre>
-                        </div>
-                    }
-
-                    @if (m.Confidence.HasValue || !string.IsNullOrEmpty(m.LlmModel) || !string.IsNullOrEmpty(m.LlmReason))
-                    {
-                        <div class="mt-2 small text-muted">
-                            <strong>LLM：</strong>
-                            @if (m.Confidence.HasValue)
-                            {
-                                <span>信心值 @m.Confidence.Value.ToString("F3")</span>
-                            }
-                            @if (!string.IsNullOrEmpty(m.LlmModel))
-                            {
-                                <span> | 模型 @m.LlmModel</span>
-                            }
-                            @if (!string.IsNullOrEmpty(m.LlmReason))
-                            {
-                                <span> | 原因 @m.LlmReason</span>
-                            }
-                        </div>
-                    }
+                    <div>
+                        <strong>Bot 回覆：</strong>
+                    </div>
+                    <div style="white-space:pre-wrap;">@(string.IsNullOrWhiteSpace(m.ReplyText) ? "(無)" : m.ReplyText)</div>
 
                     @if (!string.IsNullOrWhiteSpace(m.UserText))
                     {
-                        <div class="mb-2">
-                            <strong>使用者訊息：</strong>
-                            <div style="white-space:pre-wrap;">@m.UserText</div>
-                        </div>
-
                         <form asp-area="Admin" asp-controller="BotFaqItems" asp-action="Create" method="get" class="d-inline mb-2">
                             <input type="hidden" name="question" value="@m.UserText" />
                             <button type="submit" class="btn btn-sm btn-success me-2">以此建立 FAQ</button>
                         </form>
                     }
-                    else
-                    {
-                        <div class="mb-2">
-                            <strong>使用者訊息：</strong>
-                            <div class="text-muted">（無使用者輸入，可手動輸入問題後建立）</div>
-
-                            <form asp-area="Admin" asp-controller="BotFaqItems" asp-action="Create" method="get" class="mb-2">
-                                <div class="mb-1">
-                                    <textarea name="question" class="form-control form-control-sm" placeholder="請輸入用以建立 FAQ 的問題 (可從回覆改寫)"></textarea>
-                                </div>
-                                <button type="submit" class="btn btn-sm btn-success me-2">以此建立 FAQ</button>
-                            </form>
-
-                            @if (!string.IsNullOrWhiteSpace(m.ReplyText))
-                            {
-                                <form asp-area="Admin" asp-controller="BotFaqItems" asp-action="Create" method="get" class="d-inline">
-                                    <input type="hidden" name="answer" value="@m.ReplyText" />
-                                    <button type="submit" class="btn btn-sm btn-primary">從回覆建立（填入回答）</button>
-                                </form>
-                            }
-                        </div>
-                    }
-
-                    <details class="mt-2">
-                        <summary class="small text-muted">RawEventJson</summary>
-                        <pre class="mb-0 small" style="white-space:pre-wrap; max-height: 300px; overflow:auto;">@m.RawEventJson</pre>
-                    </details>
                 </div>
             </div>
         }

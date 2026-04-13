@@ -18,8 +18,7 @@ public class ConversationLogMessageViewModel
     public DateTimeOffset ReceivedAt { get; set; }
     public string? MessageType { get; set; }
     public string? EventType { get; set; }
-    public string? RawEventJson { get; set; }
-        public string? UserText { get; set; }
+    public string? UserText { get; set; }
 
     public string? Route { get; set; }
     public string? Reason { get; set; }
