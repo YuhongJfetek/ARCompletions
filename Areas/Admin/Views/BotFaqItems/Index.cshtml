@@ -35,32 +35,15 @@
     </div>
     <div class="col-auto">
         <button class="btn btn-sm btn-primary" type="submit">搜尋</button>
-        <a asp-area="Admin" asp-controller="BotFaqItems" asp-action="BulkImport" class="btn btn-sm btn-outline-secondary ms-2">批次匯入</a>
-        @* 對話分析已內嵌於同一畫面，移除獨立按鈕 *@
+        <a asp-area="Admin" asp-controller="BotConversations" asp-action="Index" class="btn btn-sm btn-outline-secondary ms-2">前往對話紀錄</a>
     </div>
 </form>
 
 <style>
-    /* Suggestions panel */
-    #suggestions-frame { width: 100%; height: 100%; border: 0; }
-    .suggestions-wrapper { height: 640px; display:flex; flex-direction:column; }
-    .suggestions-header { margin-bottom:8px; }
-    .suggestions-wrapper { min-width: 220px; }
-
-    /* FAQ table area: make scrollable and force wrapping so it doesn't push the right column */
+    /* FAQ table area: make scrollable and force wrapping so it doesn't overflow */
     .faq-table-wrapper { max-height: 640px; overflow:auto; }
     .faq-table-wrapper table { table-layout: fixed; width: 100%; }
     .faq-table-wrapper td, .faq-table-wrapper th { word-break: break-word; white-space: normal; }
-
-    /* Keep two-column layout on large screens; on small screens it will stack */
-    @@media (max-width: 991px) {
-        .suggestions-wrapper { height: 420px; }
-    }
-</style>
-
-<style>
-    .suggestions-sidebar { position: sticky; top: 90px; width: 240px; float: right; }
-    .faq-main-wrapper { margin-right: 280px; }
 </style>
 
 <div class="row">
@@ -105,21 +88,7 @@
     </div>
 </div>
 
-<aside class="suggestions-sidebar">
-    <div class="card mb-3 suggestions-wrapper">
-        <div class="card-body">
-            <div class="suggestions-header">
-                <h5 class="mb-1">FAQ 建議（對話分析）</h5>
-                <p class="small text-muted mb-0">系統將列出近期未對應 FAQ 的對話建議，協助新增或修正 FAQ。</p>
-            </div>
-                    <div class="d-flex flex-column" style="gap:8px;">
-                        <p class="small text-muted">系統將列出近期未對應 FAQ 的對話建議，協助新增或修正 FAQ。</p>
-                        <a asp-area="Admin" asp-controller="BotFaqItems" asp-action="Suggestions" class="btn btn-sm btn-primary" target="_blank">前往 FAQ 建議（對話分析）</a>
-                        <a asp-area="Admin" asp-controller="BotFaqItems" asp-action="Suggestions" class="btn btn-sm btn-outline-secondary" role="button">在此頁面開啟</a>
-                    </div>
-        </div>
-    </div>
-</aside>
+@* 已移除建議側欄，還原 FAQ 主內容為全寬顯示 *@
 
 @if (totalPages > 1)
 {

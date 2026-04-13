@@ -29,85 +29,7 @@ public class BotFaqItemsController : Controller
         _dbLogger = dbLogger;
     }
 
-    public IActionResult BulkImport()
-    {
-        return View();
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> BulkImport(IFormFile? faqFile)
-    {
-        if (faqFile == null || faqFile.Length == 0)
-        {
-            ModelState.AddModelError(string.Empty, "請選擇 faq.json 檔案");
-            return View();
-        }
-
-        List<FaqImportDto>? items;
-        try
-        {
-            using var stream = faqFile.OpenReadStream();
-            items = await JsonSerializer.DeserializeAsync<List<FaqImportDto>>(stream, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
-        }
-        catch (Exception ex)
-        {
-            ModelState.AddModelError(string.Empty, "JSON 解析失敗：" + ex.Message);
-            return View();
-        }
-
-        if (items == null || items.Count == 0)
-        {
-            ModelState.AddModelError(string.Empty, "匯入資料為空");
-            return View();
-        }
-
-        var existing = await _db.BotFaqItems.AsTracking().ToDictionaryAsync(x => x.FaqId);
-        var now = DateTimeOffset.UtcNow;
-        var user = User?.Identity?.Name ?? "import";
-
-        foreach (var src in items)
-        {
-            if (string.IsNullOrWhiteSpace(src.id))
-            {
-                continue;
-            }
-
-            if (!existing.TryGetValue(src.id, out var entity))
-            {
-                entity = new BotFaqItem
-                {
-                    FaqId = src.id,
-                    CreatedAt = now
-                };
-                _db.BotFaqItems.Add(entity);
-                existing[src.id] = entity;
-            }
-
-            entity.Question = src.question ?? string.Empty;
-            entity.Answer = src.answer ?? string.Empty;
-            entity.Category = src.category;
-            entity.CategoryKey = src.categoryKey;
-            entity.Subcategory = src.subcategory;
-            entity.Keywords = SerializeJsonArray(src.keywords);
-            entity.QueryExamples = SerializeJsonArray(src.queryExamples);
-            entity.AliasTerms = SerializeJsonArray(src.aliasTerms);
-            entity.Sources = SerializeJsonArray(src.sources);
-            entity.NeedsHumanHandoff = src.needsHumanHandoff;
-            entity.Enabled = src.enabled;
-            entity.SearchTextCache = BuildSearchText(src);
-            entity.UpdatedAt = now;
-            entity.UpdatedBy = user;
-        }
-
-        await _db.SaveChangesAsync();
-
-        TempData["Success"] = $"已匯入/更新 {items.Count} 筆 FAQ";
-        return RedirectToAction(nameof(Index));
-    }
+    // Bulk import removed — use data seeder or admin scripts for bulk operations.
 
     /// <summary>
     /// 對話分析：從 Bot 訊息與 LLM log 產生 FAQ 建議清單。
@@ -407,42 +329,7 @@ public class BotFaqItemsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    private static string? SerializeJsonArray(string[]? values)
-    {
-        if (values == null || values.Length == 0)
-        {
-            return "[]";
-        }
-
-        return JsonSerializer.Serialize(values);
-    }
-
-    private static string? BuildSearchText(FaqImportDto src)
-    {
-        var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(src.question)) parts.Add(src.question);
-        if (!string.IsNullOrWhiteSpace(src.answer)) parts.Add(src.answer);
-        if (src.keywords != null) parts.AddRange(src.keywords);
-        if (src.queryExamples != null) parts.AddRange(src.queryExamples);
-        if (src.aliasTerms != null) parts.AddRange(src.aliasTerms);
-        return parts.Count == 0 ? null : string.Join(" ", parts);
-    }
-
-    private sealed class FaqImportDto
-    {
-        public string id { get; set; } = string.Empty;
-        public string? question { get; set; }
-        public string? answer { get; set; }
-        public string? category { get; set; }
-        public string? categoryKey { get; set; }
-        public string? subcategory { get; set; }
-        public string[]? keywords { get; set; }
-        public string[]? queryExamples { get; set; }
-        public string[]? aliasTerms { get; set; }
-        public string[]? sources { get; set; }
-        public bool needsHumanHandoff { get; set; }
-        public bool enabled { get; set; } = true;
-    }
+    // Bulk import DTO and helpers removed together with the BulkImport actions.
 
     private string? TryExtractUserText(string rawEventJson)
     {
