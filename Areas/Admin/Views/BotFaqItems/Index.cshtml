@@ -45,7 +45,7 @@
     #suggestions-frame { width: 100%; height: 100%; border: 0; }
     .suggestions-wrapper { height: 640px; display:flex; flex-direction:column; }
     .suggestions-header { margin-bottom:8px; }
-    .suggestions-wrapper { min-width: 300px; }
+    .suggestions-wrapper { min-width: 220px; }
 
     /* FAQ table area: make scrollable and force wrapping so it doesn't push the right column */
     .faq-table-wrapper { max-height: 640px; overflow:auto; }
@@ -59,8 +59,8 @@
 </style>
 
 <style>
-    .suggestions-sidebar { position: sticky; top: 90px; width: 320px; float: right; }
-    .faq-main-wrapper { margin-right: 360px; }
+    .suggestions-sidebar { position: sticky; top: 90px; width: 240px; float: right; }
+    .faq-main-wrapper { margin-right: 280px; }
 </style>
 
 <div class="row">
@@ -112,9 +112,11 @@
                 <h5 class="mb-1">FAQ 建議（對話分析）</h5>
                 <p class="small text-muted mb-0">系統將列出近期未對應 FAQ 的對話建議，協助新增或修正 FAQ。</p>
             </div>
-            <div style="height:520px; overflow:auto;">
-                <iframe id="suggestions-frame" src="/Admin/BotFaqItems/Suggestions" style="min-height:520px; width:100%; border:0"></iframe>
-            </div>
+                    <div class="d-flex flex-column" style="gap:8px;">
+                        <p class="small text-muted">系統將列出近期未對應 FAQ 的對話建議，協助新增或修正 FAQ。</p>
+                        <a asp-area="Admin" asp-controller="BotFaqItems" asp-action="Suggestions" class="btn btn-sm btn-primary" target="_blank">前往 FAQ 建議（對話分析）</a>
+                        <a asp-area="Admin" asp-controller="BotFaqItems" asp-action="Suggestions" class="btn btn-sm btn-outline-secondary" role="button">在此頁面開啟</a>
+                    </div>
         </div>
     </div>
 </aside>
