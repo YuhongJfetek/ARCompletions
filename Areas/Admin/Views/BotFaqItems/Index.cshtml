@@ -41,16 +41,32 @@
 </form>
 
 <style>
-    #suggestions-frame { width: 100%; height: 100%; border: 1px solid #e9ecef; border-radius: 6px; }
+    /* Suggestions panel */
+    #suggestions-frame { width: 100%; height: 100%; border: 0; }
     .suggestions-wrapper { height: 640px; display:flex; flex-direction:column; }
     .suggestions-header { margin-bottom:8px; }
+    .suggestions-wrapper { min-width: 300px; }
+
+    /* FAQ table area: make scrollable and force wrapping so it doesn't push the right column */
+    .faq-table-wrapper { max-height: 640px; overflow:auto; }
+    .faq-table-wrapper table { table-layout: fixed; width: 100%; }
+    .faq-table-wrapper td, .faq-table-wrapper th { word-break: break-word; white-space: normal; }
+
+    /* Keep two-column layout on large screens; on small screens it will stack */
     @@media (max-width: 991px) {
         .suggestions-wrapper { height: 420px; }
     }
 </style>
 
+<style>
+    .suggestions-sidebar { position: sticky; top: 90px; width: 320px; float: right; }
+    .faq-main-wrapper { margin-right: 360px; }
+</style>
+
 <div class="row">
-    <div class="col-lg-7">
+    <div class="col-12">
+        <div class="faq-main-wrapper">
+        <div class="faq-table-wrapper">
         <table class="table table-striped table-sm">
     <thead>
         <tr>
@@ -83,22 +99,25 @@
     }
     </tbody>
         </table>
-    </div>
-
-    <div class="col-lg-5">
-        <div class="card mb-3 suggestions-wrapper">
-            <div class="card-body">
-                <div class="suggestions-header">
-                    <h5 class="mb-1">FAQ 建議（對話分析）</h5>
-                    <p class="small text-muted mb-0">系統將列出近期未對應 FAQ 的對話建議，協助新增或修正 FAQ。</p>
-                </div>
-                <div style="height:100%; overflow:auto;">
-                    <iframe id="suggestions-frame" src="/Admin/BotFaqItems/Suggestions" style="min-height:520px; width:100%; border:0"></iframe>
-                </div>
-            </div>
+        </div>
+        </div>
         </div>
     </div>
 </div>
+
+<aside class="suggestions-sidebar">
+    <div class="card mb-3 suggestions-wrapper">
+        <div class="card-body">
+            <div class="suggestions-header">
+                <h5 class="mb-1">FAQ 建議（對話分析）</h5>
+                <p class="small text-muted mb-0">系統將列出近期未對應 FAQ 的對話建議，協助新增或修正 FAQ。</p>
+            </div>
+            <div style="height:520px; overflow:auto;">
+                <iframe id="suggestions-frame" src="/Admin/BotFaqItems/Suggestions" style="min-height:520px; width:100%; border:0"></iframe>
+            </div>
+        </div>
+    </div>
+</aside>
 
 @if (totalPages > 1)
 {
