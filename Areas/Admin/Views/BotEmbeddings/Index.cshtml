@@ -12,10 +12,18 @@
 @* 搜尋表單已移除 (搜尋/輸入欄位已改由其他管理工具或篩選面板處理) *@
 
 <div class="mb-2">
-    <form asp-area="Admin" asp-controller="BotEmbeddings" asp-action="RebuildAll" method="post" class="d-inline ms-2">
-        @Html.AntiForgeryToken()
-        <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('確定要觸發 Embeddings 全量重建嗎？可能需要一些時間完成。');">重建 Embeddings</button>
-    </form>
+        <form asp-area="Admin" asp-controller="BotEmbeddings" asp-action="RebuildSelected" method="post" class="d-inline ms-2">
+            @Html.AntiForgeryToken()
+            <div class="input-group input-group-sm">
+                <select name="provider" class="form-select form-select-sm">
+                    <option value="all">全部 (openai 全量重建)</option>
+                    <option value="openai">openai</option>
+                    <option value="local_hash">local_hash</option>
+                </select>
+                <button type="submit" class="btn btn-sm btn-primary ms-2" onclick="return confirm('確定要開始重建選定的 provider 嵌入？此操作不會覆蓋其他 provider 的嵌入。');">開始重建</button>
+            </div>
+        </form>
+
 </div>
 
 <div id="rebuild-result">

@@ -8,6 +8,7 @@ using ARCompletions.Data;
 using ARCompletions.Domain;
 using ARCompletions.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,11 +20,13 @@ public class BotEmbeddingsController : Controller
 {
     private readonly ARCompletionsContext _db;
     private readonly IEmbeddingRebuildService _embeddingRebuildService;
+    private readonly ILogger<BotEmbeddingsController> _logger;
 
-    public BotEmbeddingsController(ARCompletionsContext db, IEmbeddingRebuildService embeddingRebuildService)
+    public BotEmbeddingsController(ARCompletionsContext db, IEmbeddingRebuildService embeddingRebuildService, ILogger<BotEmbeddingsController> logger)
     {
         _db = db;
         _embeddingRebuildService = embeddingRebuildService;
+        _logger = logger;
     }
 
 
@@ -90,6 +93,34 @@ public class BotEmbeddingsController : Controller
         catch (Exception ex)
         {
             TempData["Error"] = "Embeddings 全量重建失敗：" + ex.Message;
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RebuildSelected(string provider)
+    {
+        var triggeredBy = User?.Identity?.Name ?? "admin";
+        if (string.IsNullOrWhiteSpace(provider)) provider = "all";
+
+        // Map 'all' to the default openai full rebuild behavior
+        var providerToUse = provider == "all" ? "openai" : provider;
+
+        _logger?.LogInformation("RebuildSelected invoked by {User} (requested provider={Provider}, using provider={ProviderToUse})", triggeredBy, provider, providerToUse);
+
+        try
+        {
+            var job = await _embeddingRebuildService.StartRebuildAsync(providerToUse, null, "all", null, triggeredBy);
+            TempData["RebuildTriggered"] = job.JobId.ToString();
+            _logger?.LogInformation("Rebuild job started: {JobId} for provider {Provider}", job.JobId, providerToUse);
+            return RedirectToAction(nameof(Index), new { jobId = job.JobId });
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "RebuildSelected failed for provider {Provider}", providerToUse);
+            TempData["Error"] = $"Embeddings ({provider}) 重建失敗：" + ex.Message;
         }
 
         return RedirectToAction(nameof(Index));
