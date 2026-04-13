@@ -37,8 +37,8 @@
                         // Define controller groups for top-level sections
                         var faqControllers = new[] { "BotFaqItems", "BotFaqAliases" };
                         var embeddingControllers = new[] { "BotEmbeddings" };
-                        // 僅保留會話設定 / 狀態，移除 Bot 訊息路由與訊息 API 設定的導覽
-                        var messageControllers = new[] { "BotConversations" };
+                        // 已移除會話設定（BotConversations）選單項目
+                        var messageControllers = new string[] { };
                         var systemControllers = new[] { "PlatformUsers", "SystemSettings" };
 
                         bool InGroup(string[] grp) => grp.Contains(currentController);
@@ -50,8 +50,6 @@
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="BotFaqAliases" asp-action="Index">FAQ Alias</a></li>
                                 <li><a class="dropdown-item" asp-area="Admin" asp-controller="BotEmbeddings" asp-action="Index">重建Bot Embeddings</a></li>
                                 <li><hr class="dropdown-divider" /></li>
-                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="BotConversations" asp-action="Index">會話設定 / 狀態</a></li>
-                                <li><a class="dropdown-item" asp-area="Admin" asp-controller="BotConversations" asp-action="Index">對話紀錄 (依會話)</a></li>
                             </ul>
                         </li>
 
@@ -97,7 +95,6 @@
             string sectionName = string.Empty;
             if (new[] { "BotFaqItems", "BotFaqAliases" }.Contains(currentController)) sectionName = "FAQ 管理";
             else if (new[] { "BotEmbeddings" }.Contains(currentController)) sectionName = "重建Bot Embeddings";
-            else if (new[] { "BotConversations" }.Contains(currentController)) sectionName = "訊息管理";
             else if (new[] { "PlatformUsers", "SystemSettings" }.Contains(currentController)) sectionName = "系統管理";
         }
 
