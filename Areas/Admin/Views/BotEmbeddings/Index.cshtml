@@ -3,35 +3,40 @@
     ViewData["Title"] = "重建Bot Embeddings";
 }
 
-<h1>重建Bot Embeddings</h1>
+<style>
+    .rebuild-card { max-width: 900px; margin: 20px auto; }
+    .rebuild-header { padding: 18px 22px; }
+    .rebuild-loading { display:flex; align-items:center; gap:12px; }
+    .rebuild-loading .spinner-border { width:1.25rem; height:1.25rem; }
+    .rebuild-header .form-select { max-width: 180px; width: 180px; }
+    .rebuild-header .btn { padding: 6px 10px; }
+</style>
 
-@{
-    int ps = ViewBag.PageSize ?? 25;
-}
+<div class="card rebuild-card">
+    <div class="card-body rebuild-header">
+        <h2 class="card-title mb-2">重建Bot Embeddings</h2>
+        <p class="text-muted small mb-3">選擇要重建的 embedding provider（此操作不會覆蓋其他 provider 的嵌入）</p>
 
-@* 搜尋表單已移除 (搜尋/輸入欄位已改由其他管理工具或篩選面板處理) *@
-
-<div class="mb-2">
-        <form asp-area="Admin" asp-controller="BotEmbeddings" asp-action="RebuildSelected" method="post" class="d-inline ms-2">
+        <form asp-area="Admin" asp-controller="BotEmbeddings" asp-action="RebuildSelected" method="post" class="d-flex align-items-center">
             @Html.AntiForgeryToken()
-            <div class="input-group input-group-sm">
-                <select name="provider" class="form-select form-select-sm">
-                    <option value="all">全部 (openai 全量重建)</option>
-                    <option value="openai">openai</option>
-                    <option value="local_hash">local_hash</option>
-                </select>
-                <button type="submit" class="btn btn-sm btn-primary ms-2" onclick="return confirm('確定要開始重建選定的 provider 嵌入？此操作不會覆蓋其他 provider 的嵌入。');">開始重建</button>
-            </div>
+            <select name="provider" class="form-select form-select-sm me-2" style="max-width:240px;">
+                <option value="all">全部 (openai 全量重建)</option>
+                <option value="openai">openai</option>
+                <option value="local_hash">local_hash</option>
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('確定要開始重建選定的 provider 嵌入？');">開始重建</button>
         </form>
-
+    </div>
 </div>
 
 <div id="rebuild-result">
     <h2>Embeddings 重建結果</h2>
 
     <div id="detail-loading" class="alert alert-info" style="display:none">
-        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-        <span id="detail-loading-text">正在彙整重建結果與明細，請稍候…</span>
+        <div class="rebuild-loading">
+            <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+            <div id="detail-loading-text">重建中，請稍候…</div>
+        </div>
     </div>
 
     <div id="rebuild-content" style="display:none">
@@ -103,9 +108,9 @@
         const detailLoading = document.getElementById('detail-loading');
         const detailLoadingText = document.getElementById('detail-loading-text');
 
-        function showLoading(msg) {
+        function showLoading() {
             detailLoading.style.display = 'block';
-            detailLoadingText.textContent = msg;
+            detailLoadingText.textContent = '重建中，請稍候…';
         }
         function hideLoading() { detailLoading.style.display = 'none'; }
 
@@ -178,8 +183,8 @@
 
                 // Not ready yet: show progress if running, otherwise keep waiting
                 if (status === 'running') {
-                    // ensure counts are shown while running
-                    showLoading(`重建中，已完成 ${job.completedCount || job.CompletedCount || 0} / ${job.totalCount || job.TotalCount || '?'}，請稍候…`);
+                    // show a simple loading message while running
+                    showLoading();
                     if (attempts < maxAttempts) setTimeout(poll, 3000);
                     return;
                 }
@@ -267,7 +272,7 @@
 
                 // only show loading and start polling if job is actively running
                 if (status === 'running') {
-                    showLoading(`重建中，已完成 ${job.completedCount || job.CompletedCount || 0} / ${job.totalCount || job.TotalCount || '?'}，請稍候…`);
+                    showLoading();
                     clearRows();
                     poll();
                     return;
