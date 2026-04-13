@@ -3,7 +3,7 @@ namespace ARCompletions.Domain;
 public class BotIncomingEvent
 {
     public long EventRowId { get; set; }
-    public string RawEventJson { get; set; } = default!;
+    public string? Text { get; set; }
     public string? EventType { get; set; }
     public string? MessageType { get; set; }
     public string? SourceType { get; set; }

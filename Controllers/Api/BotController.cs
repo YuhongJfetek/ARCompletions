@@ -116,7 +116,8 @@ public class BotController : ControllerBase
         // 1) 寫入 incoming event（可選擇 persist）
         var ev = new BotIncomingEvent
         {
-            RawEventJson = req.RawEvent ?? "{}",
+            // Store the textual user input so UI and analysis can use it.
+            Text = req.Text,
             EventType = "message",
             MessageType = "text",
             SourceType = sourceType,
@@ -645,7 +646,7 @@ public class BotController : ControllerBase
 
             if (queryVec != null && queryVec.Length > 0)
             {
-                var isComposite = _textProcessing.IsComposite(normalizedText, tokens);
+                var isComposite = _textProcessing.IsComposite(normalizedText, tokens ?? Array.Empty<string>());
 
                 // Build top candidate IDs via CandidateBuilderService
                 List<string>? built = null;
@@ -941,7 +942,7 @@ public class BotQueryRequest
     public string? ReplyToken { get; set; }
     public string Text { get; set; } = string.Empty;
     public DateTimeOffset ReceivedAt { get; set; }
-    public string? RawEvent { get; set; }
+    // Raw vendor event payload removed for privacy; do not persist raw event data.
 }
 
 public class BotQueryResponse

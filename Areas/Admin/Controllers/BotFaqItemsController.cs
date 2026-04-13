@@ -69,7 +69,7 @@ public class BotFaqItemsController : Controller
                 ConversationId = g.Key.ConversationId,
                 LastReceivedAt = g.Max(x => x.ReceivedAt),
                 MessageCount = g.Count(),
-                LastEventId = g.OrderByDescending(x => x.ReceivedAt).Select(x => x.EventRowId).FirstOrDefault()
+                LastEventId = g.OrderByDescending(x => x.ReceivedAt).Select(x => (long?)x.EventRowId).FirstOrDefault()
             });
 
         var total = await convoQuery.LongCountAsync();
@@ -80,7 +80,7 @@ public class BotFaqItemsController : Controller
             .Take(pageSize)
             .ToListAsync();
 
-        var lastEventIds = convos.Select(c => c.LastEventId).Where(id => id != null).ToList();
+        var lastEventIds = convos.Select(c => c.LastEventId).Where(id => id.HasValue).Select(id => id.Value).ToList();
 
         var lastEvents = await _db.BotIncomingEvents
             .AsNoTracking()
@@ -91,7 +91,8 @@ public class BotFaqItemsController : Controller
 
         var summaries = convos.Select(c =>
         {
-            eventDict.TryGetValue(c.LastEventId, out var ev);
+            var lastId = c.LastEventId.GetValueOrDefault();
+            eventDict.TryGetValue(lastId, out var ev);
             // Prefer explicit Text column.
             var lastUserText = ev?.Text;
             return new Areas.Admin.Models.ConversationSummaryViewModel
