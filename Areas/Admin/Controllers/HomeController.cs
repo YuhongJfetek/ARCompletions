@@ -3,6 +3,7 @@ using ARCompletions.Data;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ARCompletions.Areas.Admin.Controllers;
@@ -23,11 +24,48 @@ public class HomeController : Controller
     // 總部後台首頁：顯示全系統統計
     public IActionResult Index()
     {
+        // Aggregate basic KPIs and recent lists
+        var faqCount = _db.BotFaqItems.Count();
+        var convoStateCount = _db.BotConversationStates.Count();
+        var routeCount = _db.BotMessageRoutes.Count();
+        var pendingEmb = _db.BotEmbeddingJobs.Count(j => j.Status != "finished");
+
+        // recent conversations (last 24h)
+        var since = DateTimeOffset.UtcNow.AddDays(-1);
+        var convos = _db.BotIncomingEvents
+            .AsNoTracking()
+            .Where(e => e.ReceivedAt >= since)
+            .GroupBy(e => new { e.SourceType, e.ConversationId })
+            .Select(g => new ConversationSummaryViewModel
+            {
+                SourceType = g.Key.SourceType,
+                ConversationId = g.Key.ConversationId,
+                LastReceivedAt = g.Max(x => x.ReceivedAt),
+                MessageCount = g.Count(),
+                LastUserText = g.OrderByDescending(x => x.ReceivedAt).Select(x => x.Text).FirstOrDefault()
+            })
+            .OrderByDescending(c => c.LastReceivedAt)
+            .Take(8)
+            .ToList();
+
+        // recent errors (24h)
+        var recentErrors = _db.AppLogs
+            .AsNoTracking()
+            .Where(l => l.Level != null && l.Level.ToLower() == "error" && l.TimeStamp >= since)
+            .OrderByDescending(l => l.TimeStamp)
+            .Take(6)
+            .Select(l => l.Message ?? l.Exception ?? l.MessageTemplate ?? "(no message)")
+            .ToList();
+
         var vm = new AdminDashboardViewModel
         {
-            BotFaqItemCount = _db.BotFaqItems.Count(),
-            BotConversationStateCount = _db.BotConversationStates.Count(),
-            BotMessageRouteCount = _db.BotMessageRoutes.Count()
+            BotFaqItemCount = faqCount,
+            BotConversationStateCount = convoStateCount,
+            BotMessageRouteCount = routeCount,
+            PendingEmbeddingJobs = pendingEmb,
+            RecentConversations = convos,
+            RecentErrors = recentErrors,
+            RecentErrorsCount = _db.AppLogs.Count(l => l.Level != null && l.Level.ToLower() == "error" && l.TimeStamp >= since)
         };
 
         ViewData["Title"] = "總部後台首頁";

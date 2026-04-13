@@ -4,18 +4,87 @@
 }
 
 <h1>@ViewData["Title"]</h1>
-
-<div class="mb-3">
-    <strong>Debug:</strong>
-    <div>IsAuthenticated: @ViewBag.IsAuthenticated</div>
-    <div>UserName: @ViewBag.UserName</div>
-    <div>IsPlatformAuthorized: @ViewBag.IsPlatformAuthorized</div>
-    <div>Claims:</div>
-    <pre style="max-height:200px;overflow:auto;background:#f8f9fa;padding:8px;border-radius:6px;">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.Claims, new System.Text.Json.JsonSerializerOptions{WriteIndented=true}))</pre>
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Bot FAQ</h5>
+                <p class="display-6">@Model.BotFaqItemCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">會話狀態</h5>
+                <p class="display-6">@Model.BotConversationStateCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Routing Rules</h5>
+                <p class="display-6">@Model.BotMessageRouteCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Pending Embeddings</h5>
+                <p class="display-6">@Model.PendingEmbeddingJobs</p>
+            </div>
+        </div>
+    </div>
 </div>
 
-<ul>
-    <li>Bot FAQ 總數：@Model.BotFaqItemCount</li>
-    <li>Bot 會話狀態數：@Model.BotConversationStateCount</li>
-</ul>
-<p>後續可以在此加入圖表、連結到各管理頁面（Bot FAQ 管理、Bot 會話等）。</p>
+<div class="row">
+    <div class="col-md-7">
+        <div class="card mb-3">
+            <div class="card-header">Recent Conversations (last 24h)</div>
+            <div class="list-group list-group-flush">
+                @if (Model.RecentConversations?.Any() != true)
+                {
+                    <div class="list-group-item">No recent conversations.</div>
+                }
+                else
+                {
+                    foreach (var c in Model.RecentConversations)
+                    {
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">@((c.SourceType ?? "-") + " / " + (c.ConversationId ?? "-"))</h6>
+                                <small>@c.LastReceivedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</small>
+                            </div>
+                            <p class="mb-1 text-truncate">@Html.Encode(c.LastUserText ?? "(no message)")</p>
+                            <small>Messages: @c.MessageCount</small>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card mb-3">
+            <div class="card-header">Recent Errors (@Model.RecentErrorsCount)</div>
+            <div class="list-group list-group-flush">
+                @if (Model.RecentErrors?.Any() != true)
+                {
+                    <div class="list-group-item">No recent errors.</div>
+                }
+                else
+                {
+                    foreach (var e in Model.RecentErrors)
+                    {
+                        <div class="list-group-item">
+                            <div class="small text-muted text-truncate">@Html.Encode(e)</div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<p class="text-muted">後續可加入 charts、filters、link 至管理頁面。</p>
