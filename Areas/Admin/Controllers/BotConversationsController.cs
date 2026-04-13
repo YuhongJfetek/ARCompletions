@@ -6,6 +6,7 @@ using ARCompletions.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace ARCompletions.Areas.Admin.Controllers;
 
@@ -184,6 +185,30 @@ public class BotConversationsController : Controller
         {
             routeDict.TryGetValue(e.EventRowId, out var route);
             llmDict.TryGetValue(e.EventRowId, out var llm);
+            string? userText = null;
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(e.RawEventJson))
+                {
+                    using var doc = JsonDocument.Parse(e.RawEventJson);
+                    var root = doc.RootElement;
+                    if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("events", out var eventsElement) && eventsElement.ValueKind == JsonValueKind.Array && eventsElement.GetArrayLength() > 0)
+                    {
+                        var firstEvent = eventsElement[0];
+                        if (firstEvent.ValueKind == JsonValueKind.Object && firstEvent.TryGetProperty("message", out var messageElement) && messageElement.ValueKind == JsonValueKind.Object)
+                        {
+                            if (messageElement.TryGetProperty("text", out var textElement) && textElement.ValueKind == JsonValueKind.String)
+                            {
+                                userText = textElement.GetString();
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                userText = null;
+            }
 
             return new ConversationLogMessageViewModel
             {
@@ -192,6 +217,7 @@ public class BotConversationsController : Controller
                 MessageType = e.MessageType,
                 EventType = e.EventType,
                 RawEventJson = e.RawEventJson,
+                UserText = userText,
                 Route = route?.Route,
                 Reason = route?.Reason,
                 FaqCategory = route?.FaqCategory,

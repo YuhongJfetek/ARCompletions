@@ -85,6 +85,19 @@ else
                         </div>
                     }
 
+                    @if (!string.IsNullOrWhiteSpace(m.UserText))
+                    {
+                        <div class="mb-2">
+                            <strong>使用者訊息：</strong>
+                            <div style="white-space:pre-wrap;">@m.UserText</div>
+                        </div>
+
+                        <form asp-area="Admin" asp-controller="BotFaqItems" asp-action="Create" method="get" class="d-inline mb-2">
+                            <input type="hidden" name="question" value="@m.UserText" />
+                            <button type="submit" class="btn btn-sm btn-success me-2">以此建立 FAQ</button>
+                        </form>
+                    }
+
                     <details class="mt-2">
                         <summary class="small text-muted">RawEventJson</summary>
                         <pre class="mb-0 small" style="white-space:pre-wrap; max-height: 300px; overflow:auto;">@m.RawEventJson</pre>

@@ -68,8 +68,7 @@ else
                     <a asp-area="Admin" asp-controller="BotConversations" asp-action="History"
                        asp-route-sourceType="@s.SourceType" asp-route-conversationId="@s.ConversationId"
                        class="btn btn-sm btn-outline-primary mb-1">查看對話</a>
-                    <a asp-area="Admin" asp-controller="BotFaqItems" asp-action="Create"
-                       asp-route-question="@s.LastUserText" class="btn btn-sm btn-success mb-1">以摘要建立 FAQ</a>
+                          @* 建立動作移至對話紀錄頁（History），此處移除直接建立按鈕 *@
                 </td>
             </tr>
         }
