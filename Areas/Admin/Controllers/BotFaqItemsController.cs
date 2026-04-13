@@ -44,92 +44,72 @@ public class BotFaqItemsController : Controller
 
         var since = DateTimeOffset.UtcNow.AddDays(-days);
 
-        var routeQuery = _db.BotMessageRoutes
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        var convoQuery = _db.BotIncomingEvents
             .AsNoTracking()
-            .Where(r => r.CreatedAt >= since);
+            .Where(e => e.ReceivedAt >= since)
+            .GroupBy(e => new { e.SourceType, e.ConversationId })
+            .Select(g => new
+            {
+                SourceType = g.Key.SourceType,
+                ConversationId = g.Key.ConversationId,
+                LastReceivedAt = g.Max(x => x.ReceivedAt),
+                MessageCount = g.Count(),
+                LastEventId = g.OrderByDescending(x => x.ReceivedAt).Select(x => x.EventRowId).FirstOrDefault()
+            });
 
-        if (onlyWithoutFaq)
-        {
-            routeQuery = routeQuery.Where(r => r.MatchedFaqId == null || r.MatchedFaqId == "");
-        }
+        var total = await convoQuery.LongCountAsync();
 
-        if (!string.IsNullOrWhiteSpace(route))
-        {
-            routeQuery = routeQuery.Where(r => r.Route == route);
-        }
-
-        var total = await routeQuery.LongCountAsync();
-
-        var routes = await routeQuery
-            .OrderByDescending(r => r.CreatedAt)
+        var convos = await convoQuery
+            .OrderByDescending(c => c.LastReceivedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
 
-        var eventIds = routes
-            .Where(r => r.EventRowId != null)
-            .Select(r => r.EventRowId!.Value)
-            .Distinct()
-            .ToList();
+        var lastEventIds = convos.Select(c => c.LastEventId).Where(id => id != null).ToList();
 
-        var events = await _db.BotIncomingEvents
+        var lastEvents = await _db.BotIncomingEvents
             .AsNoTracking()
-            .Where(e => eventIds.Contains(e.EventRowId))
+            .Where(e => lastEventIds.Contains(e.EventRowId))
             .ToListAsync();
 
-        var llmLogs = await _db.BotLlmLogs
-            .AsNoTracking()
-            .Where(l => l.EventRowId != null && eventIds.Contains(l.EventRowId.Value))
-            .ToListAsync();
+        var eventDict = lastEvents.ToDictionary(e => e.EventRowId, e => e);
 
-        var eventDict = events.ToDictionary(e => e.EventRowId, e => e);
-
-        var llmDict = llmLogs
-            .GroupBy(l => l.EventRowId!.Value)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedAt).First());
-
-        var suggestions = new List<FaqSuggestionViewModel>();
-
-        foreach (var r in routes)
+        var summaries = convos.Select(c =>
         {
-            if (r.EventRowId == null)
+            eventDict.TryGetValue(c.LastEventId, out var ev);
+            var lastUserText = ev != null ? TryExtractUserText(ev.RawEventJson) : null;
+            return new Areas.Admin.Models.ConversationSummaryViewModel
             {
-                continue;
-            }
-
-            eventDict.TryGetValue(r.EventRowId.Value, out var ev);
-            llmDict.TryGetValue(r.EventRowId.Value, out var llm);
-
-            var userText = ev != null ? TryExtractUserText(ev.RawEventJson) : null;
-
-            suggestions.Add(new FaqSuggestionViewModel
-            {
-                EventRowId = r.EventRowId.Value,
-                ReceivedAt = ev?.ReceivedAt ?? r.CreatedAt,
-                SourceType = ev?.SourceType,
-                ConversationId = ev?.ConversationId,
-                LineUserId = ev?.LineUserId,
-                UserText = userText,
-                SuggestedAnswer = r.ReplyText,
-                FaqCategory = r.FaqCategory,
-                Route = r.Route,
-                Reason = r.Reason,
-                MatchedFaqId = r.MatchedFaqId,
-                MatchedScore = r.MatchedScore,
-                LlmConfidence = llm?.Confidence,
-                LlmModel = llm?.Model,
-                LlmReason = llm?.Reason
-            });
-        }
+                SourceType = c.SourceType,
+                ConversationId = c.ConversationId,
+                LastReceivedAt = c.LastReceivedAt,
+                MessageCount = c.MessageCount,
+                LastUserText = lastUserText
+            };
+        }).ToList();
 
         ViewBag.Page = page;
         ViewBag.PageSize = pageSize;
         ViewBag.TotalCount = total;
         ViewBag.Days = days;
-        ViewBag.Route = route;
-        ViewBag.OnlyWithoutFaq = onlyWithoutFaq;
 
-        return View(suggestions);
+        return View(summaries);
     }
 
     public async Task<IActionResult> Index(string? q = null, string? categoryKey = null, bool? enabled = null, int page = 1, int pageSize = 25)

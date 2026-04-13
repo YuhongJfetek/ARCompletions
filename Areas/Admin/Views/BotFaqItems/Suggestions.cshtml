@@ -1,4 +1,4 @@
-@model IEnumerable<ARCompletions.Areas.Admin.Models.FaqSuggestionViewModel>
+@model IEnumerable<ARCompletions.Areas.Admin.Models.ConversationSummaryViewModel>
 @{
     ViewData["Title"] = "FAQ 建議 (對話分析)";
     long total = ViewBag.TotalCount ?? 0L;
@@ -33,7 +33,6 @@
         </div>
     </div>
     <div class="col-auto d-flex align-items-end">
-        <button type="submit" class="btn btn-sm btn-primary">重新分析</button>
         <a asp-area="Admin" asp-controller="BotFaqItems" asp-action="Index" class="btn btn-sm btn-outline-secondary ms-2">返回 FAQ 管理</a>
     </div>
 </form>
@@ -47,13 +46,10 @@ else
     <table class="table table-striped table-sm align-middle">
         <thead>
             <tr>
-                <th>時間</th>
-                <th>來源</th>
-                <th>使用者訊息</th>
-                <th>建議回答</th>
-                <th>Route / 理由</th>
-                <th>FAQ / 分數</th>
-                <th>LLM 信心</th>
+                <th>最後時間</th>
+                <th>來源 / 會話</th>
+                <th>訊息數</th>
+                <th>最後使用者訊息</th>
                 <th></th>
             </tr>
         </thead>
@@ -61,73 +57,19 @@ else
         @foreach (var s in Model)
         {
             <tr>
-                <td style="white-space:nowrap;">@s.ReceivedAt.ToLocalTime()</td>
+                <td style="white-space:nowrap;">@s.LastReceivedAt.ToLocalTime()</td>
                 <td>
                     @s.SourceType<br />
-                    <small class="text-muted">@s.ConversationId<br />@s.LineUserId</small>
+                    <small class="text-muted">@s.ConversationId</small>
                 </td>
-                <td style="max-width:260px; white-space:pre-wrap;">
-                    @if (!string.IsNullOrWhiteSpace(s.UserText))
-                    {
-                        @s.UserText
-                    }
-                    else
-                    {
-                        <span class="text-muted">(無法解析使用者訊息，請從對話紀錄檢視)</span>
-                    }
-                </td>
-                <td style="max-width:260px; white-space:pre-wrap;">
-                    @if (!string.IsNullOrWhiteSpace(s.SuggestedAnswer))
-                    {
-                        @s.SuggestedAnswer
-                    }
-                </td>
+                <td>@s.MessageCount</td>
+                <td style="max-width:360px; white-space:pre-wrap;">@(!string.IsNullOrWhiteSpace(s.LastUserText) ? s.LastUserText : "(無可用摘要)")</td>
                 <td>
-                    @s.Route
-                    @if (!string.IsNullOrEmpty(s.Reason))
-                    {
-                        <br /><small class="text-muted">@s.Reason</small>
-                    }
-                </td>
-                <td>
-                    @if (!string.IsNullOrEmpty(s.MatchedFaqId))
-                    {
-                        <div>FaqId: @s.MatchedFaqId</div>
-                    }
-                    @if (s.MatchedScore.HasValue)
-                    {
-                        <div>Score: @s.MatchedScore.Value.ToString("F3")</div>
-                    }
-                    @if (!string.IsNullOrEmpty(s.FaqCategory))
-                    {
-                        <div>Category: @s.FaqCategory</div>
-                    }
-                </td>
-                <td>
-                    @if (s.LlmConfidence.HasValue)
-                    {
-                        <div>@s.LlmConfidence.Value.ToString("F3")</div>
-                    }
-                    @if (!string.IsNullOrEmpty(s.LlmModel))
-                    {
-                        <div><small>@s.LlmModel</small></div>
-                    }
-                </td>
-                <td>
-                    @if (string.IsNullOrEmpty(s.MatchedFaqId))
-                    {
-                        <a asp-area="Admin" asp-controller="BotFaqItems" asp-action="Create"
-                           asp-route-question="@s.UserText" asp-route-answer="@s.SuggestedAnswer" asp-route-categoryKey="@s.FaqCategory"
-                           class="btn btn-sm btn-success mb-1">建立 FAQ</a>
-                    }
-                    else
-                    {
-                        <a asp-area="Admin" asp-controller="BotFaqItems" asp-action="Edit" asp-route-id="@s.MatchedFaqId"
-                           class="btn btn-sm btn-outline-secondary mb-1">編輯原 FAQ</a>
-                    }
                     <a asp-area="Admin" asp-controller="BotConversations" asp-action="History"
                        asp-route-sourceType="@s.SourceType" asp-route-conversationId="@s.ConversationId"
-                       class="btn btn-sm btn-outline-primary">查看對話</a>
+                       class="btn btn-sm btn-outline-primary mb-1">查看對話</a>
+                    <a asp-area="Admin" asp-controller="BotFaqItems" asp-action="Create"
+                       asp-route-question="@s.LastUserText" class="btn btn-sm btn-success mb-1">以摘要建立 FAQ</a>
                 </td>
             </tr>
         }
