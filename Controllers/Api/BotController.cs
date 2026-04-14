@@ -565,32 +565,160 @@ public class BotController : ControllerBase
             double[]? queryVec = null;
             try
             {
-                // Try in-memory cache first to reduce latency for repeated queries
-                var embedCacheKey = $"embed:{modelName}:{Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(normalizedText))).Substring(0,16)}";
-                    if (!_cache.TryGetValue(embedCacheKey, out double[]? cachedVec))
-                    {
-                        var syncTimeoutMs = int.TryParse(Environment.GetEnvironmentVariable("EMBEDDING_SYNC_TIMEOUT_MS") ?? "1500", out var t) ? t : 1500;
-                        using var cts = new System.Threading.CancellationTokenSource(syncTimeoutMs);
-                        try
-                        {
-                            cachedVec = await _embeddingRetrieval.GetOrCreateEmbeddingAsync(normalizedText, modelName, embeddingProvider, cts.Token);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            // synchronous attempt timed out — do NOT trigger background generation here per request
-                            // simply proceed without an embedding (fallback to keyword/token overlap)
-                            cachedVec = null;
-                        }
+                // Try local_hash first and use thresholds to decide whether to call provider
+                var syncTimeoutMs = int.TryParse(Environment.GetEnvironmentVariable("EMBEDDING_SYNC_TIMEOUT_MS") ?? "1500", out var t) ? t : 1500;
+                using var cts = new System.Threading.CancellationTokenSource(syncTimeoutMs);
 
-                        if (cachedVec != null)
+                // thresholds (can be configured via bot_constants_configs)
+                // Prefer explicitly named confidence keys; fall back to legacy keys if absent
+                var HIGH = GetDouble("bot.embedding.highConfidence", GetDouble("bot.embedding.high", 0.70));
+                var MIN = GetDouble("bot.embedding.minConfidence", GetDouble("bot.embedding.min", 0.44));
+
+                // 1) compute local embedding
+                var localVec = await _embeddingRetrieval.GetOrCreateEmbeddingAsync(normalizedText, modelName, "local_hash", cts.Token);
+                await WriteAppLogAsync("Debug", "Local embedding retrieved: ConversationId={ConversationId} Len={Len}", new { ConversationId = req.ConversationId, Len = localVec?.Length ?? 0 });
+
+                List<string> initialCandidates = new();
+                double localBestScore = 0.0;
+
+                if (localVec != null && localVec.Length > 0)
+                {
+                    // build candidates using local vector
+                    try
+                    {
+                        var built = await _candidateBuilder.BuildCandidatesAsync(normalizedText, localVec, "local_hash", 8);
+                        if (built != null && built.Count > 0)
                         {
-                            var cacheSecsStr = Environment.GetEnvironmentVariable("EMBEDDING_CACHE_SECONDS") ?? "300";
-                            if (!int.TryParse(cacheSecsStr, out var cacheSecs)) cacheSecs = 300;
-                            _cache.Set(embedCacheKey, cachedVec, TimeSpan.FromSeconds(cacheSecs));
+                            initialCandidates = built;
+
+                            // fetch faq details and local embeddings
+                            var faqList = await _faqService.FindByIdsAsync(initialCandidates);
+                            var faqDict = faqList.ToDictionary(f => f.FaqId, f => f);
+
+                            var embeddings = await _db.BotFaqEmbeddings.AsNoTracking()
+                                .Where(e => initialCandidates.Contains(e.FaqId) && e.EmbeddingProvider == "local_hash" && e.Embedding != null && e.Embedding.Length > 0)
+                                .ToListAsync();
+
+                            var embMap = embeddings
+                                .GroupBy(e => e.FaqId)
+                                .Select(g => g.OrderByDescending(e => e.RebuiltAt ?? DateTimeOffset.MinValue).First())
+                                .ToDictionary(e => e.FaqId, e => e.Embedding);
+
+                            var candidateTuples = new List<(string FaqId, double[]? Vec, string Question, string SearchTextCache)>();
+                            foreach (var f in faqList)
+                            {
+                                embMap.TryGetValue(f.FaqId, out var vec);
+                                candidateTuples.Add((f.FaqId, vec, f.Question ?? string.Empty, f.SearchTextCache ?? string.Empty));
+                            }
+
+                            var scores = _scoring.ScoreCandidates(localVec, candidateTuples, normalizedText, faqDict);
+                            var filtered = scores.Where(kv => kv.Value >= 0.0001).ToDictionary(kv => kv.Key, kv => kv.Value);
+                            var ranked = filtered.OrderByDescending(kv => kv.Value).ToList();
+                            if (ranked.Count == 0 && scores.Count > 0) ranked = scores.OrderByDescending(kv => kv.Value).ToList();
+
+                            if (ranked.Count > 0)
+                            {
+                                localBestScore = ranked[0].Value;
+                            }
                         }
                     }
-                    queryVec = cachedVec;
-                await WriteAppLogAsync("Debug", "Embedding retrieved: ConversationId={ConversationId} VecLen={Len}", new { ConversationId = req.ConversationId, VecLen = queryVec?.Length ?? 0 });
+                    catch (Exception ex)
+                    {
+                        await WriteAppLogAsync("Warning", "Local candidate building/scoring failed", new { ConversationId = req.ConversationId }, ex);
+                    }
+                }
+
+                // Decision: use local if strong enough; otherwise call provider for rerank
+                if (localBestScore >= HIGH)
+                {
+                    // treat as direct match using local space
+                    // set queryVec to localVec and let existing scoring flow handle selection using local provider
+                    queryVec = localVec;
+                    embeddingProvider = "local_hash";
+                    await WriteAppLogAsync("Information", "Local best exceeds HIGH; using local result", new { ConversationId = req.ConversationId, Score = localBestScore });
+                }
+                else if (localBestScore >= MIN)
+                {
+                    // medium confidence — prefer disambiguation/candidates (do not immediately call provider)
+                    queryVec = localVec;
+                    embeddingProvider = "local_hash";
+                    await WriteAppLogAsync("Information", "Local best in [MIN, HIGH); returning candidates", new { ConversationId = req.ConversationId, Score = localBestScore });
+                }
+                else
+                {
+                    // low confidence: attempt provider embedding and rerank among initialCandidates (or fall back)
+                    double[]? providerVec = null;
+                    try
+                    {
+                        providerVec = await _embeddingRetrieval.GetOrCreateEmbeddingAsync(normalizedText, modelName, embeddingProvider, cts.Token);
+                        await WriteAppLogAsync("Debug", "Provider embedding retrieved: ConversationId={ConversationId} Provider={Provider} Len={Len}", new { ConversationId = req.ConversationId, Provider = embeddingProvider, Len = providerVec?.Length ?? 0 });
+                    }
+                    catch (Exception ex)
+                    {
+                        await WriteAppLogAsync("Warning", "Provider embedding retrieval failed", new { ConversationId = req.ConversationId, Provider = embeddingProvider }, ex);
+                        providerVec = null;
+                    }
+
+                    if (providerVec != null && providerVec.Length > 0 && initialCandidates.Count > 0)
+                    {
+                        // fetch provider embeddings for same candidates
+                        var faqList = await _faqService.FindByIdsAsync(initialCandidates);
+                        var faqDict = faqList.ToDictionary(f => f.FaqId, f => f);
+
+                        var embeddings = await _db.BotFaqEmbeddings.AsNoTracking()
+                            .Where(e => initialCandidates.Contains(e.FaqId) && e.EmbeddingProvider == embeddingProvider && e.Embedding != null && e.Embedding.Length > 0)
+                            .ToListAsync();
+
+                        var embMap = embeddings
+                            .GroupBy(e => e.FaqId)
+                            .Select(g => g.OrderByDescending(e => e.RebuiltAt ?? DateTimeOffset.MinValue).First())
+                            .ToDictionary(e => e.FaqId, e => e.Embedding);
+
+                        var candidateTuples = new List<(string FaqId, double[]? Vec, string Question, string SearchTextCache)>();
+                        foreach (var f in faqList)
+                        {
+                            embMap.TryGetValue(f.FaqId, out var vec);
+                            candidateTuples.Add((f.FaqId, vec, f.Question ?? string.Empty, f.SearchTextCache ?? string.Empty));
+                        }
+
+                        var scores = _scoring.ScoreCandidates(providerVec, candidateTuples, normalizedText, faqDict);
+                        var filtered = scores.Where(kv => kv.Value >= 0.0001).ToDictionary(kv => kv.Key, kv => kv.Value);
+                        var ranked = filtered.OrderByDescending(kv => kv.Value).ToList();
+                        if (ranked.Count == 0 && scores.Count > 0) ranked = scores.OrderByDescending(kv => kv.Value).ToList();
+
+                        if (ranked.Count > 0)
+                        {
+                            var best = ranked[0];
+                            // if provider gives a confident match, prefer provider
+                            if (best.Value >= HIGH)
+                            {
+                                matchedFaqId = best.Key;
+                                confidence = best.Value;
+                                matchedBy = "embedding_provider";
+                                replyText = faqDict.ContainsKey(matchedFaqId) ? faqDict[matchedFaqId].Answer : replyText;
+                                route = "faq";
+                                await WriteAppLogAsync("Information", "Provider rerank produced high confidence", new { ConversationId = req.ConversationId, FaqId = matchedFaqId, Score = confidence });
+                                // set queryVec to providerVec for downstream logging
+                                queryVec = providerVec;
+                            }
+                            else
+                            {
+                                // provider did not find high confidence — fall back to local candidates
+                                queryVec = localVec;
+                                await WriteAppLogAsync("Information", "Provider rerank did not yield high confidence; falling back to local candidates", new { ConversationId = req.ConversationId, BestProviderScore = best.Value });
+                            }
+                        }
+                        else
+                        {
+                            queryVec = localVec;
+                        }
+                    }
+                    else
+                    {
+                        // provider unavailable or no candidates — use local
+                        queryVec = localVec;
+                    }
+                }
             }
             catch (Exception ex)
             {
