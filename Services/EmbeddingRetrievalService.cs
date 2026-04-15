@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
@@ -36,12 +37,19 @@ namespace ARCompletions.Services
         {
             if (normalizedText == null) return null;
             var cacheKeyVec = $"embedding_vec:{provider}:{modelName}:{normalizedText}";
+            var overallSw = Stopwatch.StartNew();
+            await _dbLogger.LogAsync("Debug", "GetOrCreateEmbeddingAsync START", new { Provider = provider, Model = modelName, Key = cacheKeyVec, TextLen = normalizedText.Length });
             var cacheTtlSeconds = int.TryParse(Environment.GetEnvironmentVariable("EMBEDDING_CACHE_TTL_SECONDS"), out var s) ? s : 300;
             if (_cache.TryGetValue<double[]>(cacheKeyVec, out var cachedVec))
             {
                 await _dbLogger.LogAsync("Debug", "Embedding cache hit", new { Key = cacheKeyVec, Len = cachedVec?.Length ?? 0 });
-                if (cachedVec != null && cachedVec.Length > 0) return cachedVec;
+                if (cachedVec != null && cachedVec.Length > 0)
+                {
+                    await _dbLogger.LogAsync("Debug", "GetOrCreateEmbeddingAsync END", new { Provider = provider, Model = modelName, Len = cachedVec.Length, ElapsedMs = overallSw.ElapsedMilliseconds });
+                    return cachedVec;
+                }
                 await _dbLogger.LogAsync("Debug", "Embedding cache contains empty marker", new { Key = cacheKeyVec });
+                await _dbLogger.LogAsync("Debug", "GetOrCreateEmbeddingAsync END", new { Provider = provider, Model = modelName, Len = 0, ElapsedMs = overallSw.ElapsedMilliseconds });
                 return null;
             }
 
@@ -112,12 +120,14 @@ namespace ARCompletions.Services
 
                     _cache.Set(cacheKeyVec, vec, TimeSpan.FromSeconds(cacheTtlSeconds));
                     await _dbLogger.LogAsync("Information", "Computed local_hash embedding and cached", new { Provider = provider, Model = modelName, Len = vec.Length });
+                    await _dbLogger.LogAsync("Debug", "GetOrCreateEmbeddingAsync END", new { Provider = provider, Model = modelName, Len = vec.Length, ElapsedMs = overallSw.ElapsedMilliseconds });
                     return vec;
                 }
                 catch (Exception ex)
                 {
                     await _dbLogger.LogAsync("Warning", "Local hash embedding computation failed", new { Text = normalizedText }, ex);
                     _cache.Set(cacheKeyVec, Array.Empty<double>(), TimeSpan.FromSeconds(Math.Min(30, cacheTtlSeconds)));
+                    await _dbLogger.LogAsync("Debug", "GetOrCreateEmbeddingAsync END", new { Provider = provider, Model = modelName, Len = 0, ElapsedMs = overallSw.ElapsedMilliseconds });
                     return null;
                 }
             }
@@ -165,6 +175,7 @@ namespace ARCompletions.Services
                         {
                             var arr = fromDb.Embedding;
                             _cache.Set(cacheKeyVec, arr, TimeSpan.FromSeconds(cacheTtlSeconds));
+                            await _dbLogger.LogAsync("Debug", "GetOrCreateEmbeddingAsync END", new { Provider = provider, Model = modelName, Len = arr?.Length ?? 0, ElapsedMs = overallSw.ElapsedMilliseconds });
                             return arr;
                         }
                     }
@@ -206,6 +217,7 @@ namespace ARCompletions.Services
                                         var arr = list.ToArray();
                                         _cache.Set(cacheKeyVec, arr, TimeSpan.FromSeconds(cacheTtlSeconds));
                                         await _dbLogger.LogAsync("Information", "Loaded embedding from local file", new { Model = modelName, Len = arr.Length });
+                                        await _dbLogger.LogAsync("Debug", "GetOrCreateEmbeddingAsync END", new { Provider = provider, Model = modelName, Len = arr.Length, ElapsedMs = overallSw.ElapsedMilliseconds });
                                         return arr;
                                     }
                                 }
@@ -234,6 +246,7 @@ namespace ARCompletions.Services
                             var arr = list.ToArray();
                             _cache.Set(cacheKeyVec, arr, TimeSpan.FromSeconds(cacheTtlSeconds));
                             await _dbLogger.LogAsync("Information", "Parsed embedding JSON and cached", new { Model = modelName, Len = arr.Length });
+                            await _dbLogger.LogAsync("Debug", "GetOrCreateEmbeddingAsync END", new { Provider = provider, Model = modelName, Len = arr.Length, ElapsedMs = overallSw.ElapsedMilliseconds });
                             return arr;
                         }
                     }
@@ -246,6 +259,7 @@ namespace ARCompletions.Services
 
             await _dbLogger.LogAsync("Debug", "Setting empty embedding marker", new { Key = cacheKeyVec });
             _cache.Set(cacheKeyVec, Array.Empty<double>(), TimeSpan.FromSeconds(Math.Min(30, cacheTtlSeconds)));
+            await _dbLogger.LogAsync("Debug", "GetOrCreateEmbeddingAsync END", new { Provider = provider, Model = modelName, Len = 0, ElapsedMs = overallSw.ElapsedMilliseconds });
             return null;
         }
     }

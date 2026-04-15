@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -47,15 +48,18 @@ namespace ARCompletions.Services
 
         public async Task<List<BotFaqItem>> FindByIdsAsync(IEnumerable<string> ids)
         {
+            var sw = Stopwatch.StartNew();
             var idList = ids?.ToList() ?? new List<string>();
             if (idList.Count == 0)
             {
                 await _dbLogger.LogAsync("Debug", "FindByIdsAsync called with empty ids");
+                await _dbLogger.LogAsync("Debug", "FindByIdsAsync END", new { Ids = idList, ElapsedMs = sw.ElapsedMilliseconds });
                 return new List<BotFaqItem>();
             }
             await _dbLogger.LogAsync("Debug", "FindByIdsAsync lookup ids", new { Ids = idList });
             var faqs = await _db.BotFaqItems.AsNoTracking().Where(f => idList.Contains(f.FaqId)).ToListAsync();
             await _dbLogger.LogAsync("Debug", "FindByIdsAsync returned faqs", new { Count = faqs.Count });
+            await _dbLogger.LogAsync("Debug", "FindByIdsAsync END", new { Ids = idList, Count = faqs.Count, ElapsedMs = sw.ElapsedMilliseconds });
             return faqs;
         }
     }

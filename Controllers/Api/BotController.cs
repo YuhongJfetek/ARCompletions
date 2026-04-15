@@ -97,14 +97,37 @@ public class BotController : ControllerBase
     {
         if (faqIds == null || faqIds.Count == 0) return new List<ARCompletions.Domain.BotFaqEmbedding>();
 
-        // EF Core FromSqlInterpolated will parameterize the array for Postgres ANY(...) usage.
+        // Use UNNEST + LATERAL to fetch one latest row per FaqId in a single query.
+        // This pattern lets Postgres use an index on (FaqId, EmbeddingProvider, IsActive, RebuiltAt)
+        // to satisfy the LIMIT 1 per FaqId efficiently. Add timing logs to measure DB fetch cost.
+        var fetchStart = DateTime.UtcNow;
+        try
+        {
+            await WriteAppLogAsync("Debug", "FetchLatestEmbeddingsAsync START", new { Count = faqIds.Count, Provider = provider });
+        }
+        catch { }
+
         var res = await _db.BotFaqEmbeddings
-            .FromSqlInterpolated($@"SELECT DISTINCT ON (e.""FaqId"") e.*
-                FROM bot_faq_embeddings e
-                WHERE e.""FaqId"" = ANY({faqIds}) AND e.""EmbeddingProvider"" = {provider} AND e.""Embedding"" IS NOT NULL AND e.""IsActive"" = TRUE
-                ORDER BY e.""FaqId"", e.""RebuiltAt"" DESC")
-            .AsNoTracking()
-            .ToListAsync();
+                .FromSqlInterpolated($@"
+                        SELECT e.* FROM unnest({faqIds}) AS f(faqid)
+                        LEFT JOIN LATERAL (
+                            SELECT e2.* FROM bot_faq_embeddings e2
+                            WHERE e2.""FaqId"" = f.faqid
+                                AND e2.""EmbeddingProvider"" = {provider}
+                                AND e2.""Embedding"" IS NOT NULL
+                                AND e2.""IsActive"" = TRUE
+                            ORDER BY e2.""RebuiltAt"" DESC
+                            LIMIT 1
+                        ) e ON true;")
+                .AsNoTracking()
+                .ToListAsync();
+
+        var fetchMs = (DateTime.UtcNow - fetchStart).TotalMilliseconds;
+        try
+        {
+            await WriteAppLogAsync("Debug", "FetchLatestEmbeddingsAsync END", new { Fetched = res?.Count ?? 0, ElapsedMs = fetchMs, Provider = provider });
+        }
+        catch { }
 
         return res;
     }
@@ -601,9 +624,11 @@ public class BotController : ControllerBase
                 var HIGH = GetDouble("bot.embedding.highConfidence", GetDouble("bot.embedding.high", 0.70));
                 var MIN = GetDouble("bot.embedding.minConfidence", GetDouble("bot.embedding.min", 0.44));
 
-                // 1) compute local embedding
+                // 1) compute local embedding (measure time)
+                var localEmbStart = DateTime.UtcNow;
                 var localVec = await _embeddingRetrieval.GetOrCreateEmbeddingAsync(normalizedText, modelName, "local_hash", cts.Token);
-                await WriteAppLogAsync("Debug", "Local embedding retrieved: ConversationId={ConversationId} Len={Len}", new { ConversationId = req.ConversationId, Len = localVec?.Length ?? 0 });
+                var localEmbMs = (DateTime.UtcNow - localEmbStart).TotalMilliseconds;
+                await WriteAppLogAsync("Debug", "Local embedding retrieved: ConversationId={ConversationId} Len={Len} ElapsedMs={ElapsedMs}", new { ConversationId = req.ConversationId, Len = localVec?.Length ?? 0, ElapsedMs = localEmbMs });
 
                 List<string> initialCandidates = new();
                 double localBestScore = 0.0;
@@ -613,31 +638,24 @@ public class BotController : ControllerBase
                     // build candidates using local vector
                     try
                     {
+                        var buildStart = DateTime.UtcNow;
+                        await WriteAppLogAsync("Debug", "Controller: BuildCandidatesAsync START", new { ConversationId = req.ConversationId, Phase = "local_prebuild" });
                         var built = await _candidateBuilder.BuildCandidatesAsync(normalizedText, localVec, "local_hash", 8);
+                        var buildMs = (DateTime.UtcNow - buildStart).TotalMilliseconds;
+                        await WriteAppLogAsync("Debug", "Controller: BuildCandidatesAsync END", new { ConversationId = req.ConversationId, Phase = "local_postbuild", ElapsedMs = buildMs, CandidateCount = built?.Count ?? 0 });
                         if (built != null && built.Count > 0)
                         {
                             initialCandidates = built;
 
-                            // fetch faq details and local embeddings
-                            var faqList = await _faqService.FindByIdsAsync(initialCandidates);
+                            // fetch faq details and embeddings in parallel to reduce roundtrips
+                            await WriteAppLogAsync("Debug", "Controller: FetchFaqsAndEmbeddings START", new { ConversationId = req.ConversationId, Provider = "local_hash", Count = initialCandidates.Count });
+                            var faqTask = _faqService.FindByIdsAsync(initialCandidates);
+                            var embTask = FetchLatestEmbeddingsAsync(initialCandidates, "local_hash");
+                            await Task.WhenAll(faqTask, embTask);
+                            var faqList = faqTask.Result;
+                            var embeddings = embTask.Result ?? new List<ARCompletions.Domain.BotFaqEmbedding>();
+                            await WriteAppLogAsync("Debug", "Controller: FetchFaqsAndEmbeddings END", new { ConversationId = req.ConversationId, Provider = "local_hash", Fetched = embeddings.Count, Faqlen = faqList.Count });
                             var faqDict = faqList.ToDictionary(f => f.FaqId, f => f);
-
-                            // Fetch latest embedding rows per FaqId for the local provider (one DB query per chunk)
-                            var embeddings = new List<ARCompletions.Domain.BotFaqEmbedding>();
-                            const int batchSize = 100;
-                            if (initialCandidates.Count <= batchSize)
-                            {
-                                embeddings = await FetchLatestEmbeddingsAsync(initialCandidates, "local_hash");
-                            }
-                            else
-                            {
-                                for (int i = 0; i < initialCandidates.Count; i += batchSize)
-                                {
-                                    var chunk = initialCandidates.Skip(i).Take(batchSize).ToList();
-                                    var part = await FetchLatestEmbeddingsAsync(chunk, "local_hash");
-                                    embeddings.AddRange(part);
-                                }
-                            }
 
                             var embMap = embeddings.ToDictionary(e => e.FaqId, e => e.Embedding);
 
@@ -648,7 +666,11 @@ public class BotController : ControllerBase
                                 candidateTuples.Add((f.FaqId, vec, f.Question ?? string.Empty, f.SearchTextCache ?? string.Empty));
                             }
 
+                            var scoreStart = DateTime.UtcNow;
+                            await WriteAppLogAsync("Debug", "Controller: Scoring START", new { ConversationId = req.ConversationId, CandidateCount = candidateTuples.Count, Mode = "local" });
                             var scores = _scoring.ScoreCandidates(localVec, candidateTuples, normalizedText, faqDict);
+                            var scoreMs = (DateTime.UtcNow - scoreStart).TotalMilliseconds;
+                            await WriteAppLogAsync("Debug", "Controller: Scoring END", new { ConversationId = req.ConversationId, CandidateCount = candidateTuples.Count, Mode = "local", ElapsedMs = scoreMs });
                             var filtered = scores.Where(kv => kv.Value >= 0.0001).ToDictionary(kv => kv.Key, kv => kv.Value);
                             var ranked = filtered.OrderByDescending(kv => kv.Value).ToList();
                             if (ranked.Count == 0 && scores.Count > 0) ranked = scores.OrderByDescending(kv => kv.Value).ToList();
@@ -699,10 +721,16 @@ public class BotController : ControllerBase
                     if (providerVec != null && providerVec.Length > 0 && initialCandidates.Count > 0)
                     {
                         // fetch provider embeddings for same candidates
-                        var faqList = await _faqService.FindByIdsAsync(initialCandidates);
+                        // fetch faq details and provider embeddings in parallel
+                        await WriteAppLogAsync("Debug", "Controller: FetchFaqsAndEmbeddings START", new { ConversationId = req.ConversationId, Provider = embeddingProvider, Count = initialCandidates.Count });
+                        var faqTask2 = _faqService.FindByIdsAsync(initialCandidates);
+                        var embTask2 = FetchLatestEmbeddingsAsync(initialCandidates, embeddingProvider);
+                        await Task.WhenAll(faqTask2, embTask2);
+                        var faqList = faqTask2.Result;
+                        var embeddings = embTask2.Result ?? new List<ARCompletions.Domain.BotFaqEmbedding>();
+                        await WriteAppLogAsync("Debug", "Controller: FetchFaqsAndEmbeddings END", new { ConversationId = req.ConversationId, Provider = embeddingProvider, Fetched = embeddings.Count, Faqlen = faqList.Count });
                         var faqDict = faqList.ToDictionary(f => f.FaqId, f => f);
 
-                        var embeddings = await FetchLatestEmbeddingsAsync(initialCandidates, embeddingProvider);
                         var embMap = embeddings.ToDictionary(e => e.FaqId, e => e.Embedding);
 
                         var candidateTuples = new List<(string FaqId, double[]? Vec, string Question, string SearchTextCache)>();
@@ -712,7 +740,11 @@ public class BotController : ControllerBase
                             candidateTuples.Add((f.FaqId, vec, f.Question ?? string.Empty, f.SearchTextCache ?? string.Empty));
                         }
 
-                        var scores = _scoring.ScoreCandidates(providerVec, candidateTuples, normalizedText, faqDict);
+                            await WriteAppLogAsync("Debug", "Controller: ProviderCandidates FETCHED; starting scoring", new { ConversationId = req.ConversationId, Provider = embeddingProvider, CandidateCount = candidateTuples.Count });
+                            var provScoreStart = DateTime.UtcNow;
+                            var scores = _scoring.ScoreCandidates(providerVec, candidateTuples, normalizedText, faqDict);
+                            var provScoreMs = (DateTime.UtcNow - provScoreStart).TotalMilliseconds;
+                            await WriteAppLogAsync("Debug", "Controller: Provider scoring END", new { ConversationId = req.ConversationId, Provider = embeddingProvider, CandidateCount = candidateTuples.Count, ElapsedMs = provScoreMs });
                         var filtered = scores.Where(kv => kv.Value >= 0.0001).ToDictionary(kv => kv.Key, kv => kv.Value);
                         var ranked = filtered.OrderByDescending(kv => kv.Value).ToList();
                         if (ranked.Count == 0 && scores.Count > 0) ranked = scores.OrderByDescending(kv => kv.Value).ToList();

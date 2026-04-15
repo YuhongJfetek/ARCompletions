@@ -158,6 +158,9 @@ builder.Services.AddScoped<ARCompletions.Services.IRouteLoggingService, ARComple
 builder.Services.AddScoped<ARCompletions.Services.IResponseBuilder, ARCompletions.Services.ResponseBuilder>();
 // DB-backed logger for services that previously used ILogger
 builder.Services.AddScoped<ARCompletions.Services.IDbLogger, ARCompletions.Services.DbLogger>();
+// Buffered background logger: persist app logs without blocking request threads
+builder.Services.AddSingleton<ARCompletions.Services.IBufferedAppLogger, ARCompletions.Services.BufferedAppLogger>();
+builder.Services.AddHostedService(sp => (ARCompletions.Services.BufferedAppLogger)sp.GetRequiredService<ARCompletions.Services.IBufferedAppLogger>());
 // Embedding update queue and background worker
 builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingUpdateQueue, ARCompletions.Services.EmbeddingUpdateQueue>();
 builder.Services.AddHostedService<ARCompletions.Services.EmbeddingUpdateBackgroundService>();
