@@ -49,7 +49,7 @@ namespace ARCompletions.Services
 
                 var t3Start = sw.ElapsedMilliseconds;
                 // metadata prefilter: try to reduce candidate set by category/subcategory/keywords matches
-                var maxCandidates = int.TryParse(Environment.GetEnvironmentVariable("EMBEDDING_MAX_CANDIDATES"), out var mc) ? mc : 500;
+                var maxCandidates = int.TryParse(Environment.GetEnvironmentVariable("EMBEDDING_MAX_CANDIDATES"), out var mc) ? mc : 150;
                 var normalizedLower = (normalizedText ?? string.Empty).ToLowerInvariant();
                 var rawTokens = _textProcessing.Tokenize(normalizedText ?? string.Empty) ?? Array.Empty<string>();
                 string[] tokens = rawTokens.Select(t => (t ?? string.Empty).ToLowerInvariant()).ToArray();

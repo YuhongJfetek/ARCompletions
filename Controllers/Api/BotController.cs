@@ -566,7 +566,7 @@ public class BotController : ControllerBase
             try
             {
                 // Try local_hash first and use thresholds to decide whether to call provider
-                var syncTimeoutMs = int.TryParse(Environment.GetEnvironmentVariable("EMBEDDING_SYNC_TIMEOUT_MS") ?? "1500", out var t) ? t : 1500;
+                var syncTimeoutMs = int.TryParse(Environment.GetEnvironmentVariable("EMBEDDING_SYNC_TIMEOUT_MS") ?? "1000", out var t) ? t : 1000;
                 using var cts = new System.Threading.CancellationTokenSource(syncTimeoutMs);
 
                 // thresholds (can be configured via bot_constants_configs)

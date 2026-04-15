@@ -170,6 +170,27 @@ builder.Services.AddScoped<Func<ARCompletions.Services.IDistributedLock>>(sp => 
 
 var app = builder.Build();
 
+// Prewarm embeddings cache for common providers to reduce first-request latency
+try
+{
+    using (var prewarmScope = app.Services.CreateScope())
+    {
+        var cache = prewarmScope.ServiceProvider.GetService<ARCompletions.Services.IEmbeddingsCache>();
+        if (cache != null)
+        {
+            var prewarm = (Environment.GetEnvironmentVariable("BOT_EMBEDDING_PREWARM_PROVIDERS") ?? "local_hash").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
+            foreach (var p in prewarm)
+            {
+                try { cache.GetOrLoadAsync(p).GetAwaiter().GetResult(); } catch (Exception ex) { Console.WriteLine("Embeddings cache prewarm failed for " + p + ": " + ex.Message); }
+            }
+        }
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine("Embeddings cache prewarm encountered error: " + ex.Message);
+}
+
 // 在開發環境啟用詳細例外頁，方便本地除錯（Development 環境才會啟用）
 if (app.Environment.IsDevelopment())
 {
