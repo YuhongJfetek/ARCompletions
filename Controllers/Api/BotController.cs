@@ -449,7 +449,7 @@ public class BotController : ControllerBase
                                 // The materialized view `bot_faq_items_candidates` is a lightweight subset (enabled rows with SearchTextCache).
                                 // Select ids from the materialized view using the % operator (GIN trigram index), then join back to main table.
                                 var trigramCandidates = await _db.BotFaqItems
-                                    .FromSqlInterpolated($@"SELECT i.""FaqId"", i.""SearchTextCache""
+                                    .FromSqlInterpolated($@"SELECT i.*
                                         FROM bot_faq_items i
                                         JOIN (
                                             SELECT m.""FaqId"", m.""SearchTextCache"" FROM bot_faq_items_candidates m
