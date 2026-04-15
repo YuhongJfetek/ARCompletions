@@ -91,6 +91,24 @@ public class BotController : ControllerBase
         }
     }
 
+    // Fetch the latest (most recently rebuilt) embedding row per FaqId for a given provider.
+    // Uses DISTINCT ON(...) to let Postgres return one row per FaqId ordered by RebuiltAt DESC.
+    private async Task<List<ARCompletions.Domain.BotFaqEmbedding>> FetchLatestEmbeddingsAsync(List<string> faqIds, string provider)
+    {
+        if (faqIds == null || faqIds.Count == 0) return new List<ARCompletions.Domain.BotFaqEmbedding>();
+
+        // EF Core FromSqlInterpolated will parameterize the array for Postgres ANY(...) usage.
+        var res = await _db.BotFaqEmbeddings
+            .FromSqlInterpolated($@"SELECT DISTINCT ON (e.""FaqId"") e.*
+                FROM bot_faq_embeddings e
+                WHERE e.""FaqId"" = ANY({faqIds}) AND e.""EmbeddingProvider"" = {provider} AND e.""Embedding"" IS NOT NULL AND e.""IsActive"" = TRUE
+                ORDER BY e.""FaqId"", e.""RebuiltAt"" DESC")
+            .AsNoTracking()
+            .ToListAsync();
+
+        return res;
+    }
+
 
     // A1 查詢決策 API（簡化版：目前僅回傳 shouldReply=false 骨架，後續可接上實際判斷流程）
     [HttpPost("bot/query")]
@@ -422,17 +440,26 @@ public class BotController : ControllerBase
             if (route == "none")
             {
                 // Let Postgres use the trigram index and similarity operator to return best candidates
+                // Use a two-step query: first select only keys (small rows) to encourage index use,
+                // then join back to fetch SearchTextCache and order by similarity.
                                 var trigramMinSimStr = Environment.GetEnvironmentVariable("TRIGRAM_MIN_SIMILARITY") ?? "0.1";
                                 if (!double.TryParse(trigramMinSimStr, out var trigramMinSim)) trigramMinSim = 0.1;
+
+                                // Use a materialized candidates view to make trigram selection index-friendly.
+                                // The materialized view `bot_faq_items_candidates` is a lightweight subset (enabled rows with SearchTextCache).
+                                // Select ids from the materialized view using the % operator (GIN trigram index), then join back to main table.
                                 var trigramCandidates = await _db.BotFaqItems
-                                                        .FromSqlInterpolated($@"SELECT * FROM bot_faq_items
-                                                                WHERE ""Enabled"" = true AND ""SearchTextCache"" IS NOT NULL
-                                                                    AND ""SearchTextCache"" % {normalizedText}
-                                                                    AND similarity(""SearchTextCache"", {normalizedText}) > {trigramMinSim}
-                                                                ORDER BY similarity(""SearchTextCache"", {normalizedText}) DESC
-                                                                LIMIT 500")
-                                                        .AsNoTracking()
-                                                        .ToListAsync();
+                                    .FromSqlInterpolated($@"SELECT i.""FaqId"", i.""SearchTextCache""
+                                        FROM bot_faq_items i
+                                        JOIN (
+                                            SELECT m.""FaqId"", m.""SearchTextCache"" FROM bot_faq_items_candidates m
+                                            WHERE m.""SearchTextCache"" % {normalizedText}
+                                            LIMIT 500
+                                        ) c ON c.""FaqId"" = i.""FaqId""
+                                        ORDER BY similarity(c.""SearchTextCache"", {normalizedText}) DESC
+                                        LIMIT 500")
+                                    .AsNoTracking()
+                                    .ToListAsync();
 
                 foreach (var f in trigramCandidates)
                 {
@@ -595,14 +622,24 @@ public class BotController : ControllerBase
                             var faqList = await _faqService.FindByIdsAsync(initialCandidates);
                             var faqDict = faqList.ToDictionary(f => f.FaqId, f => f);
 
-                            var embeddings = await _db.BotFaqEmbeddings.AsNoTracking()
-                                .Where(e => initialCandidates.Contains(e.FaqId) && e.EmbeddingProvider == "local_hash" && e.Embedding != null && e.Embedding.Length > 0)
-                                .ToListAsync();
+                            // Fetch latest embedding rows per FaqId for the local provider (one DB query per chunk)
+                            var embeddings = new List<ARCompletions.Domain.BotFaqEmbedding>();
+                            const int batchSize = 100;
+                            if (initialCandidates.Count <= batchSize)
+                            {
+                                embeddings = await FetchLatestEmbeddingsAsync(initialCandidates, "local_hash");
+                            }
+                            else
+                            {
+                                for (int i = 0; i < initialCandidates.Count; i += batchSize)
+                                {
+                                    var chunk = initialCandidates.Skip(i).Take(batchSize).ToList();
+                                    var part = await FetchLatestEmbeddingsAsync(chunk, "local_hash");
+                                    embeddings.AddRange(part);
+                                }
+                            }
 
-                            var embMap = embeddings
-                                .GroupBy(e => e.FaqId)
-                                .Select(g => g.OrderByDescending(e => e.RebuiltAt ?? DateTimeOffset.MinValue).First())
-                                .ToDictionary(e => e.FaqId, e => e.Embedding);
+                            var embMap = embeddings.ToDictionary(e => e.FaqId, e => e.Embedding);
 
                             var candidateTuples = new List<(string FaqId, double[]? Vec, string Question, string SearchTextCache)>();
                             foreach (var f in faqList)
@@ -665,14 +702,8 @@ public class BotController : ControllerBase
                         var faqList = await _faqService.FindByIdsAsync(initialCandidates);
                         var faqDict = faqList.ToDictionary(f => f.FaqId, f => f);
 
-                        var embeddings = await _db.BotFaqEmbeddings.AsNoTracking()
-                            .Where(e => initialCandidates.Contains(e.FaqId) && e.EmbeddingProvider == embeddingProvider && e.Embedding != null && e.Embedding.Length > 0)
-                            .ToListAsync();
-
-                        var embMap = embeddings
-                            .GroupBy(e => e.FaqId)
-                            .Select(g => g.OrderByDescending(e => e.RebuiltAt ?? DateTimeOffset.MinValue).First())
-                            .ToDictionary(e => e.FaqId, e => e.Embedding);
+                        var embeddings = await FetchLatestEmbeddingsAsync(initialCandidates, embeddingProvider);
+                        var embMap = embeddings.ToDictionary(e => e.FaqId, e => e.Embedding);
 
                         var candidateTuples = new List<(string FaqId, double[]? Vec, string Question, string SearchTextCache)>();
                         foreach (var f in faqList)
@@ -812,15 +843,24 @@ public class BotController : ControllerBase
 
                     // Batch fetch embeddings to avoid N+1 queries
                     var faqIds = faqs.Select(f => f.FaqId).ToList();
-                    var embeddings = await _db.BotFaqEmbeddings.AsNoTracking()
-                        .Where(e => faqIds.Contains(e.FaqId) && e.Embedding != null && e.Embedding.Length > 0 && e.EmbeddingProvider == embeddingProvider && e.IsActive)
-                        .ToListAsync();
+                    // Fetch latest embedding rows per FaqId for the selected provider
+                    var embeddings = new List<ARCompletions.Domain.BotFaqEmbedding>();
+                    const int batchSize = 100;
+                    if (faqIds.Count <= batchSize)
+                    {
+                        embeddings = await FetchLatestEmbeddingsAsync(faqIds, embeddingProvider);
+                    }
+                    else
+                    {
+                        for (int i = 0; i < faqIds.Count; i += batchSize)
+                        {
+                            var chunk = faqIds.Skip(i).Take(batchSize).ToList();
+                            var part = await FetchLatestEmbeddingsAsync(chunk, embeddingProvider);
+                            embeddings.AddRange(part);
+                        }
+                    }
 
-                    // If multiple rows exist per FaqId, pick the most recently rebuilt one
-                    var embMap = embeddings
-                        .GroupBy(e => e.FaqId)
-                        .Select(g => g.OrderByDescending(e => e.RebuiltAt ?? DateTimeOffset.MinValue).First())
-                        .ToDictionary(e => e.FaqId, e => e.Embedding);
+                    var embMap = embeddings.ToDictionary(e => e.FaqId, e => e.Embedding);
                     await WriteAppLogAsync("Debug", "Batch fetched embeddings: ConversationId={ConversationId} FetchedCount={Count}", new { ConversationId = req.ConversationId, FetchedCount = embeddings.Count });
 
                     foreach (var f in faqs)
