@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using ARCompletions.Data;
+using ARCompletions.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -14,12 +15,18 @@ namespace ARCompletions.Services
         private readonly ARCompletionsContext _db;
         private readonly IDbLogger _dbLogger;
         private readonly IScoringService _scoring;
+        private readonly IEmbeddingUpdateQueue _updateQueue;
+        private readonly IEmbeddingsCache _embeddingsCache;
+        private readonly ITextProcessingService _textProcessing;
 
-        public CandidateBuilderService(ARCompletionsContext db, IScoringService scoring, IDbLogger dbLogger)
+        public CandidateBuilderService(ARCompletionsContext db, IScoringService scoring, IDbLogger dbLogger, IEmbeddingUpdateQueue updateQueue, IEmbeddingsCache embeddingsCache, ITextProcessingService textProcessing)
         {
             _db = db;
             _scoring = scoring;
             _dbLogger = dbLogger;
+            _updateQueue = updateQueue;
+            _embeddingsCache = embeddingsCache;
+            _textProcessing = textProcessing;
         }
 
         public async Task<List<string>> BuildCandidatesAsync(string normalizedText, double[]? queryVec, string embeddingProvider, int topN = 5)
@@ -29,35 +36,89 @@ namespace ARCompletions.Services
 
             try
             {
-                // load embedding items and faq map
+                // load embedding items and faq map (use process-level cache)
                 var t0 = sw.ElapsedMilliseconds;
-                var embItems = await _db.BotFaqEmbeddings.AsNoTracking().Where(e => e.IsActive && e.EmbeddingProvider == embeddingProvider).ToListAsync();
+                var (embItems, faqMap) = await _embeddingsCache.GetOrLoadAsync(embeddingProvider);
                 var t1 = sw.ElapsedMilliseconds;
-                await _dbLogger.LogAsync("Debug", "Embeddings loaded", new { Count = embItems.Count, ElapsedMs = t1 - t0 });
+                await _dbLogger.LogAsync("Debug", "Embeddings loaded (cache)", new { Count = embItems.Count, ElapsedMs = t1 - t0 });
                 if (embItems.Count == 0)
                 {
-                    await _dbLogger.LogAsync("Information", "No embedding items for provider", new { Provider = embeddingProvider });
+                    await _dbLogger.LogAsync("Information", "No embedding items for provider (cache)", new { Provider = embeddingProvider });
                     return new List<string>();
                 }
 
-                var t2Start = sw.ElapsedMilliseconds;
-                var faqIds = embItems.Select(e => e.FaqId).Distinct().ToList();
-                var faqs = await _db.BotFaqItems.AsNoTracking().Where(f => faqIds.Contains(f.FaqId) && f.Enabled).ToListAsync();
-                var t2 = sw.ElapsedMilliseconds;
-                await _dbLogger.LogAsync("Debug", "FAQ details loaded", new { Count = faqs.Count, ElapsedMs = t2 - t2Start });
-                var faqMap = faqs.ToDictionary(f => f.FaqId, f => f);
-
                 var t3Start = sw.ElapsedMilliseconds;
-                var candidateTuples = new List<(string FaqId, double[]? Vec, string Question, string SearchTextCache)>();
+                // metadata prefilter: try to reduce candidate set by category/subcategory/keywords matches
+                var maxCandidates = int.TryParse(Environment.GetEnvironmentVariable("EMBEDDING_MAX_CANDIDATES"), out var mc) ? mc : 500;
+                var normalizedLower = (normalizedText ?? string.Empty).ToLowerInvariant();
+                var rawTokens = _textProcessing.Tokenize(normalizedText ?? string.Empty) ?? Array.Empty<string>();
+                string[] tokens = rawTokens.Select(t => (t ?? string.Empty).ToLowerInvariant()).ToArray();
+
+                var highPriority = new List<BotFaqItem>();
+                var others = new List<BotFaqItem>();
                 foreach (var f in faqMap.Values)
                 {
                     double[]? v = null;
                     var emb = embItems.FirstOrDefault(e => e.FaqId == f.FaqId && (e.Embedding?.Length ?? 0) > 0);
                     if (emb != null) v = emb.Embedding;
+                    else
+                    {
+                        // If provider embedding missing, enqueue a background update (non-blocking)
+                        try
+                        {
+                            if (!string.IsNullOrWhiteSpace(embeddingProvider) && !string.Equals(embeddingProvider, "local_hash", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var textToEmbed = f.Question ?? f.SearchTextCache ?? string.Empty;
+                                _ = _updateQueue.EnqueueAsync(new EmbeddingUpdateRequest(f.FaqId, textToEmbed, embeddingProvider, null));
+                            }
+                        }
+                        catch { }
+                    }
+                    // decide priority based on metadata
+                    var metaMatched = false;
+                    try
+                    {
+                        if (!string.IsNullOrWhiteSpace(f.CategoryKey) && normalizedLower.Contains(f.CategoryKey!.ToLowerInvariant())) metaMatched = true;
+                        if (!metaMatched && !string.IsNullOrWhiteSpace(f.Category) && normalizedLower.Contains(f.Category!.ToLowerInvariant())) metaMatched = true;
+                        if (!metaMatched && !string.IsNullOrWhiteSpace(f.Subcategory) && normalizedLower.Contains(f.Subcategory!.ToLowerInvariant())) metaMatched = true;
+                        if (!metaMatched && !string.IsNullOrWhiteSpace(f.Keywords))
+                        {
+                            var kw = f.Keywords!.ToLowerInvariant();
+                            foreach (var t in tokens)
+                            {
+                                if (string.IsNullOrWhiteSpace(t)) continue;
+                                if (kw.Contains(t)) { metaMatched = true; break; }
+                            }
+                        }
+                    }
+                    catch { metaMatched = false; }
+
+                    if (metaMatched) highPriority.Add(f);
+                    else others.Add(f);
+                }
+                // build final candidate list: prefer highPriority, then fill from others by UpdatedAt desc until maxCandidates
+                var selectedFaqs = new List<BotFaqItem>();
+                if (highPriority.Count > 0)
+                {
+                    selectedFaqs.AddRange(highPriority);
+                }
+
+                if (selectedFaqs.Count < maxCandidates)
+                {
+                    var needed = maxCandidates - selectedFaqs.Count;
+                    var fill = others.OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt).Take(needed);
+                    selectedFaqs.AddRange(fill);
+                }
+
+                var candidateTuples = new List<(string FaqId, double[]? Vec, string Question, string SearchTextCache)>();
+                foreach (var f in selectedFaqs)
+                {
+                    var emb = embItems.FirstOrDefault(e => e.FaqId == f.FaqId && (e.Embedding?.Length ?? 0) > 0);
+                    double[]? v = emb != null ? emb.Embedding : null;
                     candidateTuples.Add((f.FaqId, v, f.Question ?? string.Empty, f.SearchTextCache ?? string.Empty));
                 }
                 var t3 = sw.ElapsedMilliseconds;
-                await _dbLogger.LogAsync("Debug", "Candidate tuples prepared", new { Count = candidateTuples.Count, ElapsedMs = t3 - t3Start });
+                await _dbLogger.LogAsync("Debug", "Candidate tuples prepared (prefilter)", new { TotalFaqs = faqMap.Count, Selected = candidateTuples.Count, HighPriority = highPriority.Count, ElapsedMs = t3 - t3Start });
 
                 var t4Start = sw.ElapsedMilliseconds;
                 var scores = _scoring.ScoreCandidates(queryVec ?? Array.Empty<double>(), candidateTuples, normalizedText ?? string.Empty, faqMap);
@@ -67,7 +128,7 @@ namespace ARCompletions.Services
                 var t5Start = sw.ElapsedMilliseconds;
                 var ranked = scores.OrderByDescending(kv => kv.Value).Select(kv => kv.Key).Take(topN).ToList();
                 var t5 = sw.ElapsedMilliseconds;
-                await _dbLogger.LogAsync("Information", "Candidates built", new { ConversationTextLen = (normalizedText ?? string.Empty).Length, TopIds = ranked, TotalElapsedMs = sw.ElapsedMilliseconds, StepLoadEmbMs = t1 - t0, StepLoadFaqMs = t2 - t2Start, StepPrepareTuplesMs = t3 - t3Start, StepScoringMs = t4 - t4Start, StepRankMs = t5 - t5Start });
+                await _dbLogger.LogAsync("Information", "Candidates built", new { ConversationTextLen = (normalizedText ?? string.Empty).Length, TopIds = ranked, TotalElapsedMs = sw.ElapsedMilliseconds, StepLoadEmbMs = t1 - t0, StepLoadFaqMs = 0, StepPrepareTuplesMs = t3 - t3Start, StepScoringMs = t4 - t4Start, StepRankMs = t5 - t5Start });
 
                 return ranked;
             }

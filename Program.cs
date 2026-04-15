@@ -158,6 +158,11 @@ builder.Services.AddScoped<ARCompletions.Services.IRouteLoggingService, ARComple
 builder.Services.AddScoped<ARCompletions.Services.IResponseBuilder, ARCompletions.Services.ResponseBuilder>();
 // DB-backed logger for services that previously used ILogger
 builder.Services.AddScoped<ARCompletions.Services.IDbLogger, ARCompletions.Services.DbLogger>();
+// Embedding update queue and background worker
+builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingUpdateQueue, ARCompletions.Services.EmbeddingUpdateQueue>();
+builder.Services.AddHostedService<ARCompletions.Services.EmbeddingUpdateBackgroundService>();
+// Embeddings cache (process-level)
+builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingsCache, ARCompletions.Services.EmbeddingsCache>();
 // Distributed lock implementation (Postgres advisory lock)
 // Register as Transient and expose a factory so callers can create a fresh lock per call.
 builder.Services.AddTransient<ARCompletions.Services.IDistributedLock, ARCompletions.Services.PostgresAdvisoryLock>();
