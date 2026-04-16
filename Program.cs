@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Linq;
 using System.IO;
 using System.Net;
 using System.Security.Claims;
@@ -19,7 +20,32 @@ var builder = WebApplication.CreateBuilder(args);
 var port = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrWhiteSpace(port))
 {
-    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+    // Prefer configuring Kestrel when PORT is a numeric port.
+    if (int.TryParse(port, out var portNum))
+    {
+        builder.WebHost.ConfigureKestrel(options =>
+        {
+            options.ListenAnyIP(portNum);
+        });
+    }
+    else if (Uri.TryCreate(port, UriKind.Absolute, out var parsedUri))
+    {
+        // If PORT contains a full URL, use it directly.
+        builder.WebHost.UseUrls(port);
+    }
+    else
+    {
+        // Try to extract digits as a last resort (some platforms may inject non-numeric tokens).
+        var digits = new string(port.Where(char.IsDigit).ToArray());
+        if (int.TryParse(digits, out var parsedPort))
+        {
+            builder.WebHost.ConfigureKestrel(options => options.ListenAnyIP(parsedPort));
+        }
+        else
+        {
+            Console.WriteLine($"Warning: PORT environment variable has unexpected value '{port}'; skipping explicit binding.");
+        }
+    }
 }
 
 // ------------------------
