@@ -203,7 +203,17 @@ builder.Services.AddSingleton<ARCompletions.Services.IBufferedAppLogger, ARCompl
 builder.Services.AddHostedService(sp => (ARCompletions.Services.BufferedAppLogger)sp.GetRequiredService<ARCompletions.Services.IBufferedAppLogger>());
 // Embedding update queue and background worker
 builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingUpdateQueue, ARCompletions.Services.EmbeddingUpdateQueue>();
-builder.Services.AddHostedService<ARCompletions.Services.EmbeddingUpdateBackgroundService>();
+// Allow disabling the embedding background worker via environment for troubleshooting on platforms
+var disableEmbeddingBg = (Environment.GetEnvironmentVariable("DISABLE_EMBEDDING_BACKGROUND") ?? "false")
+    .Equals("true", StringComparison.OrdinalIgnoreCase);
+if (disableEmbeddingBg)
+{
+    Console.WriteLine("EmbeddingUpdateBackgroundService registration disabled via DISABLE_EMBEDDING_BACKGROUND=true");
+}
+else
+{
+    builder.Services.AddHostedService<ARCompletions.Services.EmbeddingUpdateBackgroundService>();
+}
 // Embeddings cache (process-level)
 builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingsCache, ARCompletions.Services.EmbeddingsCache>();
 // Distributed lock implementation (Postgres advisory lock)
