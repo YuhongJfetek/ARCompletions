@@ -389,6 +389,36 @@ try
         Console.WriteLine("No server addresses reported yet.");
     }
 
+    // Additional diagnostic: attempt a local TCP probe to confirm the server socket is accepting
+    if (int.TryParse(selectedPort, out var _probePort) && _probePort > 0)
+    {
+        var probeSuccess = false;
+        for (var attempt = 0; attempt < 10 && !probeSuccess; attempt++)
+        {
+            try
+            {
+                using var tcp = new System.Net.Sockets.TcpClient();
+                var task = tcp.ConnectAsync("127.0.0.1", _probePort);
+                var completed = await Task.WhenAny(task, Task.Delay(500)).ConfigureAwait(false);
+                if (completed == task && tcp.Connected)
+                {
+                    probeSuccess = true;
+                    Console.WriteLine($"Port probe success: 127.0.0.1:{_probePort} (attempt {attempt + 1})");
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Port probe attempt {attempt + 1} failed: " + ex.Message);
+            }
+
+            await Task.Delay(500).ConfigureAwait(false);
+        }
+
+        if (!probeSuccess)
+            Console.WriteLine($"Port probe failed: 127.0.0.1:{_probePort}");
+    }
+
     Console.WriteLine("=== Calling app.WaitForShutdownAsync() ===");
     await app.WaitForShutdownAsync();
 }
