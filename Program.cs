@@ -23,10 +23,10 @@ if (!string.IsNullOrWhiteSpace(port))
     // Prefer configuring Kestrel when PORT is a numeric port.
     if (int.TryParse(port, out var portNum))
     {
-        builder.WebHost.ConfigureKestrel(options =>
-        {
-            options.ListenAnyIP(portNum);
-        });
+        // Configure Kestrel and also call UseUrls to ensure it takes precedence over any
+        // URLS/ASPNETCORE_URLS environment values that may be set by the platform.
+        builder.WebHost.ConfigureKestrel(options => options.ListenAnyIP(portNum));
+        builder.WebHost.UseUrls($"http://0.0.0.0:{portNum}");
     }
     else if (Uri.TryCreate(port, UriKind.Absolute, out var parsedUri))
     {
