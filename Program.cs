@@ -173,35 +173,6 @@ builder.Services.AddScoped<Func<ARCompletions.Services.IDistributedLock>>(sp => 
 
 var app = builder.Build();
 
-// Prewarm embeddings cache after the application has started to avoid blocking port binding
-app.Lifetime.ApplicationStarted.Register(() =>
-{
-    _ = Task.Run(async () =>
-    {
-        try
-        {
-            using var prewarmScope = app.Services.CreateScope();
-            var cache = prewarmScope.ServiceProvider.GetService<ARCompletions.Services.IEmbeddingsCache>();
-            if (cache == null) return;
-
-            var providers = (Environment.GetEnvironmentVariable("BOT_EMBEDDING_PREWARM_PROVIDERS") ?? "local_hash")
-                .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => s.Trim())
-                .Where(s => !string.IsNullOrWhiteSpace(s));
-
-            foreach (var p in providers)
-            {
-                try { await cache.GetOrLoadAsync(p); }
-                catch (Exception ex) { Console.WriteLine($"Prewarm failed for {p}: {ex.Message}"); }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Prewarm error: " + ex.Message);
-        }
-    });
-});
-
 // 在開發環境啟用詳細例外頁，方便本地除錯（Development 環境才會啟用）
 if (app.Environment.IsDevelopment())
 {
