@@ -27,6 +27,7 @@ public class EmbeddingUpdateBackgroundService : BackgroundService
         _queue = queue;
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _logger.LogInformation("EmbeddingUpdateBackgroundService constructed (maxConcurrency={_maxConcurrency} placeholder)");
         _maxConcurrency = int.TryParse(
             Environment.GetEnvironmentVariable("EMBEDDING_UPDATE_WORKER_CONCURRENCY"),
             out var c) && c > 0 ? c : 4;
@@ -35,6 +36,7 @@ public class EmbeddingUpdateBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("EmbeddingUpdateBackgroundService ExecuteAsync starting");
         try
         {
             if (_queue is not EmbeddingUpdateQueue concrete)

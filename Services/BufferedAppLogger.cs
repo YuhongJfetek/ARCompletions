@@ -34,6 +34,7 @@ namespace ARCompletions.Services
             _logger = logger;
             _serviceProvider = serviceProvider;
             _queue = new BlockingCollection<LogItem>(new ConcurrentQueue<LogItem>());
+            _logger.LogInformation("BufferedAppLogger constructed");
         }
 
         public ValueTask EnqueueLogAsync(string level, string message, object? props = null)
@@ -52,6 +53,7 @@ namespace ARCompletions.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            _logger.LogInformation("BufferedAppLogger ExecuteAsync starting");
             try
             {
                 foreach (var item in _queue.GetConsumingEnumerable(stoppingToken))
