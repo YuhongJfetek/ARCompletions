@@ -14,11 +14,11 @@ using Microsoft.Extensions.FileProviders;
 using ARCompletions.Config;
 using Microsoft.OpenApi.Models;
 
-var builder = WebApplication.CreateBuilder(args);
-
-// 綁定 Render 指派的 PORT（只使用 UseUrls）
+// 第一行就設定 ASPNETCORE_URLS，確保優先於 CreateBuilder 的環境變數解析
 var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
-builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+Environment.SetEnvironmentVariable("ASPNETCORE_URLS", $"http://0.0.0.0:{port}");
+
+var builder = WebApplication.CreateBuilder(args);
 
 // ------------------------
 // CORS：允許 swagger 與本機前端
