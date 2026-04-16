@@ -107,7 +107,24 @@ public class BotController : ControllerBase
         }
         catch { }
 
-        var res = await _db.BotFaqEmbeddings
+        // Allow switching to the materialized-view path for fastest lookups.
+        var useMatview = (Environment.GetEnvironmentVariable("USE_LATEST_MATVIEW") ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
+        List<ARCompletions.Domain.BotFaqEmbedding> res;
+        if (useMatview)
+        {
+            // latest_bot_faq_embeddings contains one row per (FaqId, EmbeddingProvider)
+            res = await _db.BotFaqEmbeddings
+                .FromSqlInterpolated($@"
+                        SELECT l.* FROM unnest({faqIds}) AS f(faqid)
+                        LEFT JOIN latest_bot_faq_embeddings l
+                          ON l.""FaqId"" = f.faqid
+                         AND l.""EmbeddingProvider"" = {provider};")
+                .AsNoTracking()
+                .ToListAsync();
+        }
+        else
+        {
+            res = await _db.BotFaqEmbeddings
                 .FromSqlInterpolated($@"
                         SELECT e.* FROM unnest({faqIds}) AS f(faqid)
                         LEFT JOIN LATERAL (
@@ -121,6 +138,7 @@ public class BotController : ControllerBase
                         ) e ON true;")
                 .AsNoTracking()
                 .ToListAsync();
+        }
 
         var fetchMs = (DateTime.UtcNow - fetchStart).TotalMilliseconds;
         try
