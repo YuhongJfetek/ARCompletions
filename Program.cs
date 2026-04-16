@@ -15,8 +15,8 @@ using ARCompletions.Config;
 using Microsoft.OpenApi.Models;
 
 // 第一行就設定 ASPNETCORE_URLS，確保優先於 CreateBuilder 的環境變數解析
-// Support platforms (like Render) that set `HTTP_PORTS` instead of `PORT`.
-// Prefer `HTTP_PORTS` (first entry) → `PORT`. If neither is set, abort startup
+// Support platforms (like Render) that set `HTTP_PORTS` or `PORT`.
+// Prefer `PORT` (explicit platform port) → `HTTP_PORTS` (first entry). If neither is set, abort startup
 // to avoid silently binding to an incorrect default port.
 var portFromHttpPorts = Environment.GetEnvironmentVariable("HTTP_PORTS");
 var portFromPort = Environment.GetEnvironmentVariable("PORT");
@@ -26,21 +26,32 @@ Console.WriteLine($"ENV HTTP_PORTS={(string.IsNullOrWhiteSpace(portFromHttpPorts
 string selectedPort = null;
 string portSource = null;
 
-if (!string.IsNullOrWhiteSpace(portFromHttpPorts))
-{
-    selectedPort = portFromHttpPorts.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
-    portSource = "HTTP_PORTS";
-}
-
-if (string.IsNullOrWhiteSpace(selectedPort) && !string.IsNullOrWhiteSpace(portFromPort))
+// Prefer PORT when provided by platform/runtime (Render typically injects PORT)
+if (!string.IsNullOrWhiteSpace(portFromPort))
 {
     selectedPort = portFromPort.Trim();
     portSource = "PORT";
 }
 
+// Otherwise fall back to first HTTP_PORTS entry
+if (string.IsNullOrWhiteSpace(selectedPort) && !string.IsNullOrWhiteSpace(portFromHttpPorts))
+{
+    selectedPort = portFromHttpPorts.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+    portSource = "HTTP_PORTS";
+}
+
+if (!string.IsNullOrWhiteSpace(portFromPort) && !string.IsNullOrWhiteSpace(portFromHttpPorts))
+{
+    var firstHttp = portFromHttpPorts.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+    if (!string.Equals(firstHttp, portFromPort, StringComparison.Ordinal))
+    {
+        Console.WriteLine($"WARNING: Both PORT={portFromPort} and HTTP_PORTS={portFromHttpPorts} are set; using PORT={portFromPort}.");
+    }
+}
+
 if (string.IsNullOrWhiteSpace(selectedPort))
 {
-    Console.Error.WriteLine("ERROR: Missing required environment variable: HTTP_PORTS or PORT. Aborting startup to avoid binding to an incorrect default port.");
+    Console.Error.WriteLine("ERROR: Missing required environment variable: PORT or HTTP_PORTS. Aborting startup to avoid binding to an incorrect default port.");
     throw new InvalidOperationException("Missing required environment variable: PORT or HTTP_PORTS");
 }
 
