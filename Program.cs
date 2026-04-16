@@ -19,19 +19,7 @@ var builder = WebApplication.CreateBuilder(args);
 var port = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrWhiteSpace(port))
 {
-    // Prefer configuring Kestrel to listen on the provided port (more reliable on platforms like Render).
-    if (int.TryParse(port, out var portNum))
-    {
-        builder.WebHost.ConfigureKestrel(options =>
-        {
-            options.ListenAnyIP(portNum);
-        });
-    }
-    else
-    {
-        // Fallback to UseUrls if PORT is not an integer for some reason
-        builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
-    }
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
 
 // ------------------------

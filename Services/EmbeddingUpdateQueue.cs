@@ -31,7 +31,7 @@ namespace ARCompletions.Services
             return _channel.Writer.WriteAsync(req);
         }
 
-        internal IAsyncEnumerable<EmbeddingUpdateRequest> ReadAllAsync() => _channel.Reader.ReadAllAsync();
+        internal IAsyncEnumerable<EmbeddingUpdateRequest> ReadAllAsync(System.Threading.CancellationToken cancellationToken = default) => _channel.Reader.ReadAllAsync(cancellationToken);
 
         public void Dispose()
         {
