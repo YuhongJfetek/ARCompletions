@@ -368,4 +368,14 @@ app.MapAreaControllerRoute(
 
 app.MapControllers();
 
-app.Run();
+try
+{
+    Console.WriteLine("=== Calling app.Run() ===");
+    app.Run();
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine("=== FATAL: app.Run() threw an exception ===");
+    Console.Error.WriteLine(ex.ToString());
+    throw;
+}
