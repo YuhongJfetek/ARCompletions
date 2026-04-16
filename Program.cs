@@ -15,8 +15,14 @@ using ARCompletions.Config;
 using Microsoft.OpenApi.Models;
 
 // 第一行就設定 ASPNETCORE_URLS，確保優先於 CreateBuilder 的環境變數解析
-var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+// Support platforms (like Render) that set `HTTP_PORTS` instead of `PORT`.
+// Prefer `HTTP_PORTS` (first entry) → `PORT` → fallback to 10000.
+var portFromHttpPorts = Environment.GetEnvironmentVariable("HTTP_PORTS");
+var port = (portFromHttpPorts?.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()
+           ?? Environment.GetEnvironmentVariable("PORT")
+           ?? "10000").Trim();
 Environment.SetEnvironmentVariable("ASPNETCORE_URLS", $"http://0.0.0.0:{port}");
+Console.WriteLine($"Binding to port: {port} (from HTTP_PORTS or PORT or default)");
 
 var builder = WebApplication.CreateBuilder(args);
 
