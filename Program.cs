@@ -16,13 +16,33 @@ using Microsoft.OpenApi.Models;
 
 // 第一行就設定 ASPNETCORE_URLS，確保優先於 CreateBuilder 的環境變數解析
 // Support platforms (like Render) that set `HTTP_PORTS` instead of `PORT`.
-// Prefer `HTTP_PORTS` (first entry) → `PORT` → fallback to 10000.
+// Prefer `HTTP_PORTS` (first entry) → `PORT`. If neither is set, abort startup
+// to avoid silently binding to an incorrect default port.
 var portFromHttpPorts = Environment.GetEnvironmentVariable("HTTP_PORTS");
-var port = (portFromHttpPorts?.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()
-           ?? Environment.GetEnvironmentVariable("PORT")
-           ?? "10000").Trim();
-Environment.SetEnvironmentVariable("ASPNETCORE_URLS", $"http://0.0.0.0:{port}");
-Console.WriteLine($"Binding to port: {port} (from HTTP_PORTS or PORT or default)");
+var portFromPort = Environment.GetEnvironmentVariable("PORT");
+string selectedPort = null;
+string portSource = null;
+
+if (!string.IsNullOrWhiteSpace(portFromHttpPorts))
+{
+    selectedPort = portFromHttpPorts.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+    portSource = "HTTP_PORTS";
+}
+
+if (string.IsNullOrWhiteSpace(selectedPort) && !string.IsNullOrWhiteSpace(portFromPort))
+{
+    selectedPort = portFromPort.Trim();
+    portSource = "PORT";
+}
+
+if (string.IsNullOrWhiteSpace(selectedPort))
+{
+    Console.Error.WriteLine("ERROR: Missing required environment variable: HTTP_PORTS or PORT. Aborting startup to avoid binding to an incorrect default port.");
+    throw new InvalidOperationException("Missing required environment variable: PORT or HTTP_PORTS");
+}
+
+Environment.SetEnvironmentVariable("ASPNETCORE_URLS", $"http://0.0.0.0:{selectedPort}");
+Console.WriteLine($"Binding to port: {selectedPort} (from {portSource})");
 
 var builder = WebApplication.CreateBuilder(args);
 
