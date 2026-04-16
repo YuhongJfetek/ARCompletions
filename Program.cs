@@ -20,6 +20,9 @@ using Microsoft.OpenApi.Models;
 // to avoid silently binding to an incorrect default port.
 var portFromHttpPorts = Environment.GetEnvironmentVariable("HTTP_PORTS");
 var portFromPort = Environment.GetEnvironmentVariable("PORT");
+
+// Debug: print raw env values so platform logs show what was provided
+Console.WriteLine($"ENV HTTP_PORTS={(string.IsNullOrWhiteSpace(portFromHttpPorts) ? "<empty>" : portFromHttpPorts)}; PORT={(string.IsNullOrWhiteSpace(portFromPort) ? "<empty>" : portFromPort)}; ASPNETCORE_URLS={(Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "<empty>")}");
 string selectedPort = null;
 string portSource = null;
 
@@ -41,7 +44,9 @@ if (string.IsNullOrWhiteSpace(selectedPort))
     throw new InvalidOperationException("Missing required environment variable: PORT or HTTP_PORTS");
 }
 
+var aspnetUrlsBefore = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
 Environment.SetEnvironmentVariable("ASPNETCORE_URLS", $"http://0.0.0.0:{selectedPort}");
+Console.WriteLine($"ASPNETCORE_URLS before={aspnetUrlsBefore ?? "<empty>"}; after={Environment.GetEnvironmentVariable("ASPNETCORE_URLS")}");
 Console.WriteLine($"Binding to port: {selectedPort} (from {portSource})");
 
 var builder = WebApplication.CreateBuilder(args);
