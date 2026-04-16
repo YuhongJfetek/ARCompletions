@@ -24,11 +24,23 @@ namespace ARCompletions.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var enumerator = ((EmbeddingUpdateQueue)_queue).ReadAllAsync().GetAsyncEnumerator(stoppingToken);
+            var enumerator = ((EmbeddingUpdateQueue)_queue).ReadAllAsync().GetAsyncEnumerator();
             try
             {
-                while (await enumerator.MoveNextAsync())
+                while (true)
                 {
+                    bool moved;
+                    try
+                    {
+                        moved = await enumerator.MoveNextAsync().AsTask().WaitAsync(stoppingToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+
+                    if (!moved) break;
+
                     var req = enumerator.Current;
                     try
                     {

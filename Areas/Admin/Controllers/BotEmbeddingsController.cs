@@ -142,20 +142,29 @@ public class BotEmbeddingsController : Controller
         if (job == null) return NotFound();
 
         // Always return job + any embeddings produced since job.StartedAt (allows progressive updates while running)
-        var q = _db.BotFaqEmbeddings.AsNoTracking().Where(e => e.EmbeddingProvider == job.Provider && e.EmbeddingModel == job.Model);
+        var q = _db.BotFaqEmbeddings.AsNoTracking()
+            .Where(e => e.EmbeddingProvider == job.Provider && e.EmbeddingModel == job.Model);
         if (!string.IsNullOrWhiteSpace(job.TargetFaqId)) q = q.Where(e => e.FaqId == job.TargetFaqId);
         if (job.StartedAt.HasValue)
         {
             var started = job.StartedAt.Value;
-            q = q.Where(e => (e.RebuiltAt ?? e.CreatedAt) >= started);
+            q = q.Where(e => (e.RebuiltAt != null && e.RebuiltAt >= started) || (e.RebuiltAt == null && e.CreatedAt >= started));
         }
 
-        var embeddingsList = await q.OrderByDescending(e => e.RebuiltAt ?? e.CreatedAt).Take(2000).ToListAsync();
+        // Project only the fields the UI needs (avoid shipping large embedding blobs),
+        // order by RebuiltAt then CreatedAt to allow index-friendly access where possible,
+        // and limit the result set to a smaller page for responsiveness.
+        var embeddingsList = await q
+            .OrderByDescending(e => e.RebuiltAt)
+            .ThenByDescending(e => e.CreatedAt)
+            .Select(e => new { e.EmbeddingId, e.FaqId, e.RebuiltAt, e.CreatedAt, e.IsActive })
+            .Take(200)
+            .ToListAsync();
         // readiness: job completed and at least one embedding present, or job failed (show what we have)
         var status = (job.Status ?? string.Empty).ToLowerInvariant();
         bool ready = false;
         if (status == "failed") ready = true;
-        if (status == "completed" && embeddingsList != null && embeddingsList.Count > 0) ready = true;
+        if (status == "completed" && embeddingsList != null && embeddingsList.Any()) ready = true;
 
         return Json(new { Job = job, Embeddings = embeddingsList, Ready = ready });
     }
