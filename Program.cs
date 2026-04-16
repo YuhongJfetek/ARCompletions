@@ -370,12 +370,31 @@ app.MapControllers();
 
 try
 {
-    Console.WriteLine("=== Calling app.Run() ===");
-    app.Run();
+    Console.WriteLine("=== Starting host with explicit StartAsync ===");
+    await app.StartAsync();
+
+    // Try to surface the actual addresses the server is listening on as early as possible
+    var addressesFeature = app.Services.GetService(typeof(Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature))
+                           as Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature;
+    if (addressesFeature != null && addressesFeature.Addresses != null && addressesFeature.Addresses.Any())
+    {
+        Console.WriteLine("Now listening on: " + string.Join(", ", addressesFeature.Addresses));
+    }
+    else if (app.Urls != null && app.Urls.Count > 0)
+    {
+        Console.WriteLine("Now listening on (from app.Urls): " + string.Join(", ", app.Urls));
+    }
+    else
+    {
+        Console.WriteLine("No server addresses reported yet.");
+    }
+
+    Console.WriteLine("=== Calling app.WaitForShutdownAsync() ===");
+    await app.WaitForShutdownAsync();
 }
 catch (Exception ex)
 {
-    Console.Error.WriteLine("=== FATAL: app.Run() threw an exception ===");
+    Console.Error.WriteLine("=== FATAL: app startup threw an exception ===");
     Console.Error.WriteLine(ex.ToString());
     throw;
 }
