@@ -20,12 +20,16 @@ public class BotFaqItemsController : Controller
     private readonly ARCompletionsContext _db;
     private readonly IEmbeddingRebuildService _embeddingRebuildService;
     private readonly IDbLogger _dbLogger;
+    private readonly IQueryHintsService _queryHints;
+    private readonly ITextProcessingService _textProcessing;
 
-    public BotFaqItemsController(ARCompletionsContext db, IEmbeddingRebuildService embeddingRebuildService, IDbLogger dbLogger)
+    public BotFaqItemsController(ARCompletionsContext db, IEmbeddingRebuildService embeddingRebuildService, IDbLogger dbLogger, IQueryHintsService queryHints, ITextProcessingService textProcessing)
     {
         _db = db;
         _embeddingRebuildService = embeddingRebuildService;
         _dbLogger = dbLogger;
+        _queryHints = queryHints;
+        _textProcessing = textProcessing;
     }
 
     // Bulk import removed — use data seeder or admin scripts for bulk operations.
@@ -167,7 +171,7 @@ public class BotFaqItemsController : Controller
         return View(item);
     }
 
-    public IActionResult Create(string? question = null, string? answer = null, string? categoryKey = null, string? faqId = null)
+    public async Task<IActionResult> Create(string? question = null, string? answer = null, string? categoryKey = null, string? faqId = null)
     {
         var model = new BotFaqItem
         {
@@ -193,6 +197,90 @@ public class BotFaqItemsController : Controller
         if (!string.IsNullOrWhiteSpace(faqId))
         {
             model.FaqId = faqId;
+        }
+
+        // If FaqId isn't provided but we have a question, generate a safe default FaqId
+        if (string.IsNullOrWhiteSpace(model.FaqId) && !string.IsNullOrWhiteSpace(model.Question))
+        {
+            model.FaqId = GenerateFaqIdFromQuestion(model.Question);
+        }
+
+        // Provide a sensible default QueryExamples and SearchTextCache to help admins
+        if (string.IsNullOrWhiteSpace(model.QueryExamples) && !string.IsNullOrWhiteSpace(model.Question))
+        {
+            // store as a JSON array string so the UI shows an example search
+            model.QueryExamples = System.Text.Json.JsonSerializer.Serialize(new[] { model.Question });
+        }
+
+        if (string.IsNullOrWhiteSpace(model.SearchTextCache) && !string.IsNullOrWhiteSpace(model.Question))
+        {
+            model.SearchTextCache = model.Question;
+        }
+
+        // Populate additional fields from lightweight analysis of the Question
+        if (!string.IsNullOrWhiteSpace(model.Question))
+        {
+            var normalized = _textProcessing.Normalize(model.Question);
+            // Category hints
+            try
+            {
+                var hints = _queryHints.DetectPreferredCategoryKeys(normalized);
+                if (hints != null && hints.Length > 0)
+                {
+                    model.CategoryKey ??= hints[0];
+                    model.Category ??= hints[0];
+                }
+            }
+            catch { }
+
+            // Keywords: top distinct tokens
+            try
+            {
+                var toks = _textProcessing.Tokenize(normalized) ?? Array.Empty<string>();
+                var top = toks.GroupBy(t => t).OrderByDescending(g => g.Count()).Select(g => g.Key).Distinct().Take(8).ToArray();
+                if (top.Length > 0)
+                {
+                    model.Keywords = System.Text.Json.JsonSerializer.Serialize(top);
+                }
+            }
+            catch { }
+
+            // AliasTerms and Sources as simple JSON arrays
+            if (string.IsNullOrWhiteSpace(model.AliasTerms)) model.AliasTerms = System.Text.Json.JsonSerializer.Serialize(Array.Empty<string>());
+            if (string.IsNullOrWhiteSpace(model.Sources)) model.Sources = System.Text.Json.JsonSerializer.Serialize(new[] { "conversation_suggestion" });
+
+            // Min confidence sensible default if not set
+            if (!model.MinConfidenceScore.HasValue) model.MinConfidenceScore = 0.3;
+
+            // Try to prefill Answer from existing stored bot replies in the DB
+            try
+            {
+                var matchedReply = await (from r in _db.BotMessageRoutes.AsNoTracking()
+                                          join e in _db.BotIncomingEvents.AsNoTracking() on r.EventRowId equals e.EventRowId
+                                          where !string.IsNullOrWhiteSpace(r.ReplyText)
+                                                && !string.IsNullOrWhiteSpace(e.Text)
+                                                && (e.Text.Contains(model.Question) || model.Question.Contains(e.Text))
+                                          orderby r.CreatedAt descending
+                                          select r.ReplyText).FirstOrDefaultAsync();
+
+                if (!string.IsNullOrWhiteSpace(matchedReply))
+                {
+                    ViewBag.AnswerDraft = matchedReply;
+                    if (string.IsNullOrWhiteSpace(model.Answer)) model.Answer = matchedReply;
+                }
+                else
+                {
+                    var draft = GenerateDraftAnswer(model.Question);
+                    ViewBag.AnswerDraft = draft;
+                    if (string.IsNullOrWhiteSpace(model.Answer)) model.Answer = draft;
+                }
+            }
+            catch
+            {
+                var draft = GenerateDraftAnswer(model.Question);
+                ViewBag.AnswerDraft = draft;
+                if (string.IsNullOrWhiteSpace(model.Answer)) model.Answer = draft;
+            }
         }
 
         return View(model);
@@ -313,4 +401,30 @@ public class BotFaqItemsController : Controller
     // Bulk import DTO and helpers removed together with the BulkImport actions.
 
     // Raw vendor payload parsing removed — use stored `Text` on events instead.
+
+    private static string GenerateFaqIdFromQuestion(string question)
+    {
+        if (string.IsNullOrWhiteSpace(question)) return Guid.NewGuid().ToString("N");
+        var s = question.ToLowerInvariant();
+        var sb = new System.Text.StringBuilder();
+        foreach (var ch in s)
+        {
+            if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')) sb.Append(ch);
+            else if (char.IsWhiteSpace(ch) || ch == '-' || ch == '_') sb.Append('-');
+            // else skip punctuation
+        }
+        var outStr = sb.ToString().Trim('-');
+        if (outStr.Length == 0) return Guid.NewGuid().ToString("N");
+        if (outStr.Length > 60) outStr = outStr.Substring(0, 60);
+        return outStr;
+    }
+
+    private static string GenerateDraftAnswer(string question)
+    {
+        if (string.IsNullOrWhiteSpace(question)) return string.Empty;
+        var q = question.Trim();
+        return $"建議回覆：\n針對「{q}」的查詢，可說明背景、可行解法與注意事項；請補充具體步驟與範例。";
+    }
+
 }
+
