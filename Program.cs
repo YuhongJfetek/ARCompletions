@@ -344,7 +344,7 @@ else
     Console.WriteLine($"Static image path not found: {imagePath}");
 }
 
-app.UseHttpsRedirection();
+// Removed `UseHttpsRedirection` for Render deployment (platform handles TLS)
 
 // Area route for admin MVC
 app.MapAreaControllerRoute(
