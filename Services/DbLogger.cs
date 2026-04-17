@@ -44,6 +44,38 @@ namespace ARCompletions.Services
             }
         }
 
+        public async Task LogAsync(ARCompletionsContext db, string level, string message, object? properties = null, Exception? ex = null, bool saveNow = false)
+        {
+            try
+            {
+                var log = new AppLog
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    TimeStamp = DateTime.UtcNow,
+                    Level = level,
+                    Message = message,
+                    MessageTemplate = message,
+                    Exception = ex?.ToString(),
+                    Properties = properties == null ? null : System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(properties))
+                };
+                db.AppLogs.Add(log);
+                if (saveNow)
+                {
+                    await db.SaveChangesAsync();
+                }
+            }
+            catch (Exception e)
+            {
+                try
+                {
+                    Console.Error.WriteLine("DbLogger.LogAsync(db,...): failed to write AppLog - " + e.ToString());
+                }
+                catch
+                {
+                }
+            }
+        }
+
         public void LogSync(string level, string message, object? properties = null, Exception? ex = null, bool deferSave = false)
         {
             try

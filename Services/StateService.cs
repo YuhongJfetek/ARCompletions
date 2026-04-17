@@ -17,7 +17,7 @@ namespace ARCompletions.Services
             _cache = cache;
         }
 
-        public async Task<BotConversationState?> GetStateAsync(string sourceType, string conversationId, bool useMemoryState)
+        public async Task<BotConversationState?> GetStateAsync(string sourceType, string conversationId, bool useMemoryState, ARCompletionsContext? db = null)
         {
             var key = $"state:{sourceType}:{conversationId}";
             if (useMemoryState)
@@ -25,11 +25,15 @@ namespace ARCompletions.Services
                 _cache.TryGetValue(key, out BotConversationState? s);
                 return s;
             }
-            using var db = _dbFactory.CreateDbContext();
-            return await db.BotConversationStates.FindAsync(sourceType, conversationId);
+            if (db != null)
+            {
+                return await db.BotConversationStates.FindAsync(sourceType, conversationId);
+            }
+            using var _db = _dbFactory.CreateDbContext();
+            return await _db.BotConversationStates.FindAsync(sourceType, conversationId);
         }
 
-        public async Task SaveStateAsync(BotConversationState state, bool useMemoryState, string stateCacheKey, bool deferSave = false)
+        public async Task SaveStateAsync(BotConversationState state, bool useMemoryState, string stateCacheKey, bool deferSave = false, ARCompletionsContext? db = null)
         {
             if (useMemoryState)
             {
@@ -37,32 +41,59 @@ namespace ARCompletions.Services
             }
             else
             {
-                using var db = _dbFactory.CreateDbContext();
-                if (db.Entry(state).State == Microsoft.EntityFrameworkCore.EntityState.Detached)
+                if (db != null)
                 {
-                    db.BotConversationStates.Add(state);
+                    if (db.Entry(state).State == Microsoft.EntityFrameworkCore.EntityState.Detached)
+                    {
+                        db.BotConversationStates.Add(state);
+                    }
+                    if (!deferSave)
+                    {
+                        await db.SaveChangesAsync();
+                    }
+                    return;
+                }
+                using var _db = _dbFactory.CreateDbContext();
+                if (_db.Entry(state).State == Microsoft.EntityFrameworkCore.EntityState.Detached)
+                {
+                    _db.BotConversationStates.Add(state);
                 }
                 if (!deferSave)
                 {
-                    await db.SaveChangesAsync();
+                    await _db.SaveChangesAsync();
                 }
             }
         }
 
-        public async Task ClearPendingDisambiguationAtomicAsync(string sourceType, string conversationId, DateTimeOffset now)
+        public async Task ClearPendingDisambiguationAtomicAsync(string sourceType, string conversationId, DateTimeOffset now, ARCompletionsContext? db = null)
         {
-            using var db = _dbFactory.CreateDbContext();
-            using var tran = await db.Database.BeginTransactionAsync();
-            var dbState = await db.BotConversationStates.FindAsync(sourceType, conversationId);
-            if (dbState != null)
+            if (db != null)
             {
-                dbState.PendingDisambiguationIds = null;
-                dbState.PendingDisambiguationRoute = null;
-                dbState.PendingDisambiguationAt = null;
-                dbState.UpdatedAt = now;
-                await db.SaveChangesAsync();
+                using var tran = await db.Database.BeginTransactionAsync();
+                var dbState = await db.BotConversationStates.FindAsync(sourceType, conversationId);
+                if (dbState != null)
+                {
+                    dbState.PendingDisambiguationIds = null;
+                    dbState.PendingDisambiguationRoute = null;
+                    dbState.PendingDisambiguationAt = null;
+                    dbState.UpdatedAt = now;
+                    await db.SaveChangesAsync();
+                }
+                await tran.CommitAsync();
+                return;
             }
-            await tran.CommitAsync();
+            using var _db = _dbFactory.CreateDbContext();
+            using var _tran = await _db.Database.BeginTransactionAsync();
+            var state = await _db.BotConversationStates.FindAsync(sourceType, conversationId);
+            if (state != null)
+            {
+                state.PendingDisambiguationIds = null;
+                state.PendingDisambiguationRoute = null;
+                state.PendingDisambiguationAt = null;
+                state.UpdatedAt = now;
+                await _db.SaveChangesAsync();
+            }
+            await _tran.CommitAsync();
         }
     }
 }

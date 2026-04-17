@@ -14,12 +14,17 @@ namespace ARCompletions.Services
             _dbFactory = dbFactory;
         }
 
-        public async Task LogRouteAsync(BotMessageRoute route, bool persist)
+        public async Task LogRouteAsync(BotMessageRoute route, bool persist, ARCompletionsContext? db = null)
         {
             if (!persist) return;
-            using var db = _dbFactory.CreateDbContext();
-            db.BotMessageRoutes.Add(route);
-            await db.SaveChangesAsync();
+            if (db != null)
+            {
+                db.BotMessageRoutes.Add(route);
+                return;
+            }
+            using var _db = _dbFactory.CreateDbContext();
+            _db.BotMessageRoutes.Add(route);
+            await _db.SaveChangesAsync();
         }
     }
 }

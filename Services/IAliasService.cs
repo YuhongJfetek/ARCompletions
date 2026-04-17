@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using ARCompletions.Data;
 
 namespace ARCompletions.Services
 {
@@ -12,6 +13,6 @@ namespace ARCompletions.Services
 
     public interface IAliasService
     {
-        Task<AliasMatchResult?> MatchAliasAsync(string normalizedText);
+        Task<AliasMatchResult?> MatchAliasAsync(string normalizedText, ARCompletionsContext? db = null);
     }
 }

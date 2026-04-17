@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using ARCompletions.Domain;
+using ARCompletions.Data;
 
 namespace ARCompletions.Services;
 
@@ -18,5 +19,5 @@ public class DisambiguationResult
 
 public interface IDisambiguationService
 {
-    Task<DisambiguationResult> TryHandleNumericSelectionAsync(BotConversationState? state, string normalizedText, string sourceType, string conversationId, DateTimeOffset now, bool useMemoryState);
+    Task<DisambiguationResult> TryHandleNumericSelectionAsync(BotConversationState? state, string normalizedText, string sourceType, string conversationId, DateTimeOffset now, bool useMemoryState, ARCompletionsContext? db = null);
 }

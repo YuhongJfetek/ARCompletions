@@ -201,8 +201,10 @@ builder.Services.AddScoped<ARCompletions.Services.IRouteLoggingService, ARComple
 builder.Services.AddScoped<ARCompletions.Services.IResponseBuilder, ARCompletions.Services.ResponseBuilder>();
 // DB-backed logger for services that previously used ILogger
 builder.Services.AddScoped<ARCompletions.Services.IDbLogger, ARCompletions.Services.DbLogger>();
-// Replace buffered background logger with a no-op implementation (no hosted service)
-builder.Services.AddSingleton<ARCompletions.Services.IBufferedAppLogger, ARCompletions.Services.NoopBufferedAppLogger>();
+// Register the real buffered background logger as a singleton and hosted service
+builder.Services.AddSingleton<ARCompletions.Services.BufferedAppLogger>();
+builder.Services.AddSingleton<ARCompletions.Services.IBufferedAppLogger>(sp => sp.GetRequiredService<ARCompletions.Services.BufferedAppLogger>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ARCompletions.Services.BufferedAppLogger>());
 // Embedding update queue is kept, but no background worker is registered
 builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingUpdateQueue, ARCompletions.Services.EmbeddingUpdateQueue>();
 // Embeddings cache (process-level)

@@ -14,25 +14,27 @@ namespace ARCompletions.Services
     {
         private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
         private readonly IDbLogger _dbLogger;
+        private readonly IBufferedAppLogger? _bufferedLogger;
         private readonly IScoringService _scoring;
         private readonly IEmbeddingUpdateQueue _updateQueue;
         private readonly IEmbeddingsCache _embeddingsCache;
         private readonly ITextProcessingService _textProcessing;
 
-        public CandidateBuilderService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IScoringService scoring, IDbLogger dbLogger, IEmbeddingUpdateQueue updateQueue, IEmbeddingsCache embeddingsCache, ITextProcessingService textProcessing)
+        public CandidateBuilderService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IScoringService scoring, IDbLogger dbLogger, IEmbeddingUpdateQueue updateQueue, IEmbeddingsCache embeddingsCache, ITextProcessingService textProcessing, IBufferedAppLogger? bufferedLogger = null)
         {
             _dbFactory = dbFactory;
             _scoring = scoring;
             _dbLogger = dbLogger;
+            _bufferedLogger = bufferedLogger;
             _updateQueue = updateQueue;
             _embeddingsCache = embeddingsCache;
             _textProcessing = textProcessing;
         }
 
-        public async Task<List<string>> BuildCandidatesAsync(string normalizedText, double[]? queryVec, string embeddingProvider, int topN = 5)
+        public async Task<List<string>> BuildCandidatesAsync(string normalizedText, double[]? queryVec, string embeddingProvider, int topN = 5, ARCompletionsContext? db = null)
         {
             var sw = Stopwatch.StartNew();
-            await _dbLogger.LogAsync("Debug", "BuildCandidatesAsync start", new { Len = (normalizedText ?? string.Empty).Length, HasVec = queryVec != null, Provider = embeddingProvider, TopN = topN });
+            if (db != null) await _dbLogger.LogAsync(db, "Debug", "BuildCandidatesAsync start", new { Len = (normalizedText ?? string.Empty).Length, HasVec = queryVec != null, Provider = embeddingProvider, TopN = topN }); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Debug", "BuildCandidatesAsync start", new { Len = (normalizedText ?? string.Empty).Length, HasVec = queryVec != null, Provider = embeddingProvider, TopN = topN });
 
             try
             {
@@ -40,10 +42,10 @@ namespace ARCompletions.Services
                 var t0 = sw.ElapsedMilliseconds;
                 var (embItems, faqMap) = await _embeddingsCache.GetOrLoadAsync(embeddingProvider);
                 var t1 = sw.ElapsedMilliseconds;
-                await _dbLogger.LogAsync("Debug", "Embeddings loaded (cache)", new { Count = embItems.Count, ElapsedMs = t1 - t0 });
+                if (db != null) await _dbLogger.LogAsync(db, "Debug", "Embeddings loaded (cache)", new { Count = embItems.Count, ElapsedMs = t1 - t0 }); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Debug", "Embeddings loaded (cache)", new { Count = embItems.Count, ElapsedMs = t1 - t0 });
                 if (embItems.Count == 0)
                 {
-                    await _dbLogger.LogAsync("Information", "No embedding items for provider (cache)", new { Provider = embeddingProvider });
+                    if (db != null) await _dbLogger.LogAsync(db, "Information", "No embedding items for provider (cache)", new { Provider = embeddingProvider }); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Information", "No embedding items for provider (cache)", new { Provider = embeddingProvider });
                     return new List<string>();
                 }
 
@@ -118,23 +120,23 @@ namespace ARCompletions.Services
                     candidateTuples.Add((f.FaqId, v, f.Question ?? string.Empty, f.SearchTextCache ?? string.Empty));
                 }
                 var t3 = sw.ElapsedMilliseconds;
-                await _dbLogger.LogAsync("Debug", "Candidate tuples prepared (prefilter)", new { TotalFaqs = faqMap.Count, Selected = candidateTuples.Count, HighPriority = highPriority.Count, ElapsedMs = t3 - t3Start });
+                if (db != null) await _dbLogger.LogAsync(db, "Debug", "Candidate tuples prepared (prefilter)", new { TotalFaqs = faqMap.Count, Selected = candidateTuples.Count, HighPriority = highPriority.Count, ElapsedMs = t3 - t3Start }); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Debug", "Candidate tuples prepared (prefilter)", new { TotalFaqs = faqMap.Count, Selected = candidateTuples.Count, HighPriority = highPriority.Count, ElapsedMs = t3 - t3Start });
 
                 var t4Start = sw.ElapsedMilliseconds;
                 var scores = _scoring.ScoreCandidates(queryVec ?? Array.Empty<double>(), candidateTuples, normalizedText ?? string.Empty, faqMap);
                 var t4 = sw.ElapsedMilliseconds;
-                await _dbLogger.LogAsync("Debug", "Scoring computed", new { CandidateCount = candidateTuples.Count, ElapsedMs = t4 - t4Start });
+                if (db != null) await _dbLogger.LogAsync(db, "Debug", "Scoring computed", new { CandidateCount = candidateTuples.Count, ElapsedMs = t4 - t4Start }); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Debug", "Scoring computed", new { CandidateCount = candidateTuples.Count, ElapsedMs = t4 - t4Start });
 
                 var t5Start = sw.ElapsedMilliseconds;
                 var ranked = scores.OrderByDescending(kv => kv.Value).Select(kv => kv.Key).Take(topN).ToList();
                 var t5 = sw.ElapsedMilliseconds;
-                await _dbLogger.LogAsync("Information", "Candidates built", new { ConversationTextLen = (normalizedText ?? string.Empty).Length, TopIds = ranked, TotalElapsedMs = sw.ElapsedMilliseconds, StepLoadEmbMs = t1 - t0, StepLoadFaqMs = 0, StepPrepareTuplesMs = t3 - t3Start, StepScoringMs = t4 - t4Start, StepRankMs = t5 - t5Start });
+                if (db != null) await _dbLogger.LogAsync(db, "Information", "Candidates built", new { ConversationTextLen = (normalizedText ?? string.Empty).Length, TopIds = ranked, TotalElapsedMs = sw.ElapsedMilliseconds, StepLoadEmbMs = t1 - t0, StepLoadFaqMs = 0, StepPrepareTuplesMs = t3 - t3Start, StepScoringMs = t4 - t4Start, StepRankMs = t5 - t5Start }); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Information", "Candidates built", new { ConversationTextLen = (normalizedText ?? string.Empty).Length, TopIds = ranked, TotalElapsedMs = sw.ElapsedMilliseconds, StepLoadEmbMs = t1 - t0, StepLoadFaqMs = 0, StepPrepareTuplesMs = t3 - t3Start, StepScoringMs = t4 - t4Start, StepRankMs = t5 - t5Start });
 
                 return ranked;
             }
             catch (Exception ex)
             {
-                await _dbLogger.LogAsync("Warning", "CandidateBuilder.BuildCandidatesAsync failed", new { Text = normalizedText }, ex);
+                if (db != null) await _dbLogger.LogAsync(db, "Warning", "CandidateBuilder.BuildCandidatesAsync failed", new { Text = normalizedText }, ex); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Warning", "CandidateBuilder.BuildCandidatesAsync failed", new { Text = normalizedText });
                 throw;
             }
         }

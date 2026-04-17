@@ -327,7 +327,7 @@ public class BotFaqItemsController : Controller
         }
         catch (Exception ex)
         {
-            await _dbLogger.LogAsync("Warning", "Embedding rebuild failed for created FAQ {FaqId}", new { FaqId = model.FaqId }, ex);
+            await _dbLogger.LogAsync(db, "Warning", "Embedding rebuild failed for created FAQ {FaqId}", new { FaqId = model.FaqId }, ex, true);
             // 忽略 Embedding 失敗，避免影響 FAQ CRUD。詳細錯誤可從 bot_embedding_jobs 查詢。
         }
 
@@ -380,7 +380,7 @@ public class BotFaqItemsController : Controller
         }
         catch (Exception ex)
         {
-            await _dbLogger.LogAsync("Warning", "Embedding rebuild failed for updated FAQ {FaqId}", new { FaqId = existing.FaqId }, ex);
+            await _dbLogger.LogAsync(db, "Warning", "Embedding rebuild failed for updated FAQ {FaqId}", new { FaqId = existing.FaqId }, ex, true);
             // 忽略 Embedding 失敗，避免影響 FAQ CRUD。詳細錯誤可從 bot_embedding_jobs 查詢。
         }
 

@@ -15,22 +15,25 @@ public class EmbeddingService : IEmbeddingService
     private readonly IHttpClientFactory _httpFactory;
     private readonly IConfiguration _config;
     private readonly IDbLogger _dbLogger;
+    private readonly IBufferedAppLogger? _bufferedLogger;
 
-    public EmbeddingService(IHttpClientFactory httpFactory, IConfiguration config, IDbLogger dbLogger)
+    public EmbeddingService(IHttpClientFactory httpFactory, IConfiguration config, IDbLogger dbLogger, IBufferedAppLogger? bufferedLogger = null)
     {
         _httpFactory = httpFactory;
         _config = config;
         _dbLogger = dbLogger;
+        _bufferedLogger = bufferedLogger;
     }
 
-    public async Task<string?> GetEmbeddingJsonAsync(string input, string model)
+        public async Task<string> GetEmbeddingJsonAsync(string input, string model, ARCompletionsContext? db = null)
     {
         if (string.IsNullOrWhiteSpace(input)) return null;
 
         var apiKey = _config["OpenAI:ApiKey"] ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            await _dbLogger.LogAsync("Error", "OpenAI API key not configured");
+            if (db != null) await _dbLogger.LogAsync(db, "Error", "OpenAI API key not configured");
+            else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Error", "OpenAI API key not configured");
             return null;
         }
 
@@ -62,23 +65,23 @@ public class EmbeddingService : IEmbeddingService
                     var baseDelay = Math.Min(2000 * attempt, 30000);
                     var jitter = rng.Next(0, 500);
                     var waitMs = baseDelay + jitter;
-                    await _dbLogger.LogAsync("Warning", "OpenAI embedding transient failure", new { Status = resp.StatusCode, Attempt = attempt, Max = maxAttempts, Delay = waitMs, Resp = respText });
+                    if (db != null) await _dbLogger.LogAsync(db, "Warning", "OpenAI embedding transient failure", new { Status = resp.StatusCode, Attempt = attempt, Max = maxAttempts, Delay = waitMs, Resp = respText }); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Warning", "OpenAI embedding transient failure", new { Status = resp.StatusCode, Attempt = attempt, Max = maxAttempts, Delay = waitMs, Resp = respText });
                     await Task.Delay(waitMs);
                     continue;
                 }
 
-                await _dbLogger.LogAsync("Error", "OpenAI embedding failed (non-transient)", new { Status = resp.StatusCode, Resp = respText });
+                if (db != null) await _dbLogger.LogAsync(db, "Error", "OpenAI embedding failed (non-transient)", new { Status = resp.StatusCode, Resp = respText }); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Error", "OpenAI embedding failed (non-transient)", new { Status = resp.StatusCode, Resp = respText });
                 return respText;
             }
             catch (Exception ex)
             {
                 var waitMs = Math.Min(1000 * attempt * attempt, 30000);
-                    await _dbLogger.LogAsync("Warning", "Exception calling OpenAI embeddings", new { Attempt = attempt, Max = maxAttempts, Delay = waitMs }, ex);
+                    if (db != null) await _dbLogger.LogAsync(db, "Warning", "Exception calling OpenAI embeddings", new { Attempt = attempt, Max = maxAttempts, Delay = waitMs }, ex); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Warning", "Exception calling OpenAI embeddings", new { Attempt = attempt, Max = maxAttempts, Delay = waitMs });
                 await Task.Delay(waitMs);
             }
         }
 
-        await _dbLogger.LogAsync("Error", "OpenAI embedding request failed after attempts", new { Max = maxAttempts });
+        if (db != null) await _dbLogger.LogAsync(db, "Error", "OpenAI embedding request failed after attempts", new { Max = maxAttempts }); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Error", "OpenAI embedding request failed after attempts", new { Max = maxAttempts });
         return null;
     }
 }

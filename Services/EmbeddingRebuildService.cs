@@ -18,14 +18,16 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
     private readonly IEmbeddingRetrievalService _embeddingRetrievalService;
     private readonly IDbLogger _dbLogger;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IBufferedAppLogger? _bufferedLogger;
 
-    public EmbeddingRebuildService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IEmbeddingService embeddingService, IEmbeddingRetrievalService embeddingRetrievalService, IDbLogger dbLogger, IServiceProvider serviceProvider)
+    public EmbeddingRebuildService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IEmbeddingService embeddingService, IEmbeddingRetrievalService embeddingRetrievalService, IDbLogger dbLogger, IServiceProvider serviceProvider, IBufferedAppLogger? bufferedLogger = null)
     {
         _dbFactory = dbFactory;
         _embeddingService = embeddingService;
         _embeddingRetrievalService = embeddingRetrievalService;
         _dbLogger = dbLogger;
         _serviceProvider = serviceProvider;
+        _bufferedLogger = bufferedLogger;
     }
 
     public async Task<BotEmbeddingJob> RebuildAsync(string provider, string? model, string scope, string? faqId, string triggeredBy, CancellationToken cancellationToken = default)
@@ -47,10 +49,10 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
             provider = "openai";
         }
 
-        await _dbLogger.LogAsync("Information", "RebuildAsync called", new { Provider = provider, Model = model, Scope = scope, TargetFaqId = faqId, TriggeredBy = triggeredBy });
         var resolvedModel = await ResolveModelAsync(model, cancellationToken);
 
         using var db = _dbFactory.CreateDbContext();
+        await _dbLogger.LogAsync(db, "Information", "RebuildAsync called", new { Provider = provider, Model = model, Scope = scope, TargetFaqId = faqId, TriggeredBy = triggeredBy });
         var faqQuery = db.BotFaqItems.AsNoTracking().Where(f => f.Enabled);
         if (scope == "single" && !string.IsNullOrWhiteSpace(faqId))
         {
@@ -76,13 +78,13 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
             ErrorMessage = null
         };
 
-        if (faqs.Count == 0)
+            if (faqs.Count == 0)
         {
             job.Status = "failed";
             job.ErrorMessage = "沒有符合條件的 FAQ 可重建";
             db.BotEmbeddingJobs.Add(job);
             await db.SaveChangesAsync(cancellationToken);
-            await _dbLogger.LogAsync("Warning", "Rebuild job has no FAQs", new { JobId = job.JobId, Provider = job.Provider, Model = job.Model, Scope = job.Scope });
+            await _dbLogger.LogAsync(db, "Warning", "Rebuild job has no FAQs", new { JobId = job.JobId, Provider = job.Provider, Model = job.Model, Scope = job.Scope });
             return job;
         }
 
@@ -91,7 +93,7 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         job.StartedAt = DateTimeOffset.UtcNow;
         db.BotEmbeddingJobs.Add(job);
         await db.SaveChangesAsync(cancellationToken);
-        await _dbLogger.LogAsync("Information", "Rebuild job started", new { JobId = job.JobId, Provider = job.Provider, Model = job.Model, Total = job.TotalCount });
+        await _dbLogger.LogAsync(db, "Information", "Rebuild job started", new { JobId = job.JobId, Provider = job.Provider, Model = job.Model, Total = job.TotalCount });
 
         // process synchronously
         await ProcessJobAsync(job, faqs, resolvedModel, cancellationToken, db);
@@ -106,10 +108,10 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         if (scope == "single" && string.IsNullOrWhiteSpace(faqId)) throw new ArgumentException("faqId is required when scope = 'single'", nameof(faqId));
         if (string.IsNullOrWhiteSpace(provider)) provider = "openai";
 
-        await _dbLogger.LogAsync("Information", "StartRebuildAsync queued", new { Provider = provider, Model = model, Scope = scope, TargetFaqId = faqId, TriggeredBy = triggeredBy });
         var resolvedModel = await ResolveModelAsync(model, CancellationToken.None);
 
         using var db = _dbFactory.CreateDbContext();
+        await _dbLogger.LogAsync(db, "Information", "StartRebuildAsync queued", new { Provider = provider, Model = model, Scope = scope, TargetFaqId = faqId, TriggeredBy = triggeredBy });
         var faqQuery = db.BotFaqItems.AsNoTracking().Where(f => f.Enabled);
         if (scope == "single" && !string.IsNullOrWhiteSpace(faqId)) faqQuery = faqQuery.Where(f => f.FaqId == faqId);
         var faqs = await faqQuery.ToListAsync();
@@ -137,7 +139,7 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
             job.ErrorMessage = "沒有符合條件的 FAQ 可重建";
             db.BotEmbeddingJobs.Add(job);
             await db.SaveChangesAsync();
-            await _dbLogger.LogAsync("Warning", "StartRebuildAsync created empty job", new { JobId = job.JobId, Provider = job.Provider });
+            await _dbLogger.LogAsync(db, "Warning", "StartRebuildAsync created empty job", new { JobId = job.JobId, Provider = job.Provider });
             return job;
         }
 
@@ -145,7 +147,7 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         job.StartedAt = DateTimeOffset.UtcNow;
         db.BotEmbeddingJobs.Add(job);
         await db.SaveChangesAsync();
-        await _dbLogger.LogAsync("Information", "StartRebuildAsync job persisted", new { JobId = job.JobId, Provider = job.Provider, Total = job.TotalCount });
+        await _dbLogger.LogAsync(db, "Information", "StartRebuildAsync job persisted", new { JobId = job.JobId, Provider = job.Provider, Total = job.TotalCount });
 
         // fire-and-forget: create a fresh DI scope and process the job there to get a fresh DbContext
         _ = Task.Run(async () =>
@@ -191,7 +193,7 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         try
         {
-            await _dbLogger.LogAsync("Information", "Processing rebuild job", new { JobId = job.JobId, Provider = provider, Model = resolvedModel, Count = faqs.Count });
+            await _dbLogger.LogAsync(db, "Information", "Processing rebuild job", new { JobId = job.JobId, Provider = provider, Model = resolvedModel, Count = faqs.Count });
             foreach (var faq in faqs)
             {
                 if (cancellationToken.IsCancellationRequested) break;
@@ -206,7 +208,7 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
                     {
                         db.BotFaqEmbeddings.RemoveRange(existingForFaq);
                         await db.SaveChangesAsync(cancellationToken);
-                        await _dbLogger.LogAsync("Debug", "Removed existing embeddings for FAQ", new { JobId = job.JobId, FaqId = faq.FaqId, Provider = provider, Removed = existingForFaq.Count });
+                        await _dbLogger.LogAsync(db, "Debug", "Removed existing embeddings for FAQ", new { JobId = job.JobId, FaqId = faq.FaqId, Provider = provider, Removed = existingForFaq.Count });
                     }
                 }
                 catch
@@ -224,7 +226,7 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
                         continue;
                     }
 
-                    await _dbLogger.LogAsync("Debug", "Creating embedding for FAQ", new { JobId = job.JobId, FaqId = faq.FaqId, Provider = provider });
+                    await _dbLogger.LogAsync(db, "Debug", "Creating embedding for FAQ", new { JobId = job.JobId, FaqId = faq.FaqId, Provider = provider });
                     var vector = await _embeddingRetrievalService.GetOrCreateEmbeddingAsync(text, resolvedModel, provider, cancellationToken);
                     if (vector == null || vector.Length == 0)
                     {
@@ -233,7 +235,7 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
                         continue;
                     }
 
-                    await _dbLogger.LogAsync("Debug", "Embedding created", new { JobId = job.JobId, FaqId = faq.FaqId, Len = vector.Length, Provider = provider });
+                    await _dbLogger.LogAsync(db, "Debug", "Embedding created", new { JobId = job.JobId, FaqId = faq.FaqId, Len = vector.Length, Provider = provider });
 
                     var now = DateTimeOffset.UtcNow;
                     var entity = new BotFaqEmbedding
@@ -259,12 +261,12 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
                 {
                     job.FailedCount++;
                     errors.Add($"FAQ {faq.FaqId}: {ex.Message}");
-                    await _dbLogger.LogAsync("Error", "Embedding rebuild failed for FAQ", new { FaqId = faq.FaqId, JobId = job.JobId }, ex);
+                    await _dbLogger.LogAsync(db, "Error", "Embedding rebuild failed for FAQ", new { FaqId = faq.FaqId, JobId = job.JobId }, ex);
                 }
             }
 
             await db.SaveChangesAsync(cancellationToken);
-            await _dbLogger.LogAsync("Information", "Saved new embeddings batch", new { JobId = job.JobId, Count = newEmbeddings.Count });
+            await _dbLogger.LogAsync(db, "Information", "Saved new embeddings batch", new { JobId = job.JobId, Count = newEmbeddings.Count });
 
             if (newEmbeddings.Count > 0)
             {
@@ -281,7 +283,7 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
                 }
 
                 await db.SaveChangesAsync(cancellationToken);
-                await _dbLogger.LogAsync("Information", "Updated IsActive flags for provider scope", new { JobId = job.JobId, Provider = provider, Updated = allForScope.Count });
+                await _dbLogger.LogAsync(db, "Information", "Updated IsActive flags for provider scope", new { JobId = job.JobId, Provider = provider, Updated = allForScope.Count });
             }
 
             job.FinishedAt = DateTimeOffset.UtcNow;
@@ -293,7 +295,7 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
 
             db.BotEmbeddingJobs.Update(job);
             await db.SaveChangesAsync(cancellationToken);
-            await _dbLogger.LogAsync("Information", "Rebuild job finished", new { JobId = job.JobId, Status = job.Status, Completed = job.CompletedCount, Failed = job.FailedCount });
+            await _dbLogger.LogAsync(db, "Information", "Rebuild job finished", new { JobId = job.JobId, Status = job.Status, Completed = job.CompletedCount, Failed = job.FailedCount });
             await tx.CommitAsync(cancellationToken);
         }
         catch
@@ -383,7 +385,11 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         }
         catch (Exception ex)
         {
-            await _dbLogger.LogAsync("Error", "Failed to parse embedding JSON", null, ex);
+            try
+            {
+                if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Error", "Failed to parse embedding JSON", null);
+            }
+            catch { }
             return null;
         }
     }

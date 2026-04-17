@@ -17,6 +17,7 @@ namespace ARCompletions.Services
         private readonly IConfiguration _config;
         private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
         private readonly IDbLogger _dbLogger;
+        private readonly IBufferedAppLogger? _bufferedLogger;
 
         private static readonly HashSet<string> AllowedMimeTypes = new()
         {
@@ -31,11 +32,12 @@ namespace ARCompletions.Services
 
         private const long MaxFileSizeBytes = 50 * 1024 * 1024; // 50MB
 
-        public GoogleDriveService(IConfiguration config, Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IDbLogger dbLogger)
+        public GoogleDriveService(IConfiguration config, Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IDbLogger dbLogger, IBufferedAppLogger? bufferedLogger = null)
         {
             _config = config;
             _dbFactory = dbFactory;
             _dbLogger = dbLogger;
+            _bufferedLogger = bufferedLogger;
         }
 
         public async Task<DriveUploadResult> UploadAsync(IFormFile file, string groupId, string messageId, string messageType)
@@ -73,7 +75,16 @@ namespace ARCompletions.Services
             var progress = await request.UploadAsync();
             if (progress.Status != Google.Apis.Upload.UploadStatus.Completed)
             {
-                await _dbLogger.LogAsync("Error", "Drive upload failed", new { Message = progress.Exception?.Message }, progress.Exception);
+                // Use buffered logger to avoid immediate DB roundtrip from external integration failures
+                try
+                {
+                    if (_bufferedLogger != null)
+                    {
+                        await _bufferedLogger.EnqueueLogAsync("Error", "Drive upload failed", new { Message = progress.Exception?.Message });
+                    }
+                }
+                catch { }
+
                 throw new Exception("Drive upload failed: " + progress.Exception?.Message);
             }
 

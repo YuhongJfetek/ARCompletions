@@ -15,17 +15,30 @@ namespace ARCompletions.Services
             _dbFactory = dbFactory;
         }
 
-        public async Task<AliasMatchResult?> MatchAliasAsync(string normalizedText)
+        public async Task<AliasMatchResult?> MatchAliasAsync(string normalizedText, ARCompletionsContext? db = null)
         {
-            using var db = _dbFactory.CreateDbContext();
-            var aliases = await db.BotFaqAliases.AsNoTracking().Where(a => a.Enabled).ToListAsync();
-            var alias = aliases.FirstOrDefault(a => string.Equals(Normalize(a.Term), normalizedText, StringComparison.OrdinalIgnoreCase));
-            if (alias == null) return null;
+            if (db == null)
+            {
+                using var _db = _dbFactory.CreateDbContext();
+                var aliases = await _db.BotFaqAliases.AsNoTracking().Where(a => a.Enabled).ToListAsync();
+                var alias = aliases.FirstOrDefault(a => string.Equals(Normalize(a.Term), normalizedText, StringComparison.OrdinalIgnoreCase));
+                if (alias == null) return null;
+                return new AliasMatchResult
+                {
+                    AliasTerm = alias.Term,
+                    Mode = (alias.Mode ?? string.Empty).Trim().ToLowerInvariant(),
+                    FaqIds = ParseIds(alias.FaqIds)
+                };
+            }
+
+            var aliases2 = await db.BotFaqAliases.AsNoTracking().Where(a => a.Enabled).ToListAsync();
+            var alias2 = aliases2.FirstOrDefault(a => string.Equals(Normalize(a.Term), normalizedText, StringComparison.OrdinalIgnoreCase));
+            if (alias2 == null) return null;
             return new AliasMatchResult
             {
-                AliasTerm = alias.Term,
-                Mode = (alias.Mode ?? string.Empty).Trim().ToLowerInvariant(),
-                FaqIds = ParseIds(alias.FaqIds)
+                AliasTerm = alias2.Term,
+                Mode = (alias2.Mode ?? string.Empty).Trim().ToLowerInvariant(),
+                FaqIds = ParseIds(alias2.FaqIds)
             };
         }
 

@@ -6,6 +6,6 @@ namespace ARCompletions.Services
 {
     public interface IRouteLoggingService
     {
-        Task LogRouteAsync(BotMessageRoute route, bool persist);
+        Task LogRouteAsync(BotMessageRoute route, bool persist, ARCompletions.Data.ARCompletionsContext? db = null);
     }
 }
