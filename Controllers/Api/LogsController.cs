@@ -17,14 +17,14 @@ namespace ARCompletions.Controllers
             _dbFactory = dbFactory;
         }
 
-        // GET /api/logs/top30
-        [HttpGet("top30")]
-        public async Task<IActionResult> GetTop30Async()
+        // GET /api/logs/top50
+        [HttpGet("top50")]
+        public async Task<IActionResult> GetTop50Async()
         {
             using var db = _dbFactory.CreateDbContext();
             var items = await db.AppLogs
                 .OrderByDescending(l => l.TimeStamp)
-                .Take(30)
+                .Take(55)
                 .ToListAsync();
 
             var result = items.Select(l => new

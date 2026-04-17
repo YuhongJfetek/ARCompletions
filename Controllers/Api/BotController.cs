@@ -1141,11 +1141,24 @@ public class BotController : ControllerBase
         var persistRouteLogs3 = (Environment.GetEnvironmentVariable("PERSIST_ROUTE_LOGS") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
             await _routeLogger.LogRouteAsync(routeLog, persistRouteLogs3, db);
 
+        // Instrumentation: record elapsed immediately after route logging
+        try
+        {
+            await WriteAppLogAsync("Debug", "Checkpoint: after RouteLog", new { ElapsedMs = sw.ElapsedMilliseconds }, null, db);
+        }
+        catch { }
+
         if (deferredSaveNeeded)
         {
             try { await db.SaveChangesAsync(); }
             catch { /* swallow to avoid affecting response */ }
         }
+        // Instrumentation: record elapsed after any deferred SaveChanges
+        try
+        {
+            await WriteAppLogAsync("Debug", "Checkpoint: after SaveChanges", new { ElapsedMs = sw.ElapsedMilliseconds }, null, db);
+        }
+        catch { }
         sw.Stop();
         await WriteAppLogAsync("Information", "Query finished: ConversationId={ConversationId} Route={Route} ShouldReply={ShouldReply} ElapsedMs={Ms}", new { ConversationId = req.ConversationId, Route = route, ShouldReply = shouldReply, ElapsedMs = sw.ElapsedMilliseconds }, null, db);
 
