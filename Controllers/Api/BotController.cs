@@ -22,6 +22,7 @@ public class BotController : ControllerBase
 {
     private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
     private readonly IMemoryCache _cache;
+    private readonly IBotConstantsService _botConstants;
     private readonly ARCompletions.Services.IDbLogger _dbLogger;
     private readonly IDisambiguationService _disambiguationService;
     private readonly ITextProcessingService _textProcessing;
@@ -38,6 +39,7 @@ public class BotController : ControllerBase
     public BotController(
         Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory,
         IMemoryCache cache,
+        IBotConstantsService botConstants,
         IDisambiguationService disambiguationService,
         ARCompletions.Services.IDbLogger dbLogger,
         ITextProcessingService textProcessing,
@@ -53,6 +55,7 @@ public class BotController : ControllerBase
     {
         _dbFactory = dbFactory;
         _cache = cache;
+        _botConstants = botConstants;
         _dbLogger = dbLogger;
         _disambiguationService = disambiguationService;
         _textProcessing = textProcessing;
@@ -599,19 +602,8 @@ public class BotController : ControllerBase
             const double defaultCosineWeight = 0.7;
             const double defaultOverlapWeight = 0.3;
 
-            // Cache BotConstantsConfigs to avoid DB hit on every request
-            var cacheKeySettings = "BotConstantsConfigs";
-            List<ARCompletions.Domain.BotConstantsConfig>? settings = null;
-            if (!_cache.TryGetValue(cacheKeySettings, out settings))
-            {
-                settings = await db.BotConstantsConfigs
-                    .AsNoTracking()
-                    .ToListAsync();
-                var cacheSecsStr = Environment.GetEnvironmentVariable("BOT_CONFIG_CACHE_SECONDS") ?? "60";
-                if (!int.TryParse(cacheSecsStr, out var cacheSecs)) cacheSecs = 60;
-                var cacheEntryOptions = new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromSeconds(cacheSecs));
-                _cache.Set(cacheKeySettings, settings, cacheEntryOptions);
-            }
+            // Load bot constants via IBotConstantsService (service caches internally)
+            var settings = await _botConstants.GetAllConfigsAsync().ConfigureAwait(false);
             settings ??= new List<ARCompletions.Domain.BotConstantsConfig>();
 
             double GetDouble(string key, double def)

@@ -16,54 +16,35 @@ namespace ARCompletions.Services
     public class QueryHintsService : IQueryHintsService
     {
         private readonly ITextProcessingService _textProcessing;
-        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
+        private readonly IBotConstantsService _botConstants;
 
-        // cached mapping to avoid DB hit on every request
+        // local cache fallback (botConstants service already caches)
         private Dictionary<string, string>? _mappingCache;
         private DateTime _mappingLoadedAt = DateTime.MinValue;
         private readonly TimeSpan _mappingTtl = TimeSpan.FromSeconds(60);
 
-        public QueryHintsService(ITextProcessingService textProcessing, Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory)
+        public QueryHintsService(ITextProcessingService textProcessing, IBotConstantsService botConstants)
         {
             _textProcessing = textProcessing;
-            _dbFactory = dbFactory;
+            _botConstants = botConstants;
         }
 
-        private void EnsureMappingLoaded()
+        private async Task EnsureMappingLoadedAsync()
         {
             if (_mappingCache != null && (DateTime.UtcNow - _mappingLoadedAt) < _mappingTtl) return;
             try
             {
-                using var db = _dbFactory.CreateDbContext();
-                var cfg = db.BotConstantsConfigs.AsNoTracking().FirstOrDefault(c => c.ConfigKey == "bot.queryHints.mapping");
-                if (cfg != null && !string.IsNullOrWhiteSpace(cfg.ConfigValue))
+                var map = await _botConstants.GetQueryHintsMappingAsync().ConfigureAwait(false);
+                if (map != null && map.Count > 0)
                 {
-                    try
-                    {
-                        var doc = System.Text.Json.JsonDocument.Parse(cfg.ConfigValue!);
-                        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                        if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object)
-                        {
-                            foreach (var p in doc.RootElement.EnumerateObject())
-                            {
-                                var key = p.Name.Trim().ToLowerInvariant();
-                                var val = p.Value.GetString() ?? string.Empty;
-                                if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(val)) map[key] = val.Trim();
-                            }
-                        }
-                        _mappingCache = map;
-                        _mappingLoadedAt = DateTime.UtcNow;
-                        return;
-                    }
-                    catch
-                    {
-                        // parse failed: fall through to clear mapping
-                    }
+                    _mappingCache = map;
+                    _mappingLoadedAt = DateTime.UtcNow;
+                    return;
                 }
             }
             catch
             {
-                // swallow DB errors and fallback
+                // swallow and fallback
             }
             _mappingCache = null;
             _mappingLoadedAt = DateTime.UtcNow;
@@ -73,7 +54,8 @@ namespace ARCompletions.Services
         {
             if (string.IsNullOrWhiteSpace(normalizedText)) return Array.Empty<string>();
 
-            EnsureMappingLoaded();
+            // ensure mapping loaded (synchronously wait brief since callers are sync)
+            EnsureMappingLoadedAsync().GetAwaiter().GetResult();
 
             var tokens = _textProcessing.Tokenize(normalizedText ?? string.Empty) ?? Array.Empty<string>();
             var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

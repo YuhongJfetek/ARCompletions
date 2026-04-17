@@ -19,14 +19,16 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
     private readonly IDbLogger _dbLogger;
     private readonly IServiceProvider _serviceProvider;
     private readonly IBufferedAppLogger? _bufferedLogger;
+    private readonly IBotConstantsService _botConstants;
 
-    public EmbeddingRebuildService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IEmbeddingService embeddingService, IEmbeddingRetrievalService embeddingRetrievalService, IDbLogger dbLogger, IServiceProvider serviceProvider, IBufferedAppLogger? bufferedLogger = null)
+    public EmbeddingRebuildService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IEmbeddingService embeddingService, IEmbeddingRetrievalService embeddingRetrievalService, IDbLogger dbLogger, IServiceProvider serviceProvider, IBotConstantsService botConstants, IBufferedAppLogger? bufferedLogger = null)
     {
         _dbFactory = dbFactory;
         _embeddingService = embeddingService;
         _embeddingRetrievalService = embeddingRetrievalService;
         _dbLogger = dbLogger;
         _serviceProvider = serviceProvider;
+        _botConstants = botConstants;
         _bufferedLogger = bufferedLogger;
     }
 
@@ -335,14 +337,15 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
             return requestedModel;
         }
 
-        using var db = _dbFactory.CreateDbContext();
-        var setting = await db.BotConstantsConfigs
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ConfigKey == "bot.embedding.model", cancellationToken);
-
-        if (!string.IsNullOrWhiteSpace(setting?.ConfigValue))
+        try
         {
-            return setting.ConfigValue!;
+            var configs = await _botConstants.GetAllConfigsAsync().ConfigureAwait(false);
+            var setting = configs.FirstOrDefault(c => c.ConfigKey == "bot.embedding.model");
+            if (!string.IsNullOrWhiteSpace(setting?.ConfigValue)) return setting.ConfigValue!;
+        }
+        catch
+        {
+            // swallow and fallback
         }
 
         return "text-embedding-3-small";

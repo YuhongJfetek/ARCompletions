@@ -190,6 +190,8 @@ builder.Services.AddScoped<ARCompletions.Services.IDisambiguationService, ARComp
 // New services
 builder.Services.AddScoped<ARCompletions.Services.ITextProcessingService, ARCompletions.Services.TextProcessingService>();
 builder.Services.AddScoped<ARCompletions.Services.IQueryHintsService, ARCompletions.Services.QueryHintsService>();
+// Bot constants service: cached access to bot_constants_config
+builder.Services.AddSingleton<ARCompletions.Services.IBotConstantsService, ARCompletions.Services.BotConstantsService>();
 builder.Services.AddScoped<ARCompletions.Services.IPrefilterService, ARCompletions.Services.PrefilterService>();
 builder.Services.AddScoped<ARCompletions.Services.IStateService, ARCompletions.Services.StateService>();
 builder.Services.AddScoped<ARCompletions.Services.IAliasService, ARCompletions.Services.AliasService>();
