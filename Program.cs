@@ -316,6 +316,46 @@ else
             {
                 Console.WriteLine("Failed to pre-load BotConstantsService: " + ex.Message);
             }
+                // --- Embedding provider validation ---
+                try
+                {
+                    var botConstants = scope.ServiceProvider.GetService<ARCompletions.Services.IBotConstantsService>();
+                    var configs = botConstants != null ? await botConstants.GetAllConfigsAsync() : new System.Collections.Generic.List<ARCompletions.Domain.BotConstantsConfig>();
+                    string GetCfg(string key, string def)
+                    {
+                        var cfg = configs.Find(c => string.Equals(c.ConfigKey, key, StringComparison.OrdinalIgnoreCase));
+                        return string.IsNullOrWhiteSpace(cfg?.ConfigValue) ? def : cfg.ConfigValue!;
+                    }
+
+                    var embeddingProvider = GetCfg("bot.embedding.provider", "local_hash");
+                    var embeddingModel = GetCfg("bot.embedding.model", builder.Configuration["Embedding:Model"] ?? "text-embedding-3-small");
+                    Console.WriteLine($"Embedding provider: {embeddingProvider}; model: {embeddingModel}");
+
+                    if (string.Equals(embeddingProvider, "openai", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var openaiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? builder.Configuration["Embedding:OpenAiApiKey"] ?? builder.Configuration["OpenAI:ApiKey"];
+                        if (string.IsNullOrWhiteSpace(openaiKey))
+                        {
+                            Console.Error.WriteLine("ERROR: Embedding provider 'openai' requires OPENAI_API_KEY (env) or Embedding:OpenAiApiKey (config). Aborting startup.");
+                            throw new InvalidOperationException("Missing OpenAI API key for embedding provider 'openai'.");
+                        }
+                    }
+                    else if (!string.Equals(embeddingProvider, "local_hash", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // For non-local providers that likely need a persistent data source (pgvector, sqlserver, redis, etc.), ensure a data source is configured.
+                        var ds = Environment.GetEnvironmentVariable("DATABASE_URL") ?? builder.Configuration["Embedding:ConnectionString"] ?? Environment.GetEnvironmentVariable("EMBEDDING_DATASOURCE");
+                        if (string.IsNullOrWhiteSpace(ds))
+                        {
+                            Console.Error.WriteLine($"ERROR: Embedding provider '{embeddingProvider}' requires a data source (DATABASE_URL or Embedding:ConnectionString or EMBEDDING_DATASOURCE). Aborting startup.");
+                            throw new InvalidOperationException($"Missing data source for embedding provider '{embeddingProvider}'.");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("Embedding configuration validation failed: " + ex.Message);
+                    throw;
+                }
         }
     catch (Exception ex)
     {
