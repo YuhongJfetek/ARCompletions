@@ -96,7 +96,8 @@ public class EmbeddingUpdateBackgroundService : BackgroundService
 
             var textProcessing = scope.ServiceProvider.GetRequiredService<ITextProcessingService>();
             var retrieval = scope.ServiceProvider.GetRequiredService<IEmbeddingRetrievalService>();
-            var db = scope.ServiceProvider.GetRequiredService<ARCompletionsContext>();
+            var dbFactory = scope.ServiceProvider.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext>>();
+            using var db = dbFactory.CreateDbContext();
 
             var normalized = textProcessing.Normalize(item.Text) ?? item.Text;
             var model = string.IsNullOrWhiteSpace(item.Model) ? "legacy_hash64" : item.Model;

@@ -13,11 +13,11 @@ namespace ARCompletions.Areas.Admin.Controllers;
 [Authorize(Policy = "Platform")]
 public class BotConversationsController : Controller
 {
-    private readonly ARCompletionsContext _db;
+    private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> _dbFactory;
 
-    public BotConversationsController(ARCompletionsContext db)
+    public BotConversationsController(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> dbFactory)
     {
-        _db = db;
+        _dbFactory = dbFactory;
     }
 
     public async Task<IActionResult> Index(string? sourceType = null, bool? enabled = null, bool? hasHandoff = null, int page = 1, int pageSize = 50)
@@ -26,8 +26,9 @@ public class BotConversationsController : Controller
         if (pageSize <= 0) pageSize = 50;
         if (pageSize > 200) pageSize = 200;
 
+        using var db = _dbFactory.CreateDbContext();
         // 以 settings 為主清單
-        var query = _db.BotConversationSettings.AsQueryable();
+        var query = db.BotConversationSettings.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(sourceType))
         {
@@ -48,7 +49,7 @@ public class BotConversationsController : Controller
 
         // 對應狀態
         var keys = settings.Select(s => new { s.SourceType, s.ConversationId }).ToList();
-        var statesQuery = _db.BotConversationStates.AsQueryable();
+        var statesQuery = db.BotConversationStates.AsQueryable();
         if (!string.IsNullOrWhiteSpace(sourceType))
         {
             statesQuery = statesQuery.Where(s => s.SourceType == sourceType);
@@ -82,7 +83,8 @@ public class BotConversationsController : Controller
     public async Task<IActionResult> Edit(string sourceType, string conversationId)
     {
         if (string.IsNullOrEmpty(sourceType) || string.IsNullOrEmpty(conversationId)) return NotFound();
-        var setting = await _db.BotConversationSettings.FindAsync(sourceType, conversationId);
+        using var db = _dbFactory.CreateDbContext();
+        var setting = await db.BotConversationSettings.FindAsync(sourceType, conversationId);
         if (setting == null)
         {
             setting = new Domain.BotConversationSetting
@@ -102,12 +104,13 @@ public class BotConversationsController : Controller
         if (sourceType != model.SourceType || conversationId != model.ConversationId) return BadRequest();
         if (!ModelState.IsValid) return View(model);
 
-        var existing = await _db.BotConversationSettings.FindAsync(sourceType, conversationId);
+        using var db = _dbFactory.CreateDbContext();
+        var existing = await db.BotConversationSettings.FindAsync(sourceType, conversationId);
         if (existing == null)
         {
             model.UpdatedAt = DateTimeOffset.UtcNow;
             model.UpdatedBy = User?.Identity?.Name;
-            _db.BotConversationSettings.Add(model);
+                db.BotConversationSettings.Add(model);
         }
         else
         {
@@ -116,7 +119,7 @@ public class BotConversationsController : Controller
             existing.UpdatedBy = User?.Identity?.Name;
         }
 
-        await _db.SaveChangesAsync();
+            await db.SaveChangesAsync();
         TempData["Success"] = "群組設定已更新";
         return RedirectToAction(nameof(Index));
     }
@@ -126,13 +129,14 @@ public class BotConversationsController : Controller
     public async Task<IActionResult> ClearHandoff(string sourceType, string conversationId)
     {
         if (string.IsNullOrEmpty(sourceType) || string.IsNullOrEmpty(conversationId)) return NotFound();
-        var state = await _db.BotConversationStates.FindAsync(sourceType, conversationId);
+        using var db = _dbFactory.CreateDbContext();
+        var state = await db.BotConversationStates.FindAsync(sourceType, conversationId);
         if (state != null)
         {
             state.HandoffStartedAt = null;
             state.HandoffUntil = null;
             state.UpdatedAt = DateTimeOffset.UtcNow;
-            await _db.SaveChangesAsync();
+                await db.SaveChangesAsync();
         }
         TempData["Success"] = "已清除 handoff 暫停";
         return RedirectToAction(nameof(Index));
@@ -145,7 +149,8 @@ public class BotConversationsController : Controller
             return NotFound();
         }
 
-        var events = await _db.BotIncomingEvents
+        using var db = _dbFactory.CreateDbContext();
+        var events = await db.BotIncomingEvents
             .Where(e => e.SourceType == sourceType && e.ConversationId == conversationId)
             .OrderBy(e => e.ReceivedAt)
             .ToListAsync();
@@ -162,11 +167,11 @@ public class BotConversationsController : Controller
 
         var eventIds = events.Select(e => e.EventRowId).ToList();
 
-        var routes = await _db.BotMessageRoutes
+        var routes = await db.BotMessageRoutes
             .Where(r => r.EventRowId != null && eventIds.Contains(r.EventRowId.Value))
             .ToListAsync();
 
-        var llmLogs = await _db.BotLlmLogs
+        var llmLogs = await db.BotLlmLogs
             .Where(l => l.EventRowId != null && eventIds.Contains(l.EventRowId.Value))
             .ToListAsync();
 

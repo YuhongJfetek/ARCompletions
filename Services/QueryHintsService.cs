@@ -16,17 +16,17 @@ namespace ARCompletions.Services
     public class QueryHintsService : IQueryHintsService
     {
         private readonly ITextProcessingService _textProcessing;
-        private readonly ARCompletionsContext _db;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
 
         // cached mapping to avoid DB hit on every request
         private Dictionary<string, string>? _mappingCache;
         private DateTime _mappingLoadedAt = DateTime.MinValue;
         private readonly TimeSpan _mappingTtl = TimeSpan.FromSeconds(60);
 
-        public QueryHintsService(ITextProcessingService textProcessing, ARCompletionsContext db)
+        public QueryHintsService(ITextProcessingService textProcessing, Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory)
         {
             _textProcessing = textProcessing;
-            _db = db;
+            _dbFactory = dbFactory;
         }
 
         private void EnsureMappingLoaded()
@@ -34,7 +34,8 @@ namespace ARCompletions.Services
             if (_mappingCache != null && (DateTime.UtcNow - _mappingLoadedAt) < _mappingTtl) return;
             try
             {
-                var cfg = _db.BotConstantsConfigs.AsNoTracking().FirstOrDefault(c => c.ConfigKey == "bot.queryHints.mapping");
+                using var db = _dbFactory.CreateDbContext();
+                var cfg = db.BotConstantsConfigs.AsNoTracking().FirstOrDefault(c => c.ConfigKey == "bot.queryHints.mapping");
                 if (cfg != null && !string.IsNullOrWhiteSpace(cfg.ConfigValue))
                 {
                     try

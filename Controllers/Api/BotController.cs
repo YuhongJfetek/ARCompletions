@@ -20,7 +20,7 @@ namespace ARCompletions.Controllers.Api;
 [Route("internal/v1")] // 由 Program.cs 的 middleware 保護 X-Internal-API-Key
 public class BotController : ControllerBase
 {
-    private readonly ARCompletionsContext _db;
+    private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
     private readonly IMemoryCache _cache;
     private readonly ARCompletions.Services.IDbLogger _dbLogger;
     private readonly IDisambiguationService _disambiguationService;
@@ -36,7 +36,7 @@ public class BotController : ControllerBase
     private readonly IResponseBuilder _responseBuilder;
 
     public BotController(
-        ARCompletionsContext db,
+        Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory,
         IMemoryCache cache,
         IDisambiguationService disambiguationService,
         ARCompletions.Services.IDbLogger dbLogger,
@@ -51,7 +51,7 @@ public class BotController : ControllerBase
         IRouteLoggingService routeLogger,
         IResponseBuilder responseBuilder)
     {
-        _db = db;
+        _dbFactory = dbFactory;
         _cache = cache;
         _dbLogger = dbLogger;
         _disambiguationService = disambiguationService;
@@ -110,22 +110,24 @@ public class BotController : ControllerBase
         // Allow switching to the materialized-view path for fastest lookups.
         var useMatview = (Environment.GetEnvironmentVariable("USE_LATEST_MATVIEW") ?? "false").Equals("true", StringComparison.OrdinalIgnoreCase);
         List<ARCompletions.Domain.BotFaqEmbedding> res;
-        if (useMatview)
+        using (var db = _dbFactory.CreateDbContext())
         {
-            // latest_bot_faq_embeddings contains one row per (FaqId, EmbeddingProvider)
-            res = await _db.BotFaqEmbeddings
-                .FromSqlInterpolated($@"
+            if (useMatview)
+            {
+                // latest_bot_faq_embeddings contains one row per (FaqId, EmbeddingProvider)
+                res = await db.BotFaqEmbeddings
+                    .FromSqlInterpolated($@"
                         SELECT l.* FROM unnest({faqIds}) AS f(faqid)
                         LEFT JOIN latest_bot_faq_embeddings l
                           ON l.""FaqId"" = f.faqid
                          AND l.""EmbeddingProvider"" = {provider};")
-                .AsNoTracking()
-                .ToListAsync();
-        }
-        else
-        {
-            res = await _db.BotFaqEmbeddings
-                .FromSqlInterpolated($@"
+                    .AsNoTracking()
+                    .ToListAsync();
+            }
+            else
+            {
+                res = await db.BotFaqEmbeddings
+                    .FromSqlInterpolated($@"
                         SELECT e.* FROM unnest({faqIds}) AS f(faqid)
                         LEFT JOIN LATERAL (
                             SELECT e2.* FROM bot_faq_embeddings e2
@@ -136,8 +138,9 @@ public class BotController : ControllerBase
                             ORDER BY e2.""RebuiltAt"" DESC
                             LIMIT 1
                         ) e ON true;")
-                .AsNoTracking()
-                .ToListAsync();
+                    .AsNoTracking()
+                    .ToListAsync();
+            }
         }
 
         var fetchMs = (DateTime.UtcNow - fetchStart).TotalMilliseconds;
@@ -164,6 +167,7 @@ public class BotController : ControllerBase
         await _dbLogger.LogAsync("Information", "Query received: ConversationId={ConversationId} UserId={UserId} SourceType={SourceType} TextLen={TextLen}", new { ConversationId = req.ConversationId, UserId = req.UserId, SourceType = req.SourceType, TextLen = (req.Text ?? string.Empty).Length });
 
         var now = DateTimeOffset.UtcNow;
+        using var db = _dbFactory.CreateDbContext();
         var sourceType = string.IsNullOrWhiteSpace(req.SourceType) ? "group" : req.SourceType;
 
         // 可配置是否強制轉成 UTC（預設 true）
@@ -192,7 +196,7 @@ public class BotController : ControllerBase
         var deferredSaveNeeded = false;
         if (persistIncoming)
         {
-            _db.BotIncomingEvents.Add(ev);
+            db.BotIncomingEvents.Add(ev);
             deferredSaveNeeded = true;
         }
 
@@ -271,14 +275,14 @@ public class BotController : ControllerBase
             var persistRouteLogs2 = (Environment.GetEnvironmentVariable("PERSIST_ROUTE_LOGS") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
             if (persistRouteLogs2)
             {
-                _db.BotMessageRoutes.Add(logEmpty);
+                db.BotMessageRoutes.Add(logEmpty);
                 deferredSaveNeeded = true;
             }
             await WriteAppLogAsync("Information", "Prefilter short-circuit: ConversationId={ConversationId} Reason={Reason}", new { ConversationId = req.ConversationId, Reason = pre.Reason });
 
             if (deferredSaveNeeded)
             {
-                try { await _db.SaveChangesAsync(); }
+                try { await db.SaveChangesAsync(); }
                 catch { /* swallow to avoid affecting response */ }
             }
 
@@ -350,7 +354,7 @@ public class BotController : ControllerBase
             var persistRouteLogs = (Environment.GetEnvironmentVariable("PERSIST_ROUTE_LOGS") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
             if (persistRouteLogs)
             {
-                _db.BotMessageRoutes.Add(logHandoff);
+                db.BotMessageRoutes.Add(logHandoff);
                 deferredSaveNeeded = true;
             }
 
@@ -411,7 +415,7 @@ public class BotController : ControllerBase
             var persistRouteLogs2 = (Environment.GetEnvironmentVariable("PERSIST_ROUTE_LOGS") ?? "true").Equals("true", StringComparison.OrdinalIgnoreCase);
             if (persistRouteLogs2)
             {
-                _db.BotMessageRoutes.Add(logEmpty);
+                db.BotMessageRoutes.Add(logEmpty);
                 deferredSaveNeeded = true;
             }
 
@@ -459,7 +463,7 @@ public class BotController : ControllerBase
         if (route == "none")
         {
             // try exact match using precomputed SearchTextCache
-            var exactFaqs = await _db.BotFaqItems
+            var exactFaqs = await db.BotFaqItems
                 .AsNoTracking()
                 .Where(f => f.Enabled && f.SearchTextCache != null && f.SearchTextCache == normalizedText)
                 .ToListAsync();
@@ -489,7 +493,7 @@ public class BotController : ControllerBase
                                 // Use a materialized candidates view to make trigram selection index-friendly.
                                 // The materialized view `bot_faq_items_candidates` is a lightweight subset (enabled rows with SearchTextCache).
                                 // Select ids from the materialized view using the % operator (GIN trigram index), then join back to main table.
-                                var trigramCandidates = await _db.BotFaqItems
+                                var trigramCandidates = await db.BotFaqItems
                                     .FromSqlInterpolated($@"SELECT i.*
                                         FROM bot_faq_items i
                                         JOIN (
@@ -591,7 +595,7 @@ public class BotController : ControllerBase
             List<ARCompletions.Domain.BotConstantsConfig>? settings = null;
             if (!_cache.TryGetValue(cacheKeySettings, out settings))
             {
-                settings = await _db.BotConstantsConfigs
+                settings = await db.BotConstantsConfigs
                     .AsNoTracking()
                     .ToListAsync();
                 var cacheSecsStr = Environment.GetEnvironmentVariable("BOT_CONFIG_CACHE_SECONDS") ?? "60";
@@ -811,7 +815,7 @@ public class BotController : ControllerBase
             if (queryVec == null)
             {
                 // use SearchTextCache for fallback and limit scan size
-                var faqsForFallback = await _db.BotFaqItems.AsNoTracking()
+                var faqsForFallback = await db.BotFaqItems.AsNoTracking()
                     .Where(f => f.Enabled && f.SearchTextCache != null)
                     .Take(500)
                     .ToListAsync();
@@ -1069,7 +1073,7 @@ public class BotController : ControllerBase
         object[] quickReplies = Array.Empty<object>();
         if (route == "candidates" && topFaqIds.Count > 0)
         {
-            var faqList = await _db.BotFaqItems
+            var faqList = await db.BotFaqItems
                 .AsNoTracking()
                 .Where(f => topFaqIds.Contains(f.FaqId))
                 .ToListAsync();
@@ -1138,7 +1142,7 @@ public class BotController : ControllerBase
 
         if (deferredSaveNeeded)
         {
-            try { await _db.SaveChangesAsync(); }
+            try { await db.SaveChangesAsync(); }
             catch { /* swallow to avoid affecting response */ }
         }
         sw.Stop();

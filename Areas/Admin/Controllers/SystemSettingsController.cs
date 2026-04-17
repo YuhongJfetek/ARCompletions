@@ -13,16 +13,17 @@ namespace ARCompletions.Areas.Admin.Controllers;
 [Authorize(Policy = "Platform")]
 public class SystemSettingsController : Controller
 {
-    private readonly ARCompletionsContext _db;
+    private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> _dbFactory;
 
-    public SystemSettingsController(ARCompletionsContext db)
+    public SystemSettingsController(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> dbFactory)
     {
-        _db = db;
+        _dbFactory = dbFactory;
     }
 
     public async Task<IActionResult> Index()
     {
-        var items = await _db.SystemSettings
+        using var db = _dbFactory.CreateDbContext();
+        var items = await db.SystemSettings
             .OrderBy(s => s.SettingKey)
             .ToListAsync();
         return View(items);
@@ -31,7 +32,8 @@ public class SystemSettingsController : Controller
     public async Task<IActionResult> Edit(string id)
     {
         if (string.IsNullOrEmpty(id)) return NotFound();
-        var item = await _db.SystemSettings.FindAsync(id);
+        using var db = _dbFactory.CreateDbContext();
+        var item = await db.SystemSettings.FindAsync(id);
         if (item == null) return NotFound();
         return View(item);
     }
@@ -43,7 +45,8 @@ public class SystemSettingsController : Controller
         if (id != model.Id) return BadRequest();
         if (!ModelState.IsValid) return View(model);
 
-        var existing = await _db.SystemSettings.FindAsync(id);
+        using var db = _dbFactory.CreateDbContext();
+        var existing = await db.SystemSettings.FindAsync(id);
         if (existing == null) return NotFound();
 
         existing.SettingValue = model.SettingValue;
@@ -51,11 +54,11 @@ public class SystemSettingsController : Controller
         existing.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         existing.UpdatedBy = User.Identity?.Name ?? "system";
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
         try
         {
-            _db.Set<ARCompletions.Domain.AuditLog>().Add(new ARCompletions.Domain.AuditLog
+            db.Set<ARCompletions.Domain.AuditLog>().Add(new ARCompletions.Domain.AuditLog
             {
                 Id = Guid.NewGuid().ToString("N"),
                 Actor = User?.Identity?.Name ?? "system",
@@ -64,7 +67,7 @@ public class SystemSettingsController : Controller
                 Payload = System.Text.Json.JsonSerializer.Serialize(new { existing.SettingKey, existing.SettingValue }),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             });
-            await _db.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
         catch { }
 

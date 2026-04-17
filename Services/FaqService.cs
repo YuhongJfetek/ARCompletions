@@ -12,19 +12,20 @@ namespace ARCompletions.Services
 {
     public class FaqService : IFaqService
     {
-        private readonly ARCompletionsContext _db;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
         private readonly IDbLogger _dbLogger;
 
-        public FaqService(ARCompletionsContext db, IDbLogger dbLogger)
+        public FaqService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IDbLogger dbLogger)
         {
-            _db = db;
+            _dbFactory = dbFactory;
             _dbLogger = dbLogger;
         }
 
         public async Task<BotFaqItem?> FindExactAsync(string normalizedText)
         {
             await _dbLogger.LogAsync("Debug", "FindExactAsync start", new { Text = normalizedText });
-            var faqs = await _db.BotFaqItems.AsNoTracking().Where(f => f.Enabled).ToListAsync();
+            using var db = _dbFactory.CreateDbContext();
+            var faqs = await db.BotFaqItems.AsNoTracking().Where(f => f.Enabled).ToListAsync();
             await _dbLogger.LogAsync("Debug", "FindExactAsync loaded faqs", new { Count = faqs.Count });
             foreach (var f in faqs)
             {
@@ -41,7 +42,8 @@ namespace ARCompletions.Services
 
         public async Task<List<BotFaqItem>> FindEnabledFaqsAsync()
         {
-            var faqs = await _db.BotFaqItems.AsNoTracking().Where(f => f.Enabled).ToListAsync();
+            using var db = _dbFactory.CreateDbContext();
+            var faqs = await db.BotFaqItems.AsNoTracking().Where(f => f.Enabled).ToListAsync();
             await _dbLogger.LogAsync("Debug", "FindEnabledFaqsAsync returned faqs", new { Count = faqs.Count });
             return faqs;
         }
@@ -57,7 +59,8 @@ namespace ARCompletions.Services
                 return new List<BotFaqItem>();
             }
             await _dbLogger.LogAsync("Debug", "FindByIdsAsync lookup ids", new { Ids = idList });
-            var faqs = await _db.BotFaqItems.AsNoTracking().Where(f => idList.Contains(f.FaqId)).ToListAsync();
+            using var db = _dbFactory.CreateDbContext();
+            var faqs = await db.BotFaqItems.AsNoTracking().Where(f => idList.Contains(f.FaqId)).ToListAsync();
             await _dbLogger.LogAsync("Debug", "FindByIdsAsync returned faqs", new { Count = faqs.Count });
             await _dbLogger.LogAsync("Debug", "FindByIdsAsync END", new { Ids = idList, Count = faqs.Count, ElapsedMs = sw.ElapsedMilliseconds });
             return faqs;

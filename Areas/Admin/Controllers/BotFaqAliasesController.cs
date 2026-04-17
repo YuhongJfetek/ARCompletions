@@ -13,11 +13,11 @@ namespace ARCompletions.Areas.Admin.Controllers;
 [Authorize(Policy = "Platform")]
 public class BotFaqAliasesController : Controller
 {
-    private readonly ARCompletionsContext _db;
+    private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> _dbFactory;
 
-    public BotFaqAliasesController(ARCompletionsContext db)
+    public BotFaqAliasesController(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> dbFactory)
     {
-        _db = db;
+        _dbFactory = dbFactory;
     }
 
     public async Task<IActionResult> Index(string? q = null, string? mode = null, bool? enabled = null, int page = 1, int pageSize = 25)
@@ -26,7 +26,8 @@ public class BotFaqAliasesController : Controller
         if (pageSize <= 0) pageSize = 25;
         if (pageSize > 200) pageSize = 200;
 
-        var query = _db.BotFaqAliases.AsQueryable();
+        using var db = _dbFactory.CreateDbContext();
+        var query = db.BotFaqAliases.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -63,7 +64,8 @@ public class BotFaqAliasesController : Controller
 
     public async Task<IActionResult> Details(Guid id)
     {
-        var item = await _db.BotFaqAliases.FindAsync(id);
+        using var db = _dbFactory.CreateDbContext();
+        var item = await db.BotFaqAliases.FindAsync(id);
         if (item == null) return NotFound();
         return View(item);
     }
@@ -96,8 +98,9 @@ public class BotFaqAliasesController : Controller
         model.CreatedAt = DateTimeOffset.UtcNow;
         model.UpdatedAt = null;
 
-        _db.BotFaqAliases.Add(model);
-        await _db.SaveChangesAsync();
+        using var db = _dbFactory.CreateDbContext();
+        db.BotFaqAliases.Add(model);
+        await db.SaveChangesAsync();
 
         TempData["Success"] = "Alias 已建立";
         return RedirectToAction(nameof(Index));
@@ -105,7 +108,8 @@ public class BotFaqAliasesController : Controller
 
     public async Task<IActionResult> Edit(Guid id)
     {
-        var item = await _db.BotFaqAliases.FindAsync(id);
+        using var db = _dbFactory.CreateDbContext();
+        var item = await db.BotFaqAliases.FindAsync(id);
         if (item == null) return NotFound();
         return View(item);
     }
@@ -117,7 +121,8 @@ public class BotFaqAliasesController : Controller
         if (id != model.AliasId) return BadRequest();
         if (!ModelState.IsValid) return View(model);
 
-        var existing = await _db.BotFaqAliases.FindAsync(id);
+        using var db = _dbFactory.CreateDbContext();
+        var existing = await db.BotFaqAliases.FindAsync(id);
         if (existing == null) return NotFound();
 
         existing.Term = model.Term;
@@ -127,7 +132,7 @@ public class BotFaqAliasesController : Controller
         existing.Enabled = model.Enabled;
         existing.UpdatedAt = DateTimeOffset.UtcNow;
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
         TempData["Success"] = "Alias 已更新";
         return RedirectToAction(nameof(Index));
@@ -137,12 +142,13 @@ public class BotFaqAliasesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SetEnabled(Guid id, bool enabled)
     {
-        var item = await _db.BotFaqAliases.FindAsync(id);
+        using var db = _dbFactory.CreateDbContext();
+        var item = await db.BotFaqAliases.FindAsync(id);
         if (item == null) return NotFound();
 
         item.Enabled = enabled;
         item.UpdatedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
         TempData["Success"] = enabled ? "Alias 已啟用" : "Alias 已停用";
         return RedirectToAction(nameof(Index));

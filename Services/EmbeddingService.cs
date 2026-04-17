@@ -14,14 +14,12 @@ public class EmbeddingService : IEmbeddingService
 {
     private readonly IHttpClientFactory _httpFactory;
     private readonly IConfiguration _config;
-    private readonly ARCompletionsContext _db;
     private readonly IDbLogger _dbLogger;
 
-    public EmbeddingService(IHttpClientFactory httpFactory, IConfiguration config, ARCompletionsContext db, IDbLogger dbLogger)
+    public EmbeddingService(IHttpClientFactory httpFactory, IConfiguration config, IDbLogger dbLogger)
     {
         _httpFactory = httpFactory;
         _config = config;
-        _db = db;
         _dbLogger = dbLogger;
     }
 

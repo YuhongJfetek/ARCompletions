@@ -10,18 +10,19 @@ namespace ARCompletions.Controllers
     [Route("api/[controller]")]
     public class LogsController : ControllerBase
     {
-        private readonly ARCompletionsContext _db;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> _dbFactory;
 
-        public LogsController(ARCompletionsContext db)
+        public LogsController(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> dbFactory)
         {
-            _db = db;
+            _dbFactory = dbFactory;
         }
 
         // GET /api/logs/top30
         [HttpGet("top30")]
         public async Task<IActionResult> GetTop30Async()
         {
-            var items = await _db.AppLogs
+            using var db = _dbFactory.CreateDbContext();
+            var items = await db.AppLogs
                 .OrderByDescending(l => l.TimeStamp)
                 .Take(30)
                 .ToListAsync();

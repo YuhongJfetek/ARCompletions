@@ -12,16 +12,16 @@ namespace ARCompletions.Services
 {
     public class CandidateBuilderService : ICandidateBuilderService
     {
-        private readonly ARCompletionsContext _db;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
         private readonly IDbLogger _dbLogger;
         private readonly IScoringService _scoring;
         private readonly IEmbeddingUpdateQueue _updateQueue;
         private readonly IEmbeddingsCache _embeddingsCache;
         private readonly ITextProcessingService _textProcessing;
 
-        public CandidateBuilderService(ARCompletionsContext db, IScoringService scoring, IDbLogger dbLogger, IEmbeddingUpdateQueue updateQueue, IEmbeddingsCache embeddingsCache, ITextProcessingService textProcessing)
+        public CandidateBuilderService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IScoringService scoring, IDbLogger dbLogger, IEmbeddingUpdateQueue updateQueue, IEmbeddingsCache embeddingsCache, ITextProcessingService textProcessing)
         {
-            _db = db;
+            _dbFactory = dbFactory;
             _scoring = scoring;
             _dbLogger = dbLogger;
             _updateQueue = updateQueue;

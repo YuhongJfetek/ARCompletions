@@ -13,11 +13,11 @@ namespace ARCompletions.Services;
 
 public class DisambiguationService : IDisambiguationService
 {
-    private readonly ARCompletionsContext _db;
+    private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
     private readonly IMemoryCache _cache;
-    public DisambiguationService(ARCompletionsContext db, IMemoryCache cache)
+    public DisambiguationService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IMemoryCache cache)
     {
-        _db = db;
+        _dbFactory = dbFactory;
         _cache = cache;
     }
 
@@ -38,7 +38,8 @@ public class DisambiguationService : IDisambiguationService
             if (idx < 0 || idx >= pending.Length) return res;
 
             var chosenId = pending[idx];
-            var faq = await _db.BotFaqItems.AsNoTracking().FirstOrDefaultAsync(f => f.FaqId == chosenId && f.Enabled);
+            using var db = _dbFactory.CreateDbContext();
+            var faq = await db.BotFaqItems.AsNoTracking().FirstOrDefaultAsync(f => f.FaqId == chosenId && f.Enabled);
             if (faq == null) return res;
 
             res.Handled = true;
@@ -63,15 +64,15 @@ public class DisambiguationService : IDisambiguationService
             }
             else
             {
-                using var tran = await _db.Database.BeginTransactionAsync();
-                var dbState = await _db.BotConversationStates.FindAsync(sourceType, conversationId);
+                using var tran = await db.Database.BeginTransactionAsync();
+                var dbState = await db.BotConversationStates.FindAsync(sourceType, conversationId);
                 if (dbState != null)
                 {
                     dbState.PendingDisambiguationIds = null;
                     dbState.PendingDisambiguationRoute = null;
                     dbState.PendingDisambiguationAt = null;
                     dbState.UpdatedAt = now;
-                    await _db.SaveChangesAsync();
+                    await db.SaveChangesAsync();
                 }
                 await tran.CommitAsync();
             }
@@ -80,18 +81,26 @@ public class DisambiguationService : IDisambiguationService
         {
             try
             {
-                var log = new AppLog
+                try
                 {
-                    Id = Guid.NewGuid().ToString(),
-                    TimeStamp = DateTime.UtcNow,
-                    Level = "Warning",
-                    Message = "Disambiguation processing failed",
-                    MessageTemplate = "Disambiguation processing failed for conversation",
-                    Exception = ex.ToString(),
-                    Properties = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(new { ConversationId = conversationId }))
-                };
-                _db.AppLogs.Add(log);
-                await _db.SaveChangesAsync();
+                    using var logDb = _dbFactory.CreateDbContext();
+                    var log = new AppLog
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        TimeStamp = DateTime.UtcNow,
+                        Level = "Warning",
+                        Message = "Disambiguation processing failed",
+                        MessageTemplate = "Disambiguation processing failed for conversation",
+                        Exception = ex.ToString(),
+                        Properties = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(new { ConversationId = conversationId }))
+                    };
+                    logDb.AppLogs.Add(log);
+                    await logDb.SaveChangesAsync();
+                }
+                catch
+                {
+                    // swallow
+                }
             }
             catch
             {

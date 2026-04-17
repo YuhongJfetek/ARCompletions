@@ -15,7 +15,7 @@ namespace ARCompletions.Services
     public class GoogleDriveService : IDriveService
     {
         private readonly IConfiguration _config;
-        private readonly ARCompletionsContext _db;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
         private readonly IDbLogger _dbLogger;
 
         private static readonly HashSet<string> AllowedMimeTypes = new()
@@ -31,10 +31,10 @@ namespace ARCompletions.Services
 
         private const long MaxFileSizeBytes = 50 * 1024 * 1024; // 50MB
 
-        public GoogleDriveService(IConfiguration config, ARCompletionsContext db, IDbLogger dbLogger)
+        public GoogleDriveService(IConfiguration config, Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IDbLogger dbLogger)
         {
             _config = config;
-            _db = db;
+            _dbFactory = dbFactory;
             _dbLogger = dbLogger;
         }
 

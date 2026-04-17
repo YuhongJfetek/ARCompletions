@@ -8,12 +8,12 @@ namespace ARCompletions.Services
 {
     public class StateService : IStateService
     {
-        private readonly ARCompletionsContext _db;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
         private readonly IMemoryCache _cache;
 
-        public StateService(ARCompletionsContext db, IMemoryCache cache)
+        public StateService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IMemoryCache cache)
         {
-            _db = db;
+            _dbFactory = dbFactory;
             _cache = cache;
         }
 
@@ -25,7 +25,8 @@ namespace ARCompletions.Services
                 _cache.TryGetValue(key, out BotConversationState? s);
                 return s;
             }
-            return await _db.BotConversationStates.FindAsync(sourceType, conversationId);
+            using var db = _dbFactory.CreateDbContext();
+            return await db.BotConversationStates.FindAsync(sourceType, conversationId);
         }
 
         public async Task SaveStateAsync(BotConversationState state, bool useMemoryState, string stateCacheKey, bool deferSave = false)
@@ -36,28 +37,30 @@ namespace ARCompletions.Services
             }
             else
             {
-                if (_db.Entry(state).State == Microsoft.EntityFrameworkCore.EntityState.Detached)
+                using var db = _dbFactory.CreateDbContext();
+                if (db.Entry(state).State == Microsoft.EntityFrameworkCore.EntityState.Detached)
                 {
-                    _db.BotConversationStates.Add(state);
+                    db.BotConversationStates.Add(state);
                 }
                 if (!deferSave)
                 {
-                    await _db.SaveChangesAsync();
+                    await db.SaveChangesAsync();
                 }
             }
         }
 
         public async Task ClearPendingDisambiguationAtomicAsync(string sourceType, string conversationId, DateTimeOffset now)
         {
-            using var tran = await _db.Database.BeginTransactionAsync();
-            var dbState = await _db.BotConversationStates.FindAsync(sourceType, conversationId);
+            using var db = _dbFactory.CreateDbContext();
+            using var tran = await db.Database.BeginTransactionAsync();
+            var dbState = await db.BotConversationStates.FindAsync(sourceType, conversationId);
             if (dbState != null)
             {
                 dbState.PendingDisambiguationIds = null;
                 dbState.PendingDisambiguationRoute = null;
                 dbState.PendingDisambiguationAt = null;
                 dbState.UpdatedAt = now;
-                await _db.SaveChangesAsync();
+                await db.SaveChangesAsync();
             }
             await tran.CommitAsync();
         }

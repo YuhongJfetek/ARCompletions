@@ -11,11 +11,11 @@ namespace ARCompletions.Areas.Admin.Controllers;
 [Area("Admin")]
 public class AccountController : Controller
 {
-    private readonly ARCompletionsContext _db;
+    private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> _dbFactory;
 
-    public AccountController(ARCompletionsContext db)
+    public AccountController(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> dbFactory)
     {
-        _db = db;
+        _dbFactory = dbFactory;
     }
 
     [HttpGet]
@@ -35,7 +35,8 @@ public class AccountController : Controller
             return View(model);
         }
 
-        var user = await _db.PlatformUsers
+        using var db = _dbFactory.CreateDbContext();
+        var user = await db.PlatformUsers
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Email == model.Email && u.IsActive);
 
@@ -59,7 +60,7 @@ public class AccountController : Controller
         // 寫入審計日誌：登入
         try
         {
-            _db.Set<ARCompletions.Domain.AuditLog>().Add(new ARCompletions.Domain.AuditLog
+            db.Set<ARCompletions.Domain.AuditLog>().Add(new ARCompletions.Domain.AuditLog
             {
                 Id = Guid.NewGuid().ToString("N"),
                 Actor = user.Email,
@@ -68,7 +69,7 @@ public class AccountController : Controller
                 Payload = null,
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             });
-            await _db.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
         catch { }
 
@@ -91,7 +92,8 @@ public class AccountController : Controller
 
         try
         {
-            _db.Set<ARCompletions.Domain.AuditLog>().Add(new ARCompletions.Domain.AuditLog
+            using var db = _dbFactory.CreateDbContext();
+            db.Set<ARCompletions.Domain.AuditLog>().Add(new ARCompletions.Domain.AuditLog
             {
                 Id = Guid.NewGuid().ToString("N"),
                 Actor = actor ?? "unknown",
@@ -100,7 +102,7 @@ public class AccountController : Controller
                 Payload = null,
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             });
-            await _db.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
         catch { }
 

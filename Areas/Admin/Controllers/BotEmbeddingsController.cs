@@ -18,13 +18,13 @@ namespace ARCompletions.Areas.Admin.Controllers;
 [Authorize(Policy = "Platform")]
 public class BotEmbeddingsController : Controller
 {
-    private readonly ARCompletionsContext _db;
+    private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> _dbFactory;
     private readonly IEmbeddingRebuildService _embeddingRebuildService;
     private readonly ILogger<BotEmbeddingsController> _logger;
 
-    public BotEmbeddingsController(ARCompletionsContext db, IEmbeddingRebuildService embeddingRebuildService, ILogger<BotEmbeddingsController> logger)
+    public BotEmbeddingsController(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> dbFactory, IEmbeddingRebuildService embeddingRebuildService, ILogger<BotEmbeddingsController> logger)
     {
-        _db = db;
+        _dbFactory = dbFactory;
         _embeddingRebuildService = embeddingRebuildService;
         _logger = logger;
     }
@@ -36,7 +36,8 @@ public class BotEmbeddingsController : Controller
         if (pageSize <= 0) pageSize = 25;
         if (pageSize > 200) pageSize = 200;
 
-        var query = _db.BotFaqEmbeddings.AsQueryable();
+        using var db = _dbFactory.CreateDbContext();
+        var query = db.BotFaqEmbeddings.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(faqId))
         {
@@ -130,7 +131,8 @@ public class BotEmbeddingsController : Controller
 
     public async Task<IActionResult> Details(System.Guid id)
     {
-        var item = await _db.BotFaqEmbeddings.FindAsync(id);
+        using var db = _dbFactory.CreateDbContext();
+        var item = await db.BotFaqEmbeddings.FindAsync(id);
         if (item == null) return NotFound();
         return View(item);
     }
@@ -142,7 +144,8 @@ public class BotEmbeddingsController : Controller
         if (job == null) return NotFound();
 
         // Always return job + any embeddings produced since job.StartedAt (allows progressive updates while running)
-        var q = _db.BotFaqEmbeddings.AsNoTracking()
+        using var db = _dbFactory.CreateDbContext();
+        var q = db.BotFaqEmbeddings.AsNoTracking()
             .Where(e => e.EmbeddingProvider == job.Provider && e.EmbeddingModel == job.Model);
         if (!string.IsNullOrWhiteSpace(job.TargetFaqId)) q = q.Where(e => e.FaqId == job.TargetFaqId);
         if (job.StartedAt.HasValue)

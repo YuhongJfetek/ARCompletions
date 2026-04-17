@@ -14,13 +14,13 @@ namespace ARCompletions.Services
     {
         private readonly ITextProcessingService _textProcessing;
         private readonly IQueryHintsService _queryHints;
-        private readonly ARCompletionsContext _db;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
         private readonly IBufferedAppLogger _bufferedLogger;
-        public ScoringService(ITextProcessingService textProcessing, IQueryHintsService queryHints, ARCompletionsContext db, IBufferedAppLogger bufferedLogger)
+        public ScoringService(ITextProcessingService textProcessing, IQueryHintsService queryHints, Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IBufferedAppLogger bufferedLogger)
         {
             _textProcessing = textProcessing;
             _queryHints = queryHints;
-            _db = db;
+            _dbFactory = dbFactory;
             _bufferedLogger = bufferedLogger ?? throw new ArgumentNullException(nameof(bufferedLogger));
         }
         // CandidateScoreDetail moved to Services/CandidateScoreDetail.cs

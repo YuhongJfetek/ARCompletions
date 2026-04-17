@@ -8,16 +8,17 @@ namespace ARCompletions.Services
 {
     public class AliasService : IAliasService
     {
-        private readonly ARCompletionsContext _db;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
 
-        public AliasService(ARCompletionsContext db)
+        public AliasService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory)
         {
-            _db = db;
+            _dbFactory = dbFactory;
         }
 
         public async Task<AliasMatchResult?> MatchAliasAsync(string normalizedText)
         {
-            var aliases = await _db.BotFaqAliases.AsNoTracking().Where(a => a.Enabled).ToListAsync();
+            using var db = _dbFactory.CreateDbContext();
+            var aliases = await db.BotFaqAliases.AsNoTracking().Where(a => a.Enabled).ToListAsync();
             var alias = aliases.FirstOrDefault(a => string.Equals(Normalize(a.Term), normalizedText, StringComparison.OrdinalIgnoreCase));
             if (alias == null) return null;
             return new AliasMatchResult

@@ -105,6 +105,9 @@ if (isPostgres)
 
     builder.Services.AddDbContext<ARCompletionsContext>(opt =>
         opt.UseNpgsql(pgConn)); // ← 已移除 .MigrationsAssembly(...)
+    // Also register a DbContextFactory so callers can create short-lived contexts for parallel/async work
+    builder.Services.AddDbContextFactory<ARCompletionsContext>(opt =>
+        opt.UseNpgsql(pgConn));
 }
 
 // 其他服務

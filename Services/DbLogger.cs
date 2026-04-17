@@ -7,11 +7,11 @@ namespace ARCompletions.Services
 {
     public class DbLogger : IDbLogger
     {
-        private readonly ARCompletionsContext _db;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
 
-        public DbLogger(ARCompletionsContext db)
+        public DbLogger(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory)
         {
-            _db = db;
+            _dbFactory = dbFactory;
         }
 
         public async Task LogAsync(string level, string message, object? properties = null, Exception? ex = null, bool deferSave = false)
@@ -28,8 +28,9 @@ namespace ARCompletions.Services
                     Exception = ex?.ToString(),
                     Properties = properties == null ? null : System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(properties))
                 };
-                _db.AppLogs.Add(log);
-                await _db.SaveChangesAsync();
+                using var db = _dbFactory.CreateDbContext();
+                db.AppLogs.Add(log);
+                await db.SaveChangesAsync();
             }
             catch (Exception e)
             {
@@ -39,7 +40,6 @@ namespace ARCompletions.Services
                 }
                 catch
                 {
-                    // best-effort: don't throw from logger
                 }
             }
         }
@@ -58,8 +58,9 @@ namespace ARCompletions.Services
                     Exception = ex?.ToString(),
                     Properties = properties == null ? null : System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(properties))
                 };
-                _db.AppLogs.Add(log);
-                _db.SaveChanges();
+                using var db = _dbFactory.CreateDbContext();
+                db.AppLogs.Add(log);
+                db.SaveChanges();
             }
             catch (Exception e)
             {
@@ -69,7 +70,6 @@ namespace ARCompletions.Services
                 }
                 catch
                 {
-                    // best-effort: don't throw from logger
                 }
             }
         }

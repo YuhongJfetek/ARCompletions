@@ -12,27 +12,28 @@ namespace ARCompletions.Areas.Admin.Controllers;
 [Authorize(Policy = "Platform")]
 public class HomeController : Controller
 {
-    private readonly ARCompletionsContext _db;
+    private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> _dbFactory;
     private readonly IAuthorizationService _authz;
 
-    public HomeController(ARCompletionsContext db, IAuthorizationService authz)
+    public HomeController(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> dbFactory, IAuthorizationService authz)
     {
-        _db = db;
+        _dbFactory = dbFactory;
         _authz = authz;
     }
 
     // 總部後台首頁：顯示全系統統計
     public IActionResult Index()
     {
+        using var db = _dbFactory.CreateDbContext();
         // Aggregate basic KPIs and recent lists
-        var faqCount = _db.BotFaqItems.Count();
-        var convoStateCount = _db.BotConversationStates.Count();
-        var routeCount = _db.BotMessageRoutes.Count();
-        var pendingEmb = _db.BotEmbeddingJobs.Count(j => j.Status != "finished");
+        var faqCount = db.BotFaqItems.Count();
+        var convoStateCount = db.BotConversationStates.Count();
+        var routeCount = db.BotMessageRoutes.Count();
+        var pendingEmb = db.BotEmbeddingJobs.Count(j => j.Status != "finished");
 
         // recent conversations (last 24h)
         var since = DateTimeOffset.UtcNow.AddDays(-1);
-        var convos = _db.BotIncomingEvents
+        var convos = db.BotIncomingEvents
             .AsNoTracking()
             .Where(e => e.ReceivedAt >= since)
             .GroupBy(e => new { e.SourceType, e.ConversationId })
@@ -49,7 +50,7 @@ public class HomeController : Controller
             .ToList();
 
         // recent errors (24h)
-        var recentErrors = _db.AppLogs
+        var recentErrors = db.AppLogs
             .AsNoTracking()
             .Where(l => l.Level != null && l.Level.ToLower() == "error" && l.TimeStamp >= since)
             .OrderByDescending(l => l.TimeStamp)
@@ -65,7 +66,7 @@ public class HomeController : Controller
             PendingEmbeddingJobs = pendingEmb,
             RecentConversations = convos,
             RecentErrors = recentErrors,
-            RecentErrorsCount = _db.AppLogs.Count(l => l.Level != null && l.Level.ToLower() == "error" && l.TimeStamp >= since)
+            RecentErrorsCount = db.AppLogs.Count(l => l.Level != null && l.Level.ToLower() == "error" && l.TimeStamp >= since)
         };
 
         ViewData["Title"] = "總部後台首頁";

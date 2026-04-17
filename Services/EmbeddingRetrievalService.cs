@@ -16,16 +16,16 @@ namespace ARCompletions.Services
     {
         private readonly IEmbeddingService _embeddingService;
         private readonly IMemoryCache _cache;
-        private readonly ARCompletionsContext _db;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
         private readonly IDbLogger _dbLogger;
         private readonly ITextProcessingService _textProcessing;
         private readonly Func<IDistributedLock> _distributedLockFactory;
 
-        public EmbeddingRetrievalService(IEmbeddingService embeddingService, IMemoryCache cache, ARCompletionsContext db, IDbLogger dbLogger, ITextProcessingService textProcessing, Func<IDistributedLock> distributedLockFactory)
+        public EmbeddingRetrievalService(IEmbeddingService embeddingService, IMemoryCache cache, Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IDbLogger dbLogger, ITextProcessingService textProcessing, Func<IDistributedLock> distributedLockFactory)
         {
             _embeddingService = embeddingService;
             _cache = cache;
-            _db = db;
+            _dbFactory = dbFactory;
             _dbLogger = dbLogger;
             _textProcessing = textProcessing;
             _distributedLockFactory = distributedLockFactory;
@@ -169,14 +169,17 @@ namespace ARCompletions.Services
                     else
                     {
                         // last-resort: try to read from DB before giving up
-                        var fromDb = await _db.BotFaqEmbeddings.AsNoTracking()
-                            .FirstOrDefaultAsync(e => e.EmbeddingProvider == provider && e.EmbeddingModel == modelName && e.Embedding != null && e.Embedding.Length > 0, cancellationToken: cancellationToken);
-                        if (fromDb != null)
+                        using (var db = _dbFactory.CreateDbContext())
                         {
-                            var arr = fromDb.Embedding;
-                            _cache.Set(cacheKeyVec, arr, TimeSpan.FromSeconds(cacheTtlSeconds));
-                            await _dbLogger.LogAsync("Debug", "GetOrCreateEmbeddingAsync END", new { Provider = provider, Model = modelName, Len = arr?.Length ?? 0, ElapsedMs = overallSw.ElapsedMilliseconds });
-                            return arr;
+                            var fromDb = await db.BotFaqEmbeddings.AsNoTracking()
+                                .FirstOrDefaultAsync(e => e.EmbeddingProvider == provider && e.EmbeddingModel == modelName && e.Embedding != null && e.Embedding.Length > 0, cancellationToken: cancellationToken);
+                            if (fromDb != null)
+                            {
+                                var arr = fromDb.Embedding;
+                                _cache.Set(cacheKeyVec, arr, TimeSpan.FromSeconds(cacheTtlSeconds));
+                                await _dbLogger.LogAsync("Debug", "GetOrCreateEmbeddingAsync END", new { Provider = provider, Model = modelName, Len = arr?.Length ?? 0, ElapsedMs = overallSw.ElapsedMilliseconds });
+                                return arr;
+                            }
                         }
                     }
             }

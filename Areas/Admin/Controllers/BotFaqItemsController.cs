@@ -17,15 +17,15 @@ namespace ARCompletions.Areas.Admin.Controllers;
 [Authorize(Policy = "Platform")]
 public class BotFaqItemsController : Controller
 {
-    private readonly ARCompletionsContext _db;
+    private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> _dbFactory;
     private readonly IEmbeddingRebuildService _embeddingRebuildService;
     private readonly IDbLogger _dbLogger;
     private readonly IQueryHintsService _queryHints;
     private readonly ITextProcessingService _textProcessing;
 
-    public BotFaqItemsController(ARCompletionsContext db, IEmbeddingRebuildService embeddingRebuildService, IDbLogger dbLogger, IQueryHintsService queryHints, ITextProcessingService textProcessing)
+    public BotFaqItemsController(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> dbFactory, IEmbeddingRebuildService embeddingRebuildService, IDbLogger dbLogger, IQueryHintsService queryHints, ITextProcessingService textProcessing)
     {
-        _db = db;
+        _dbFactory = dbFactory;
         _embeddingRebuildService = embeddingRebuildService;
         _dbLogger = dbLogger;
         _queryHints = queryHints;
@@ -63,7 +63,8 @@ public class BotFaqItemsController : Controller
 
 
 
-        var convoQuery = _db.BotIncomingEvents
+        using var db = _dbFactory.CreateDbContext();
+        var convoQuery = db.BotIncomingEvents
             .AsNoTracking()
             .Where(e => e.ReceivedAt >= since)
             .GroupBy(e => new { e.SourceType, e.ConversationId })
@@ -86,7 +87,7 @@ public class BotFaqItemsController : Controller
 
         var lastEventIds = convos.Select(c => c.LastEventId).Where(id => id.HasValue).Select(id => id.Value).ToList();
 
-        var lastEvents = await _db.BotIncomingEvents
+        var lastEvents = await db.BotIncomingEvents
             .AsNoTracking()
             .Where(e => lastEventIds.Contains(e.EventRowId))
             .ToListAsync();
@@ -123,7 +124,8 @@ public class BotFaqItemsController : Controller
         if (pageSize <= 0) pageSize = 25;
         if (pageSize > 200) pageSize = 200;
 
-        var query = _db.BotFaqItems.AsQueryable();
+        using var db = _dbFactory.CreateDbContext();
+        var query = db.BotFaqItems.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -166,7 +168,8 @@ public class BotFaqItemsController : Controller
     public async Task<IActionResult> Details(string id)
     {
         if (string.IsNullOrEmpty(id)) return NotFound();
-        var item = await _db.BotFaqItems.FindAsync(id);
+        using var db = _dbFactory.CreateDbContext();
+        var item = await db.BotFaqItems.FindAsync(id);
         if (item == null) return NotFound();
         return View(item);
     }
@@ -255,8 +258,9 @@ public class BotFaqItemsController : Controller
             // Try to prefill Answer from existing stored bot replies in the DB
             try
             {
-                var matchedReply = await (from r in _db.BotMessageRoutes.AsNoTracking()
-                                          join e in _db.BotIncomingEvents.AsNoTracking() on r.EventRowId equals e.EventRowId
+                using var db = _dbFactory.CreateDbContext();
+                var matchedReply = await (from r in db.BotMessageRoutes.AsNoTracking()
+                                          join e in db.BotIncomingEvents.AsNoTracking() on r.EventRowId equals e.EventRowId
                                           where !string.IsNullOrWhiteSpace(r.ReplyText)
                                                 && !string.IsNullOrWhiteSpace(e.Text)
                                                 && (e.Text.Contains(model.Question) || model.Question.Contains(e.Text))
@@ -301,7 +305,8 @@ public class BotFaqItemsController : Controller
             return View(model);
         }
 
-        var exists = await _db.BotFaqItems.AnyAsync(f => f.FaqId == model.FaqId);
+        using var db = _dbFactory.CreateDbContext();
+        var exists = await db.BotFaqItems.AnyAsync(f => f.FaqId == model.FaqId);
         if (exists)
         {
             ModelState.AddModelError(nameof(model.FaqId), "faq_id 已存在，禁止重複");
@@ -312,8 +317,8 @@ public class BotFaqItemsController : Controller
         model.UpdatedAt = null;
         model.UpdatedBy = User?.Identity?.Name;
 
-        _db.BotFaqItems.Add(model);
-        await _db.SaveChangesAsync();
+        db.BotFaqItems.Add(model);
+        await db.SaveChangesAsync();
 
         // FAQ 建立完成後，自動觸發單筆 Embedding 重建（不中斷 FAQ 建立流程，錯誤記錄在 job 中）
         try
@@ -333,7 +338,8 @@ public class BotFaqItemsController : Controller
     public async Task<IActionResult> Edit(string id)
     {
         if (string.IsNullOrEmpty(id)) return NotFound();
-        var item = await _db.BotFaqItems.FindAsync(id);
+        using var db = _dbFactory.CreateDbContext();
+        var item = await db.BotFaqItems.FindAsync(id);
         if (item == null) return NotFound();
         return View(item);
     }
@@ -345,7 +351,8 @@ public class BotFaqItemsController : Controller
         if (id != model.FaqId) return BadRequest();
         if (!ModelState.IsValid) return View(model);
 
-        var existing = await _db.BotFaqItems.FindAsync(id);
+        using var db = _dbFactory.CreateDbContext();
+        var existing = await db.BotFaqItems.FindAsync(id);
         if (existing == null) return NotFound();
 
         existing.Question = model.Question;
@@ -364,7 +371,7 @@ public class BotFaqItemsController : Controller
         existing.UpdatedAt = DateTimeOffset.UtcNow;
         existing.UpdatedBy = User?.Identity?.Name;
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
         // FAQ 編輯完成後，自動觸發單筆 Embedding 重建
         try
@@ -386,13 +393,14 @@ public class BotFaqItemsController : Controller
     public async Task<IActionResult> SetEnabled(string id, bool enabled)
     {
         if (string.IsNullOrEmpty(id)) return NotFound();
-        var item = await _db.BotFaqItems.FindAsync(id);
+        using var db = _dbFactory.CreateDbContext();
+        var item = await db.BotFaqItems.FindAsync(id);
         if (item == null) return NotFound();
 
         item.Enabled = enabled;
         item.UpdatedAt = DateTimeOffset.UtcNow;
         item.UpdatedBy = User?.Identity?.Name;
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
         TempData["Success"] = enabled ? "FAQ 已啟用" : "FAQ 已停用";
         return RedirectToAction(nameof(Index));

@@ -15,16 +15,17 @@ namespace ARCompletions.Areas.Admin.Controllers;
 [Authorize(Policy = "Platform")]
 public class PlatformUsersController : Controller
 {
-    private readonly ARCompletionsContext _db;
+    private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
 
-    public PlatformUsersController(ARCompletionsContext db)
+    public PlatformUsersController(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory)
     {
-        _db = db;
+        _dbFactory = dbFactory;
     }
 
     public async Task<IActionResult> Index()
     {
-        var users = await _db.PlatformUsers
+        using var db = _dbFactory.CreateDbContext();
+        var users = await db.PlatformUsers
             .OrderBy(u => u.Email)
             .ToListAsync();
         return View(users);
@@ -32,7 +33,8 @@ public class PlatformUsersController : Controller
 
     private async Task PopulateLookupsAsync(string[]? selectedRoleIds = null)
     {
-        var roles = await _db.PlatformRoles
+        using var db = _dbFactory.CreateDbContext();
+        var roles = await db.PlatformRoles
             .Where(r => r.IsActive)
             .OrderBy(r => r.Code)
             .ToListAsync();
@@ -74,14 +76,15 @@ public class PlatformUsersController : Controller
             CreatedBy = User.Identity?.Name ?? "system"
         };
 
-        _db.PlatformUsers.Add(user);
+        using var db = _dbFactory.CreateDbContext();
+        db.PlatformUsers.Add(user);
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var createdBy = user.CreatedBy;
 
         foreach (var rid in vm.SelectedRoleIds ?? Array.Empty<string>())
         {
-            _db.PlatformUserRoles.Add(new PlatformUserRole
+            db.PlatformUserRoles.Add(new PlatformUserRole
             {
                 Id = Guid.NewGuid().ToString("N"),
                 PlatformUserId = user.Id,
@@ -91,12 +94,12 @@ public class PlatformUsersController : Controller
             });
         }
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
         // 寫入審計日誌
         try
         {
-            _db.Set<ARCompletions.Domain.AuditLog>().Add(new ARCompletions.Domain.AuditLog
+            db.Set<ARCompletions.Domain.AuditLog>().Add(new ARCompletions.Domain.AuditLog
             {
                 Id = Guid.NewGuid().ToString("N"),
                 Actor = User?.Identity?.Name ?? "system",
@@ -105,7 +108,7 @@ public class PlatformUsersController : Controller
                 Payload = System.Text.Json.JsonSerializer.Serialize(new { user.Id, user.Email, user.Name }),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             });
-            await _db.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
         catch { }
 
@@ -117,10 +120,11 @@ public class PlatformUsersController : Controller
     {
         if (string.IsNullOrEmpty(id)) return NotFound();
 
-        var user = await _db.PlatformUsers.FindAsync(id);
+        using var db = _dbFactory.CreateDbContext();
+        var user = await db.PlatformUsers.FindAsync(id);
         if (user == null) return NotFound();
 
-        var roleIds = await _db.PlatformUserRoles
+        var roleIds = await db.PlatformUserRoles
             .Where(ur => ur.PlatformUserId == id)
             .Select(ur => ur.PlatformRoleId)
             .ToArrayAsync();
@@ -147,7 +151,8 @@ public class PlatformUsersController : Controller
     {
         if (id != vm.Id) return BadRequest();
 
-        var user = await _db.PlatformUsers.FindAsync(id);
+        using var db = _dbFactory.CreateDbContext();
+        var user = await db.PlatformUsers.FindAsync(id);
         if (user == null) return NotFound();
 
         if (!ModelState.IsValid)
@@ -169,17 +174,17 @@ public class PlatformUsersController : Controller
         user.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         user.UpdatedBy = User.Identity?.Name ?? "system";
 
-        var existingRoles = await _db.PlatformUserRoles
+        var existingRoles = await db.PlatformUserRoles
             .Where(ur => ur.PlatformUserId == id)
             .ToListAsync();
-        _db.PlatformUserRoles.RemoveRange(existingRoles);
+        db.PlatformUserRoles.RemoveRange(existingRoles);
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var updatedBy = user.UpdatedBy;
 
         foreach (var rid in vm.SelectedRoleIds ?? Array.Empty<string>())
         {
-            _db.PlatformUserRoles.Add(new PlatformUserRole
+            db.PlatformUserRoles.Add(new PlatformUserRole
             {
                 Id = Guid.NewGuid().ToString("N"),
                 PlatformUserId = user.Id,
@@ -189,12 +194,12 @@ public class PlatformUsersController : Controller
             });
         }
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
         // 寫入審計日誌
         try
         {
-            _db.Set<ARCompletions.Domain.AuditLog>().Add(new ARCompletions.Domain.AuditLog
+            db.Set<ARCompletions.Domain.AuditLog>().Add(new ARCompletions.Domain.AuditLog
             {
                 Id = Guid.NewGuid().ToString("N"),
                 Actor = User?.Identity?.Name ?? "system",
@@ -203,7 +208,7 @@ public class PlatformUsersController : Controller
                 Payload = System.Text.Json.JsonSerializer.Serialize(new { user.Id, user.Email, user.Name }),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             });
-            await _db.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
         catch { }
 

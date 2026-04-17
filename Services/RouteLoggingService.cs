@@ -7,19 +7,19 @@ namespace ARCompletions.Services
 {
     public class RouteLoggingService : IRouteLoggingService
     {
-        private readonly ARCompletionsContext _db;
+        private readonly Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> _dbFactory;
 
-        public RouteLoggingService(ARCompletionsContext db)
+        public RouteLoggingService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory)
         {
-            _db = db;
+            _dbFactory = dbFactory;
         }
 
-        public Task LogRouteAsync(BotMessageRoute route, bool persist)
+        public async Task LogRouteAsync(BotMessageRoute route, bool persist)
         {
-            if (!persist) return Task.CompletedTask;
-            // Add to context; do not SaveChanges here to allow callers to batch commits.
-            _db.BotMessageRoutes.Add(route);
-            return Task.CompletedTask;
+            if (!persist) return;
+            using var db = _dbFactory.CreateDbContext();
+            db.BotMessageRoutes.Add(route);
+            await db.SaveChangesAsync();
         }
     }
 }
