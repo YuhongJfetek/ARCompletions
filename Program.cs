@@ -203,8 +203,11 @@ builder.Services.AddScoped<ARCompletions.Services.IResponseBuilder, ARCompletion
 builder.Services.AddScoped<ARCompletions.Services.IDbLogger, ARCompletions.Services.DbLogger>();
 // Register the real buffered background logger as a singleton and hosted service
 // Use the more conventional registration to avoid resolving the instance manually during host start.
-builder.Services.AddSingleton<ARCompletions.Services.IBufferedAppLogger, ARCompletions.Services.BufferedAppLogger>();
-builder.Services.AddHostedService<ARCompletions.Services.BufferedAppLogger>();
+// Register a single instance of BufferedAppLogger and expose it as both the IBufferedAppLogger
+// and the IHostedService so the same instance is used for DI and hosted service lifecycle.
+builder.Services.AddSingleton<ARCompletions.Services.BufferedAppLogger>();
+builder.Services.AddSingleton<ARCompletions.Services.IBufferedAppLogger>(sp => sp.GetRequiredService<ARCompletions.Services.BufferedAppLogger>());
+builder.Services.AddSingleton<Microsoft.Extensions.Hosting.IHostedService>(sp => sp.GetRequiredService<ARCompletions.Services.BufferedAppLogger>());
 // Embedding update queue is kept, but no background worker is registered
 builder.Services.AddSingleton<ARCompletions.Services.IEmbeddingUpdateQueue, ARCompletions.Services.EmbeddingUpdateQueue>();
 // Embeddings cache (process-level)
