@@ -65,14 +65,14 @@ namespace ARCompletions.Services
             {
                 if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Debug", "FindByIdsAsync lookup ids", new { Ids = idList });
                 using var _db = _dbFactory.CreateDbContext();
-                var faqs = await EfCompiledQueries.FindFaqsByIds(_db, idList);
+                var faqs = await EfCompiledQueries.FindFaqsByIds(_db, idList.ToArray());
                 if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Debug", "FindByIdsAsync returned faqs", new { Count = faqs.Count });
                 if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Debug", "FindByIdsAsync END", new { Ids = idList, Count = faqs.Count, ElapsedMs = sw.ElapsedMilliseconds });
                 return faqs;
             }
 
             await _dbLogger.LogAsync(db, "Debug", "FindByIdsAsync lookup ids", new { Ids = idList });
-            var faqs2 = await EfCompiledQueries.FindFaqsByIds(db, idList);
+            var faqs2 = await EfCompiledQueries.FindFaqsByIds(db, idList.ToArray());
             await _dbLogger.LogAsync(db, "Debug", "FindByIdsAsync returned faqs", new { Count = faqs2.Count });
             await _dbLogger.LogAsync(db, "Debug", "FindByIdsAsync END", new { Ids = idList, Count = faqs2.Count, ElapsedMs = sw.ElapsedMilliseconds });
             return faqs2;
