@@ -85,7 +85,7 @@ public class BotFaqItemsController : Controller
             .Take(pageSize)
             .ToListAsync();
 
-        var lastEventIds = convos.Select(c => c.LastEventId).Where(id => id.HasValue).Select(id => id.Value).ToList();
+        var lastEventIds = convos.Where(c => c.LastEventId.HasValue).Select(c => c.LastEventId!.Value).ToList();
 
         var lastEvents = await db.BotIncomingEvents
             .AsNoTracking()
@@ -96,7 +96,7 @@ public class BotFaqItemsController : Controller
 
         var summaries = convos.Select(c =>
         {
-            var lastId = c.LastEventId.GetValueOrDefault();
+            var lastId = c.LastEventId ?? 0L;
             eventDict.TryGetValue(lastId, out var ev);
             // Prefer explicit Text column.
             var lastUserText = ev?.Text;

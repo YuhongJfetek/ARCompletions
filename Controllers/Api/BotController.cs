@@ -162,7 +162,7 @@ public class BotController : ControllerBase
         }
         catch { }
 
-        return res;
+        return res ?? new List<ARCompletions.Domain.BotFaqEmbedding>();
     }
 
 
@@ -1031,6 +1031,14 @@ public class BotController : ControllerBase
                             route = "candidates";
                             matchedBy = isComposite ? "embedding_composite" : "embedding_low_conf";
                         }
+
+                        // Log the embedding decision details for diagnostics (after route chosen)
+                        try
+                        {
+                            var calculatedMin = (faqMap.TryGetValue(matchedFaqId, out var bf) ? (bf.MinConfidenceScore ?? directLow) : directLow);
+                            await WriteAppLogAsync("Information", "Embedding decision: ConversationId={ConversationId} BestScore={BestScore} MinScore={MinScore} AllowDirect={AllowDirect} IsComposite={IsComposite} Route={Route} MatchedBy={MatchedBy}", new { ConversationId = req.ConversationId, BestScore = confidence, MinScore = calculatedMin, AllowDirect = allowDirect, IsComposite = isComposite, Route = route, MatchedBy = matchedBy }, null, db);
+                        }
+                        catch { }
                     }
                 }
             }

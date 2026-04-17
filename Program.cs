@@ -23,8 +23,8 @@ var portFromPort = Environment.GetEnvironmentVariable("PORT");
 
 // Debug: print raw env values so platform logs show what was provided
 Console.WriteLine($"ENV HTTP_PORTS={(string.IsNullOrWhiteSpace(portFromHttpPorts) ? "<empty>" : portFromHttpPorts)}; PORT={(string.IsNullOrWhiteSpace(portFromPort) ? "<empty>" : portFromPort)}; ASPNETCORE_URLS={(Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "<empty>")}");
-string selectedPort = null;
-string portSource = null;
+string? selectedPort = null;
+string? portSource = null;
 
 // Prefer PORT when provided by platform/runtime (Render typically injects PORT)
 if (!string.IsNullOrWhiteSpace(portFromPort))

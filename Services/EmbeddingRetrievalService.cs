@@ -104,12 +104,26 @@ namespace ARCompletions.Services
                     // ngram tokens weight = 1
                     foreach (var t in ngrams) AddToken(vec, "qg:" + t, 1.0);
 
+                    // Log token counts before term tokenization
+                    try
+                    {
+                        if (db != null) await _dbLogger.LogAsync(db, "Debug", "BuildQueryEmbedding: tokens pre-term", new { NgramCount = ngrams.Count, TextLen = normalizedText.Length }); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Debug", "BuildQueryEmbedding: tokens pre-term", new { NgramCount = ngrams.Count, TextLen = normalizedText.Length });
+                    }
+                    catch { }
+
                     // term tokens: use textProcessing.Tokenize to get term-level tokens
                     var termTokens = _textProcessing.Tokenize(normalizedText) ?? Array.Empty<string>();
                     foreach (var term in termTokens)
                     {
                         AddToken(vec, "qt:" + term, 1.4);
                     }
+
+                    // Log token counts and term details
+                    try
+                    {
+                        if (db != null) await _dbLogger.LogAsync(db, "Debug", "BuildQueryEmbedding: term tokens added", new { TermCount = termTokens.Length }); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Debug", "BuildQueryEmbedding: term tokens added", new { TermCount = termTokens.Length });
+                    }
+                    catch { }
 
                     // L2 normalize
                     double mag = 0;
@@ -119,6 +133,13 @@ namespace ARCompletions.Services
                     {
                         for (int i = 0; i < vec.Length; i++) vec[i] = vec[i] / mag;
                     }
+
+                    // Log normalization magnitude to confirm L2 normalization
+                    try
+                    {
+                        if (db != null) await _dbLogger.LogAsync(db, "Debug", "BuildQueryEmbedding: normalized", new { VectorLen = vec.Length, PreNormMag = mag, PostNormMag = Math.Sqrt(vec.Select(x => x * x).Sum()) }); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Debug", "BuildQueryEmbedding: normalized", new { VectorLen = vec.Length, PreNormMag = mag, PostNormMag = Math.Sqrt(vec.Select(x => x * x).Sum()) });
+                    }
+                    catch { }
 
                     _cache.Set(cacheKeyVec, vec, TimeSpan.FromSeconds(cacheTtlSeconds));
                     if (db != null) await _dbLogger.LogAsync(db, "Information", "Computed local_hash embedding and cached", new { Provider = provider, Model = modelName, Len = vec.Length }); else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Information", "Computed local_hash embedding and cached", new { Provider = provider, Model = modelName, Len = vec.Length }); else await _dbLogger.LogAsync("Information", "Computed local_hash embedding and cached", new { Provider = provider, Model = modelName, Len = vec.Length });
@@ -199,12 +220,18 @@ namespace ARCompletions.Services
                             }
                         }
                     }
-            }
-            catch (Exception ex)
-            {
-                    if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Warning", "Embedding service call failed or waiting cancelled", new { Model = modelName });
+                }
+                catch (Exception ex)
+                {
+                    try
+                    {
+                    if (db != null) await _dbLogger.LogAsync(db, "Warning", "Embedding service call failed or waiting cancelled", new { Model = modelName, Error = ex.Message }, ex);
+                    else if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Warning", "Embedding service call failed or waiting cancelled", new { Model = modelName, Error = ex.Message });
+                    else await _dbLogger.LogAsync("Warning", "Embedding service call failed or waiting cancelled", new { Model = modelName, Error = ex.Message }, ex);
+                    }
+                    catch { }
                     embJson = null;
-            }
+                }
                 finally
                 {
                     if (dl != null)
@@ -246,7 +273,7 @@ namespace ARCompletions.Services
                     }
                     catch (Exception ex)
                     {
-                        if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Warning", "Failed to read local embedding JSON", new { Path = localPath });
+                        if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Warning", "Failed to read local embedding JSON", new { Path = localPath, Error = ex.Message });
                     }
                 }
             }
@@ -273,7 +300,7 @@ namespace ARCompletions.Services
                 }
                 catch (Exception ex)
                 {
-                    if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Warning", "Failed to parse embedding JSON", new { Model = modelName });
+                    if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Warning", "Failed to parse embedding JSON", new { Model = modelName, Error = ex.Message });
                 }
             }
 

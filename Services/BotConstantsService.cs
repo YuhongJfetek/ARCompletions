@@ -13,7 +13,7 @@ namespace ARCompletions.Services
     {
         Task<Dictionary<string, string>?> GetQueryHintsMappingAsync();
         Task<List<BotConstantsConfig>> GetAllConfigsAsync();
-        void Invalidate(string key = null);
+        void Invalidate(string? key = null);
     }
 
     public class BotConstantsService : IBotConstantsService
@@ -79,7 +79,7 @@ namespace ARCompletions.Services
             }
         }
 
-        public void Invalidate(string key = null)
+        public void Invalidate(string? key = null)
         {
             if (string.IsNullOrEmpty(key) || key == Key_mapping)
                 _cache.Remove(CacheKey_QueryHints);

@@ -8,6 +8,9 @@ using ARCompletions.Data;
 using ARCompletions.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.IO;
+using System.Text;
+using System.Security.Cryptography;
 
 namespace ARCompletions.Services;
 
@@ -20,8 +23,9 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
     private readonly IServiceProvider _serviceProvider;
     private readonly IBufferedAppLogger? _bufferedLogger;
     private readonly IBotConstantsService _botConstants;
+    private readonly ITextProcessingService _textProcessing;
 
-    public EmbeddingRebuildService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IEmbeddingService embeddingService, IEmbeddingRetrievalService embeddingRetrievalService, IDbLogger dbLogger, IServiceProvider serviceProvider, IBotConstantsService botConstants, IBufferedAppLogger? bufferedLogger = null)
+    public EmbeddingRebuildService(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletionsContext> dbFactory, IEmbeddingService embeddingService, IEmbeddingRetrievalService embeddingRetrievalService, IDbLogger dbLogger, IServiceProvider serviceProvider, IBotConstantsService botConstants, ITextProcessingService textProcessing, IBufferedAppLogger? bufferedLogger = null)
     {
         _dbFactory = dbFactory;
         _embeddingService = embeddingService;
@@ -30,6 +34,7 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         _serviceProvider = serviceProvider;
         _botConstants = botConstants;
         _bufferedLogger = bufferedLogger;
+        _textProcessing = textProcessing;
     }
 
     public async Task<BotEmbeddingJob> RebuildAsync(string provider, string? model, string scope, string? faqId, string triggeredBy, CancellationToken cancellationToken = default)
@@ -213,9 +218,17 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
                         await _dbLogger.LogAsync(db, "Debug", "Removed existing embeddings for FAQ", new { JobId = job.JobId, FaqId = faq.FaqId, Provider = provider, Removed = existingForFaq.Count });
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // swallowing to avoid aborting the whole job on cleanup failure
+                    try
+                    {
+                        await _dbLogger.LogAsync(db, "Warning", "Failed to remove existing embeddings for FAQ", new { JobId = job.JobId, FaqId = faq.FaqId, Provider = provider, Error = ex.Message });
+                    }
+                    catch
+                    {
+                        if (_bufferedLogger != null)
+                            await _bufferedLogger.EnqueueLogAsync("Warning", "Failed to remove existing embeddings for FAQ (db logger failed)", new { JobId = job.JobId, FaqId = faq.FaqId, Provider = provider, Error = ex.Message });
+                    }
                 }
 
                 try
@@ -228,8 +241,47 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
                         continue;
                     }
 
+                    // Normalize using the same text processing pipeline as query-time
+                    var normalized = _textProcessing.Normalize(text) ?? string.Empty;
+                    var tokens = _textProcessing.Tokenize(normalized) ?? Array.Empty<string>();
+                    var tokenCount = tokens.Length;
+                    // compute text hash for backup/verification
+                    string textHash;
+                    try
+                    {
+                        using var sha = SHA256.Create();
+                        var bytes = Encoding.UTF8.GetBytes(normalized);
+                        var sum = sha.ComputeHash(bytes);
+                        textHash = BitConverter.ToString(sum).Replace("-", "").ToLowerInvariant();
+                    }
+                    catch
+                    {
+                        textHash = string.Empty;
+                    }
+
+                    // Write backup NDJSON line for this FAQ (no DB schema changes)
+                    try
+                    {
+                        var backupDir = Path.Combine(AppContext.BaseDirectory, "emb_backups", job.JobId.ToString());
+                        Directory.CreateDirectory(backupDir);
+                        var meta = new {
+                            FaqId = faq.FaqId,
+                            Text = text,
+                            NormalizedText = normalized,
+                            TextHash = textHash,
+                            TokenCount = tokenCount,
+                            Provider = provider,
+                            Model = resolvedModel,
+                            Timestamp = DateTimeOffset.UtcNow
+                        };
+                        var line = JsonSerializer.Serialize(meta) + "\n";
+                        var file = Path.Combine(backupDir, "backup.ndjson");
+                        await File.AppendAllTextAsync(file, line, Encoding.UTF8, cancellationToken);
+                    }
+                    catch { }
+
                     await _dbLogger.LogAsync(db, "Debug", "Creating embedding for FAQ", new { JobId = job.JobId, FaqId = faq.FaqId, Provider = provider });
-                    var vector = await _embeddingRetrievalService.GetOrCreateEmbeddingAsync(text, resolvedModel, provider, cancellationToken);
+                    var vector = await _embeddingRetrievalService.GetOrCreateEmbeddingAsync(normalized, resolvedModel, provider, cancellationToken);
                     if (vector == null || vector.Length == 0)
                     {
                         job.FailedCount++;
@@ -288,6 +340,73 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
                 await _dbLogger.LogAsync(db, "Information", "Updated IsActive flags for provider scope", new { JobId = job.JobId, Provider = provider, Updated = allForScope.Count });
             }
 
+            // --- Validation: sampling checks (NaN, zero vector, self-cosine) ---
+            try
+            {
+                var sampleSize = Math.Min(10, newEmbeddings.Count);
+                var rng = new Random();
+                var samples = new List<BotFaqEmbedding>();
+                if (sampleSize > 0)
+                {
+                    var indices = Enumerable.Range(0, newEmbeddings.Count).OrderBy(_ => rng.Next()).Take(sampleSize).ToList();
+                    foreach (var idx in indices) samples.Add(newEmbeddings[idx]);
+                }
+
+                int checkedCount = 0;
+                int failCount = 0;
+                var failExamples = new List<object>();
+
+                foreach (var s in samples)
+                {
+                    checkedCount++;
+                    var vec = s.Embedding ?? Array.Empty<double>();
+                    bool hasInvalid = false;
+                    for (int i = 0; i < vec.Length; i++)
+                    {
+                        if (double.IsNaN(vec[i]) || double.IsInfinity(vec[i])) { hasInvalid = true; break; }
+                    }
+
+                    double mag = 0;
+                    for (int i = 0; i < vec.Length; i++) mag += vec[i] * vec[i];
+                    var reason = (string?)null;
+                    if (hasInvalid)
+                    {
+                        reason = "NaN/Infinity in vector";
+                    }
+                    else if (mag == 0)
+                    {
+                        reason = "zero-magnitude";
+                    }
+                    else
+                    {
+                        // self-cosine should be ~1. Compute normalized dot(self,self) == 1
+                        var dot = 0.0;
+                        for (int i = 0; i < vec.Length; i++) dot += vec[i] * vec[i];
+                        var selfCos = dot / (mag == 0 ? 1.0 : (Math.Sqrt(mag) * Math.Sqrt(mag)));
+                        if (double.IsNaN(selfCos) || double.IsInfinity(selfCos) || Math.Abs(selfCos - 1.0) > 1e-6)
+                        {
+                            reason = $"self-cosine:{selfCos}";
+                        }
+                    }
+
+                    if (reason != null)
+                    {
+                        failCount++;
+                        failExamples.Add(new { s.FaqId, s.EmbeddingId, s.VectorDim, Reason = reason });
+                    }
+                }
+
+                await _dbLogger.LogAsync(db, "Information", "Embedding rebuild validation summary", new { JobId = job.JobId, Sampled = checkedCount, Failures = failCount, Examples = failExamples.Take(5) });
+                if (failCount > 0)
+                {
+                    await _dbLogger.LogAsync(db, "Warning", "Embedding rebuild validation had failures", new { JobId = job.JobId, Failures = failCount });
+                }
+            }
+            catch (Exception ex)
+            {
+                try { await _dbLogger.LogAsync(db, "Warning", "Embedding rebuild validation step failed", new { JobId = job.JobId }, ex); } catch { }
+            }
+
             job.FinishedAt = DateTimeOffset.UtcNow;
             job.Status = job.CompletedCount > 0 ? "completed" : "failed";
             if (errors.Count > 0)
@@ -307,6 +426,14 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         }
     }
 
+    public async Task<BotEmbeddingJob?> GetJobAsync(Guid jobId, CancellationToken cancellationToken = default)
+    {
+        using var db = _dbFactory.CreateDbContext();
+        return await db.BotEmbeddingJobs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(j => j.JobId == jobId, cancellationToken);
+    }
+
     public async Task ProcessExistingJobAsync(Guid jobId)
     {
         // This method runs inside a fresh scope with its own DbContext.
@@ -320,14 +447,6 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         var faqs = await faqQuery.ToListAsync();
 
         await ProcessJobAsync(job, faqs, job.Model, CancellationToken.None, db);
-    }
-
-    public async Task<BotEmbeddingJob?> GetJobAsync(Guid jobId, CancellationToken cancellationToken = default)
-    {
-        using var db = _dbFactory.CreateDbContext();
-        return await db.BotEmbeddingJobs
-            .AsNoTracking()
-            .FirstOrDefaultAsync(j => j.JobId == jobId, cancellationToken);
     }
 
     private async Task<string> ResolveModelAsync(string? requestedModel, CancellationToken cancellationToken)
@@ -390,7 +509,7 @@ public class EmbeddingRebuildService : IEmbeddingRebuildService
         {
             try
             {
-                if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Error", "Failed to parse embedding JSON", null);
+                if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Error", "Failed to parse embedding JSON", new { Error = ex.Message });
             }
             catch { }
             return null;

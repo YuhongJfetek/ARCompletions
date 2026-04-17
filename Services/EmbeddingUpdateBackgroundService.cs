@@ -19,7 +19,7 @@ public class EmbeddingUpdateBackgroundService : BackgroundService
     private readonly int _maxConcurrency;
     private readonly SemaphoreSlim _semaphore;
 
-    public EmbeddingUpdateBackgroundService(
+        public EmbeddingUpdateBackgroundService(
         IEmbeddingUpdateQueue queue,
             IServiceScopeFactory scopeFactory,
         ILogger<EmbeddingUpdateBackgroundService> logger)
@@ -27,10 +27,10 @@ public class EmbeddingUpdateBackgroundService : BackgroundService
         _queue = queue;
         _scopeFactory = scopeFactory;
         _logger = logger;
-        _logger.LogInformation("EmbeddingUpdateBackgroundService constructed (maxConcurrency={_maxConcurrency} placeholder)");
         _maxConcurrency = int.TryParse(
             Environment.GetEnvironmentVariable("EMBEDDING_UPDATE_WORKER_CONCURRENCY"),
             out var c) && c > 0 ? c : 4;
+        _logger.LogInformation("EmbeddingUpdateBackgroundService constructed (maxConcurrency={Max})", _maxConcurrency);
         _semaphore = new SemaphoreSlim(_maxConcurrency, _maxConcurrency);
     }
 

@@ -108,7 +108,7 @@ namespace ARCompletions.Services
                 double cosine = 0.0;
                 if (useSimd && c.Vec != null)
                 {
-                    cosine = CosineSimilaritySimd(queryVec, c.Vec);
+                    cosine = CosineSimilaritySimd(queryVec!, c.Vec);
                 }
                 else if (queryVec != null && c.Vec != null)
                 {
@@ -176,7 +176,7 @@ namespace ARCompletions.Services
                 var questionSimilarity = _textProcessing.TokenOverlapScore(normalizedText ?? string.Empty, qNorm);
                 double searchSimilarity = 0.0;
                 if (useSimd && c.Vec != null)
-                    searchSimilarity = CosineSimilaritySimd(queryVec, c.Vec);
+                    searchSimilarity = CosineSimilaritySimd(queryVec!, c.Vec);
                 else if (queryVec != null && c.Vec != null)
                     searchSimilarity = CosineSimilarity(queryVec, c.Vec);
 
