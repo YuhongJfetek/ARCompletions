@@ -180,6 +180,15 @@ public class BotController : ControllerBase
         await WriteAppLogAsync("Information", "Query received: ConversationId={ConversationId} UserId={UserId} SourceType={SourceType} TextLen={TextLen}", new { ConversationId = req.ConversationId, UserId = req.UserId, SourceType = req.SourceType, TextLen = (req.Text ?? string.Empty).Length }, null, db);
 
         var now = DateTimeOffset.UtcNow;
+        // Load bot constants early so numeric limits can be used throughout the request
+        var _allBotConfigs = await _botConstants.GetAllConfigsAsync().ConfigureAwait(false);
+        _allBotConfigs ??= new List<ARCompletions.Domain.BotConstantsConfig>();
+        int GetIntConfig(string key, int def)
+        {
+            var cfg = _allBotConfigs.FirstOrDefault(c => c.ConfigKey == key);
+            if (cfg?.ConfigValue == null) return def;
+            return int.TryParse(cfg.ConfigValue, out var v) ? v : def;
+        }
         var sourceType = string.IsNullOrWhiteSpace(req.SourceType) ? "group" : req.SourceType;
 
         // 可配置是否強制轉成 UTC（預設 true）
@@ -663,7 +672,7 @@ public class BotController : ControllerBase
                     {
                         var buildStart = DateTime.UtcNow;
                         await WriteAppLogAsync("Debug", "Controller: BuildCandidatesAsync START", new { ConversationId = req.ConversationId, Phase = "local_prebuild" }, null, db);
-                        var built = await _candidateBuilder.BuildCandidatesAsync(normalizedText, localVec, "local_hash", 8, db);
+                        var built = await _candidateBuilder.BuildCandidatesAsync(normalizedText, localVec, "local_hash", GetIntConfig("bot.faq.topCandidates", 5), db);
                         var buildMs = (DateTime.UtcNow - buildStart).TotalMilliseconds;
                         await WriteAppLogAsync("Debug", "Controller: BuildCandidatesAsync END", new { ConversationId = req.ConversationId, Phase = "local_postbuild", ElapsedMs = buildMs, CandidateCount = built?.Count ?? 0 }, null, db);
                         if (built != null && built.Count > 0)
@@ -834,7 +843,7 @@ public class BotController : ControllerBase
                 if (fallbackScores.Count > 0)
                 {
                     var rankedFb = fallbackScores.OrderByDescending(kv => kv.Value).ToList();
-                    topFaqIds = rankedFb.Select(kv => kv.Key).Take(5).ToList();
+                    topFaqIds = rankedFb.Select(kv => kv.Key).Take(GetIntConfig("bot.faq.topCandidates", 5)).ToList();
                     var bestFb = rankedFb[0];
                     matchedFaqId = bestFb.Key;
                     confidence = bestFb.Value;
@@ -866,7 +875,7 @@ public class BotController : ControllerBase
                 List<string>? built = null;
                 try
                 {
-                    built = await _candidateBuilder.BuildCandidatesAsync(normalizedText, queryVec, embeddingProvider, 5);
+                    built = await _candidateBuilder.BuildCandidatesAsync(normalizedText, queryVec, embeddingProvider, GetIntConfig("bot.faq.topCandidates", 5));
                 }
                 catch (Exception ex)
                 {
@@ -1089,7 +1098,8 @@ public class BotController : ControllerBase
             var faqDict = faqList.ToDictionary(f => f.FaqId, f => f);
 
             var qr = new List<object>();
-            foreach (var id in topFaqIds)
+            var maxQuick = GetIntConfig("bot.quickReply.maxItems", 4);
+            foreach (var id in topFaqIds.Take(maxQuick))
             {
                 if (!faqDict.TryGetValue(id, out var faq)) continue;
                 qr.Add(new
