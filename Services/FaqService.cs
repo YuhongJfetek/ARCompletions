@@ -77,5 +77,22 @@ namespace ARCompletions.Services
             await _dbLogger.LogAsync(db, "Debug", "FindByIdsAsync END", new { Ids = idList, Count = faqs2.Count, ElapsedMs = sw.ElapsedMilliseconds });
             return faqs2;
         }
+
+        public async Task<List<BotFaqItem>> FindEnabledFaqsAsync(ARCompletionsContext? db = null)
+        {
+            if (db != null)
+            {
+                await _dbLogger.LogAsync(db, "Debug", "FindEnabledFaqsAsync start");
+                var faqs = await db.BotFaqItems.AsNoTracking().Where(f => f.Enabled).ToListAsync();
+                await _dbLogger.LogAsync(db, "Debug", "FindEnabledFaqsAsync END", new { Count = faqs.Count });
+                return faqs;
+            }
+
+            if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Debug", "FindEnabledFaqsAsync start");
+            using var _db = _dbFactory.CreateDbContext();
+            var list = await _db.BotFaqItems.AsNoTracking().Where(f => f.Enabled).ToListAsync();
+            if (_bufferedLogger != null) await _bufferedLogger.EnqueueLogAsync("Debug", "FindEnabledFaqsAsync END", new { Count = list.Count });
+            return list;
+        }
     }
 }

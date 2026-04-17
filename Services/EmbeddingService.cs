@@ -25,7 +25,7 @@ public class EmbeddingService : IEmbeddingService
         _bufferedLogger = bufferedLogger;
     }
 
-        public async Task<string> GetEmbeddingJsonAsync(string input, string model, ARCompletionsContext? db = null)
+        public async Task<string?> GetEmbeddingJsonAsync(string input, string model, ARCompletionsContext? db = null)
     {
         if (string.IsNullOrWhiteSpace(input)) return null;
 
