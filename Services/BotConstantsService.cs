@@ -34,7 +34,8 @@ namespace ARCompletions.Services
         {
             return await _cache.GetOrCreateAsync(CacheKey_QueryHints, async entry =>
             {
-                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
+                // Increased TTL to reduce DB reads; user requested 300s
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(300);
                 try
                 {
                     using var db = _dbFactory.CreateDbContext();

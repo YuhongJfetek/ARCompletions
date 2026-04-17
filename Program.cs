@@ -290,11 +290,33 @@ if (seedFromJson)
 }
 else
 {
-    try
-    {
-        db.Database.EnsureCreated();
-        Console.WriteLine("EnsureCreated executed (database exists or was created).");
-    }
+        try
+        {
+            db.Database.EnsureCreated();
+            Console.WriteLine("EnsureCreated executed (database exists or was created).");
+
+            // Pre-load BotConstantsService cache to reduce first-request latency
+            try
+            {
+                var botConstants = scope.ServiceProvider.GetService<ARCompletions.Services.IBotConstantsService>();
+                if (botConstants != null)
+                {
+                    Console.WriteLine("Pre-loading BotConstantsService cache...");
+                    // Load all configs and query hints mapping to populate memory cache
+                    await botConstants.GetAllConfigsAsync();
+                    await botConstants.GetQueryHintsMappingAsync();
+                    Console.WriteLine("BotConstantsService cache pre-loaded.");
+                }
+                else
+                {
+                    Console.WriteLine("IBotConstantsService not registered; skipping preload.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed to pre-load BotConstantsService: " + ex.Message);
+            }
+        }
     catch (Exception ex)
     {
         Console.WriteLine($"Failed to ensure database creation on startup: {ex.Message}");
