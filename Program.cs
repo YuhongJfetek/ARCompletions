@@ -62,6 +62,25 @@ Console.WriteLine($"Binding to port: {selectedPort} (from {portSource})");
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Ensure Kestrel explicitly listens on the selected port (helpful for platforms
+// that rely on container port binding detection). This forces binding early
+// and avoids timing/ordering issues where hosted services delay Kestrel bind.
+try
+{
+    if (!string.IsNullOrWhiteSpace(selectedPort) && int.TryParse(selectedPort, out var _p) && _p > 0)
+    {
+        builder.WebHost.ConfigureKestrel(options =>
+        {
+            options.ListenAnyIP(_p);
+        });
+        Console.WriteLine($"Configured Kestrel to ListenAnyIP:{selectedPort}");
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine("Failed to configure Kestrel explicit listen: " + ex.Message);
+}
+
 // ------------------------
 // CORS：允許 swagger 與本機前端
 // ------------------------
