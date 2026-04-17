@@ -54,6 +54,8 @@ namespace ARCompletions.Services
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("BufferedAppLogger ExecuteAsync starting");
+            // yield once so Host startup can continue (avoids blocking other IHostedService startups)
+            await Task.Yield();
             try
             {
                 foreach (var item in _queue.GetConsumingEnumerable(stoppingToken))
