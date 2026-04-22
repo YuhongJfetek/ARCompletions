@@ -5,6 +5,22 @@
 
 <h1>新增 FAQ</h1>
 
+@{
+    var jsonState = ViewData.ModelState["JsonWarning"];
+    if (jsonState != null && jsonState.Errors.Count > 0)
+    {
+        <div class="alert alert-warning">
+            <strong>注意：</strong>
+            <ul>
+            @foreach (var e in jsonState.Errors)
+            {
+                <li>@e.ErrorMessage</li>
+            }
+            </ul>
+        </div>
+    }
+}
+
 <form asp-area="Admin" asp-controller="BotFaqItems" asp-action="Create" method="post">
     @Html.AntiForgeryToken()
     <div class="mb-2">

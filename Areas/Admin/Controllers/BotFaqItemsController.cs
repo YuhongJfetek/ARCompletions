@@ -22,14 +22,16 @@ public class BotFaqItemsController : Controller
     private readonly IDbLogger _dbLogger;
     private readonly IQueryHintsService _queryHints;
     private readonly ITextProcessingService _textProcessing;
+    private readonly ARCompletions.Services.IBotConstantsService _botConstants;
 
-    public BotFaqItemsController(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> dbFactory, IEmbeddingRebuildService embeddingRebuildService, IDbLogger dbLogger, IQueryHintsService queryHints, ITextProcessingService textProcessing)
+    public BotFaqItemsController(Microsoft.EntityFrameworkCore.IDbContextFactory<ARCompletions.Data.ARCompletionsContext> dbFactory, IEmbeddingRebuildService embeddingRebuildService, IDbLogger dbLogger, IQueryHintsService queryHints, ITextProcessingService textProcessing, ARCompletions.Services.IBotConstantsService botConstants)
     {
         _dbFactory = dbFactory;
         _embeddingRebuildService = embeddingRebuildService;
         _dbLogger = dbLogger;
         _queryHints = queryHints;
         _textProcessing = textProcessing;
+        _botConstants = botConstants;
     }
 
     // Bulk import removed — use data seeder or admin scripts for bulk operations.
@@ -217,7 +219,7 @@ public class BotFaqItemsController : Controller
 
         if (string.IsNullOrWhiteSpace(model.SearchTextCache) && !string.IsNullOrWhiteSpace(model.Question))
         {
-            model.SearchTextCache = model.Question;
+            model.SearchTextCache = BuildSearchTextFromModel(model);
         }
 
         // Populate additional fields from lightweight analysis of the Question
@@ -234,7 +236,15 @@ public class BotFaqItemsController : Controller
                     model.Category ??= hints[0];
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                try
+                {
+                    using var dbLog = _dbFactory.CreateDbContext();
+                    await _dbLogger.LogAsync(dbLog, "Warning", "Category hint detection failed", new { Question = model.Question }, ex);
+                }
+                catch { }
+            }
 
             // Keywords: top distinct tokens
             try
@@ -246,7 +256,15 @@ public class BotFaqItemsController : Controller
                     model.Keywords = System.Text.Json.JsonSerializer.Serialize(top);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                try
+                {
+                    using var dbLog = _dbFactory.CreateDbContext();
+                    await _dbLogger.LogAsync(dbLog, "Warning", "Keyword tokenization failed", new { Question = model.Question }, ex);
+                }
+                catch { }
+            }
 
             // AliasTerms and Sources as simple JSON arrays
             if (string.IsNullOrWhiteSpace(model.AliasTerms)) model.AliasTerms = System.Text.Json.JsonSerializer.Serialize(Array.Empty<string>());
@@ -255,22 +273,56 @@ public class BotFaqItemsController : Controller
             // Min confidence sensible default if not set
             if (!model.MinConfidenceScore.HasValue) model.MinConfidenceScore = 0.3;
 
-            // Try to prefill Answer from existing stored bot replies in the DB
+            // Try to prefill Answer from recent bot replies using token-overlap scoring
             try
             {
                 using var db = _dbFactory.CreateDbContext();
-                var matchedReply = await (from r in db.BotMessageRoutes.AsNoTracking()
-                                          join e in db.BotIncomingEvents.AsNoTracking() on r.EventRowId equals e.EventRowId
-                                          where !string.IsNullOrWhiteSpace(r.ReplyText)
-                                                && !string.IsNullOrWhiteSpace(e.Text)
-                                                && (e.Text.Contains(model.Question) || model.Question.Contains(e.Text))
-                                          orderby r.CreatedAt descending
-                                          select r.ReplyText).FirstOrDefaultAsync();
+                var normalizedQ = _textProcessing.Normalize(model.Question) ?? string.Empty;
 
-                if (!string.IsNullOrWhiteSpace(matchedReply))
+                // Read configurable parameters from bot_constants (fallback to sensible defaults)
+                var configs = _botConstants != null ? await _botConstants.GetAllConfigsAsync().ConfigureAwait(false) : new System.Collections.Generic.List<ARCompletions.Domain.BotConstantsConfig>();
+                int GetIntCfg(string key, int def)
                 {
-                    ViewBag.AnswerDraft = matchedReply;
-                    if (string.IsNullOrWhiteSpace(model.Answer)) model.Answer = matchedReply;
+                    var c = configs.Find(x => string.Equals(x.ConfigKey, key, StringComparison.OrdinalIgnoreCase));
+                    if (c == null || string.IsNullOrWhiteSpace(c.ConfigValue)) return def;
+                    return int.TryParse(c.ConfigValue, out var v) ? v : def;
+                }
+                double GetDoubleCfg(string key, double def)
+                {
+                    var c = configs.Find(x => string.Equals(x.ConfigKey, key, StringComparison.OrdinalIgnoreCase));
+                    if (c == null || string.IsNullOrWhiteSpace(c.ConfigValue)) return def;
+                    return double.TryParse(c.ConfigValue, out var v) ? v : def;
+                }
+
+                var RECENT_MAX = GetIntCfg("bot.faq.prefillRecentMax", 200);
+                var OVERLAP_THRESHOLD = GetDoubleCfg("bot.faq.prefillOverlapThreshold", 0.5);
+
+                var candidates = await (from r in db.BotMessageRoutes.AsNoTracking()
+                                        join e in db.BotIncomingEvents.AsNoTracking() on r.EventRowId equals e.EventRowId
+                                        where !string.IsNullOrWhiteSpace(r.ReplyText) && !string.IsNullOrWhiteSpace(e.Text)
+                                        orderby r.CreatedAt descending
+                                        select new { r.ReplyText, UserText = e.Text })
+                                        .Take(RECENT_MAX)
+                                        .ToListAsync();
+
+                double bestScore = 0.0;
+                string? bestReply = null;
+                foreach (var c in candidates)
+                {
+                    var userText = c.UserText ?? string.Empty;
+                    var normalizedUser = _textProcessing.Normalize(userText) ?? string.Empty;
+                    var ov = _textProcessing.TokenOverlapScore(normalizedQ, normalizedUser);
+                    if (ov > bestScore)
+                    {
+                        bestScore = ov;
+                        bestReply = c.ReplyText;
+                    }
+                }
+
+                if (bestScore >= OVERLAP_THRESHOLD && !string.IsNullOrWhiteSpace(bestReply))
+                {
+                    ViewBag.AnswerDraft = bestReply;
+                    if (string.IsNullOrWhiteSpace(model.Answer)) model.Answer = bestReply;
                 }
                 else
                 {
@@ -279,8 +331,15 @@ public class BotFaqItemsController : Controller
                     if (string.IsNullOrWhiteSpace(model.Answer)) model.Answer = draft;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                try
+                {
+                    using var dbLog = _dbFactory.CreateDbContext();
+                    await _dbLogger.LogAsync(dbLog, "Warning", "Prefill answer (token-overlap) lookup failed", new { Question = model.Question }, ex);
+                }
+                catch { }
+
                 var draft = GenerateDraftAnswer(model.Question);
                 ViewBag.AnswerDraft = draft;
                 if (string.IsNullOrWhiteSpace(model.Answer)) model.Answer = draft;
@@ -299,6 +358,44 @@ public class BotFaqItemsController : Controller
             return View(model);
         }
 
+        // Validate JSON-string fields and auto-correct if malformed.
+        var jsonWarnings = new System.Collections.Generic.List<string>();
+        string NormalizeJsonArrayField(string? raw, string fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return "[]";
+            try
+            {
+                var arr = System.Text.Json.JsonSerializer.Deserialize<string[]>(raw);
+                if (arr == null) return "[]";
+                return System.Text.Json.JsonSerializer.Serialize(arr);
+            }
+            catch
+            {
+                // fallback: wrap the raw input as single-element array to preserve data
+                jsonWarnings.Add($"{fieldName}: JSON 解析失敗，已自動封裝為單元素陣列。");
+                try
+                {
+                    return System.Text.Json.JsonSerializer.Serialize(new[] { raw });
+                }
+                catch
+                {
+                    // worst-case: return empty array
+                    return "[]";
+                }
+            }
+        }
+
+        model.Keywords = NormalizeJsonArrayField(model.Keywords, "Keywords");
+        model.QueryExamples = NormalizeJsonArrayField(model.QueryExamples, "QueryExamples");
+        model.AliasTerms = NormalizeJsonArrayField(model.AliasTerms, "AliasTerms");
+        model.Sources = NormalizeJsonArrayField(model.Sources, "Sources");
+
+        // Add warnings to ModelState so the UI can show them (non-blocking)
+        foreach (var w in jsonWarnings)
+        {
+            ModelState.AddModelError("JsonWarning", w);
+        }
+
         if (string.IsNullOrWhiteSpace(model.FaqId))
         {
             ModelState.AddModelError(nameof(model.FaqId), "faq_id 不可為空");
@@ -309,8 +406,31 @@ public class BotFaqItemsController : Controller
         var exists = await db.BotFaqItems.AnyAsync(f => f.FaqId == model.FaqId);
         if (exists)
         {
-            ModelState.AddModelError(nameof(model.FaqId), "faq_id 已存在，禁止重複");
-            return View(model);
+            // try to auto-resolve by appending suffixes
+            var baseId = model.FaqId;
+            var resolved = string.Empty;
+            for (int i = 1; i <= 20; i++)
+            {
+                var candidate = $"{baseId}-{i}";
+                var any = await db.BotFaqItems.AnyAsync(f => f.FaqId == candidate);
+                if (!any)
+                {
+                    resolved = candidate;
+                    break;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(resolved))
+            {
+                model.FaqId = resolved;
+                // inform user via ModelState (non-blocking)
+                ModelState.AddModelError(nameof(model.FaqId), $"faq_id 已存在，已自動改為 '{resolved}'。");
+            }
+            else
+            {
+                ModelState.AddModelError(nameof(model.FaqId), "faq_id 已存在，請提供不同的 faq_id");
+                return View(model);
+            }
         }
 
         model.CreatedAt = DateTimeOffset.UtcNow;
@@ -320,15 +440,19 @@ public class BotFaqItemsController : Controller
         db.BotFaqItems.Add(model);
         await db.SaveChangesAsync();
 
-        // FAQ 建立完成後，自動觸發單筆 Embedding 重建（不中斷 FAQ 建立流程，錯誤記錄在 job 中）
+        // FAQ 建立完成後，排程單筆 Embedding 重建（非同步排程，避免阻塞管理介面）
         try
         {
-            await _embeddingRebuildService.RebuildAsync("openai", null, "single", model.FaqId, User?.Identity?.Name ?? "admin", HttpContext.RequestAborted);
+            var job = await _embeddingRebuildService.StartRebuildAsync("openai", null, "single", model.FaqId, User?.Identity?.Name ?? "admin");
+            if (job != null)
+            {
+                TempData["EmbeddingJobId"] = job.JobId.ToString();
+            }
         }
         catch (Exception ex)
         {
-            await _dbLogger.LogAsync(db, "Warning", "Embedding rebuild failed for created FAQ {FaqId}", new { FaqId = model.FaqId }, ex, true);
-            // 忽略 Embedding 失敗，避免影響 FAQ CRUD。詳細錯誤可從 bot_embedding_jobs 查詢。
+            await _dbLogger.LogAsync(db, "Warning", "Embedding rebuild (start) failed for created FAQ {FaqId}", new { FaqId = model.FaqId }, ex, true);
+            // 忽略 Embedding 排程失敗，避免影響 FAQ CRUD。詳細錯誤可從 bot_embedding_jobs 查詢。
         }
 
         TempData["Success"] = "FAQ 已建立";
@@ -432,6 +556,35 @@ public class BotFaqItemsController : Controller
         if (string.IsNullOrWhiteSpace(question)) return string.Empty;
         var q = question.Trim();
         return $"建議回覆：\n針對「{q}」的查詢，可說明背景、可行解法與注意事項；請補充具體步驟與範例。";
+    }
+
+    private static string BuildSearchTextFromModel(BotFaqItem model)
+    {
+        var parts = new System.Collections.Generic.List<string>();
+        if (!string.IsNullOrWhiteSpace(model.Question)) parts.Add(model.Question);
+        if (!string.IsNullOrWhiteSpace(model.Answer)) parts.Add(model.Answer);
+
+        // Try to parse JSON array fields and add elements; fall back to raw string when parse fails
+        void TryAddJsonArray(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return;
+            try
+            {
+                var arr = System.Text.Json.JsonSerializer.Deserialize<string[]>(raw) ?? Array.Empty<string>();
+                parts.AddRange(arr.Where(s => !string.IsNullOrWhiteSpace(s)));
+            }
+            catch
+            {
+                // fallback: include raw
+                parts.Add(raw);
+            }
+        }
+
+        TryAddJsonArray(model.Keywords);
+        TryAddJsonArray(model.QueryExamples);
+        TryAddJsonArray(model.AliasTerms);
+
+        return parts.Count == 0 ? (model.Question ?? string.Empty) : string.Join(" ", parts);
     }
 
 }
